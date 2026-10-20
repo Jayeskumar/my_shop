@@ -22,10 +22,11 @@ import { PROMOTION_RULE_SCHEMAS, type PromotionKind, PromotionKindSchema } from 
 import { INTERNAL_BARCODE_PREFIX, isValidEan13, isValidGtin, normalizePlu } from '../scale'
 import { isDecimalUnit, isUnitCode } from '../units'
 import {
-  PageQuerySchema,
+  type BilingualLabel,
   dataOf,
   defineRoutes,
   listOf,
+  PageQuerySchema,
   sortQuery,
   zBooleanQuery,
   zDateStr,
@@ -108,7 +109,7 @@ const StoredSlabSchema = z.object({
 // Bilingual labels
 // =============================================================================================
 
-export type BilingualLabel = { en: string; ta: string }
+export type { BilingualLabel } from './common'
 
 export const PRODUCT_KIND_LABELS: Readonly<Record<ProductKind, BilingualLabel>> = {
   standard: { en: 'Product', ta: 'பொருள்' },

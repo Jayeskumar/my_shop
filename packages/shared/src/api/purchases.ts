@@ -41,10 +41,11 @@ import {
 } from '../pricing'
 import {
   AddressSchema,
-  PageQuerySchema,
+  type BilingualLabel,
   dataOf,
   defineRoutes,
   listOf,
+  PageQuerySchema,
   sortQuery,
   zBooleanQuery,
   zBp,
@@ -95,7 +96,7 @@ export const PURCHASES_VALIDATION_KEYS = [
 ] as const
 export type PurchasesValidationKey = (typeof PURCHASES_VALIDATION_KEYS)[number]
 
-type Bilingual = { readonly en: string; readonly ta: string }
+type Bilingual = Readonly<BilingualLabel>
 
 export const PURCHASE_DOC_TITLES = {
   purchase_order: { en: 'Purchase Order', ta: 'கொள்முதல் ஆணை' },
@@ -369,8 +370,6 @@ export function formatPurchaseOrderText(
 // Shared response pieces
 // =============================================================================================
 
-const UserRef = z.object({ id: zId, name: z.string() })
-
 const SupplierRef = z.object({
   id: zId,
   name: z.string(),
@@ -541,7 +540,8 @@ export const PurchaseOrderDetailSchema = PurchaseOrderListRowSchema.extend({
       total_paise: zPaise,
     }),
   ),
-  created_by: UserRef.nullable(),
+  created_by: zId.nullable(),
+  created_by_name: z.string().nullable(),
 })
 export type PurchaseOrderDetail = z.output<typeof PurchaseOrderDetailSchema>
 
@@ -811,11 +811,14 @@ export const PurchaseBillDetailSchema = PurchaseBillListRowSchema.extend({
     }),
   ),
   journal_entry_id: zId.nullable(),
-  posted_by: UserRef.nullable(),
+  posted_by: zId.nullable(),
+  posted_by_name: z.string().nullable(),
   cancelled_at: zTimestamp.nullable(),
-  cancelled_by: UserRef.nullable(),
+  cancelled_by: zId.nullable(),
+  cancelled_by_name: z.string().nullable(),
   cancel_reason: z.string().nullable(),
-  created_by: UserRef.nullable(),
+  created_by: zId.nullable(),
+  created_by_name: z.string().nullable(),
   warnings: z.array(PurchaseWarningSchema),
 })
 export type PurchaseBillDetail = z.output<typeof PurchaseBillDetailSchema>
@@ -1042,10 +1045,12 @@ export const DebitNoteDetailSchema = DebitNoteListRowSchema.extend({
   payments: z.array(PurchasePaymentRefSchema),
   journal_entry_id: zId.nullable(),
   cancelled_at: zTimestamp.nullable(),
-  cancelled_by: UserRef.nullable(),
+  cancelled_by: zId.nullable(),
+  cancelled_by_name: z.string().nullable(),
   /** From the audit log (debit_notes has no reason column). */
   cancel_reason: z.string().nullable(),
-  created_by: UserRef.nullable(),
+  created_by: zId.nullable(),
+  created_by_name: z.string().nullable(),
   updated_at: zTimestamp,
 })
 export type DebitNoteDetail = z.output<typeof DebitNoteDetailSchema>

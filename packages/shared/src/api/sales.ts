@@ -26,6 +26,7 @@ import {
   CustomerTypeSchema,
   type GstScheme,
   GstSchemeSchema,
+  LocaleSchema,
   BusinessTypeSchema,
   NumberSeriesDocTypeSchema,
   type NumberSeriesDocType,
@@ -77,10 +78,11 @@ import { isUnitCode } from '../units'
 import { loyaltyRedeemIssue, loyaltyValuePaise } from './parties'
 import {
   AddressSchema,
-  PageQuerySchema,
+  type BilingualLabel,
   dataOf,
   defineRoutes,
   listOf,
+  PageQuerySchema,
   sortQuery,
   zBooleanQuery,
   zBp,
@@ -139,7 +141,7 @@ export const SALES_VALIDATION_KEYS = [
 ] as const
 export type SalesValidationKey = (typeof SALES_VALIDATION_KEYS)[number]
 
-type Bilingual = { readonly en: string; readonly ta: string }
+type Bilingual = Readonly<BilingualLabel>
 
 /** Printed document titles (GST rules 46 / 49 / 53). */
 export const SALES_DOC_TITLES: Readonly<Record<SalesDocType | 'credit_note', Bilingual>> = {
@@ -1135,7 +1137,7 @@ export const InvoiceShareSchema = z.object({
   channel: z.enum(['whatsapp', 'sms']),
   /** Default: the invoice's customer phone. */
   phone: zOptionalPhone,
-  locale: z.enum(['ta', 'en']).optional(),
+  locale: LocaleSchema.optional(),
 })
 export type InvoiceShare = z.input<typeof InvoiceShareSchema>
 
@@ -1366,7 +1368,7 @@ const DocumentTotalFields = {
 
 export const QuoteResultSchema = z.object({
   doc_type: SalesDocTypeSchema,
-  tax_mode: z.enum(['regular', 'composition', 'unregistered']),
+  tax_mode: GstSchemeSchema.describe('Tax mode of the document (= the GST scheme)'),
   place_of_supply: z.string(),
   is_interstate: z.boolean(),
   /** True when every line's price includes tax. */
@@ -1470,8 +1472,6 @@ export const SalesInvoiceLineSchema = z.object({
 })
 export type SalesInvoiceLine = z.output<typeof SalesInvoiceLineSchema>
 
-const UserRef = z.object({ id: zId, name: z.string() })
-
 const StoreRef = z.object({ id: zId, code: z.string(), name: z.string() })
 const RegisterRef = z.object({ id: zId, code: z.string(), name: z.string() })
 
@@ -1566,7 +1566,8 @@ export const SalesInvoiceDetailSchema = SalesInvoiceListRowSchema.extend({
   loyalty_points_redeemed: z.int().min(0),
   loyalty_redeem_paise: zPaise,
   rx: RxSchema.nullable(),
-  salesperson: UserRef.nullable(),
+  salesperson_id: zId.nullable(),
+  salesperson_name: z.string().nullable(),
   notes: z.string().nullable(),
   /** PUBLIC_BASE_URL/i/<share_token> once shared. */
   share_url: z.string().nullable(),
@@ -1576,7 +1577,8 @@ export const SalesInvoiceDetailSchema = SalesInvoiceListRowSchema.extend({
   source_estimate: z.object({ id: zId, number: z.string().nullable() }).nullable(),
   completed_at: zTimestamp.nullable(),
   cancelled_at: zTimestamp.nullable(),
-  cancelled_by: UserRef.nullable(),
+  cancelled_by: zId.nullable(),
+  cancelled_by_name: z.string().nullable(),
   cancel_reason: z.string().nullable(),
   lines: z.array(SalesInvoiceLineSchema),
   tax_breakup: z.array(TaxBreakupRowSchema),
@@ -1850,7 +1852,8 @@ export const CreditNoteDetailSchema = CreditNoteListRowSchema.extend({
   journal_entry_id: zId.nullable(),
   loyalty_points_reversed: z.int().min(0),
   cancelled_at: zTimestamp.nullable(),
-  cancelled_by: UserRef.nullable(),
+  cancelled_by: zId.nullable(),
+  cancelled_by_name: z.string().nullable(),
   cancel_reason: z.string().nullable(),
   updated_at: zTimestamp,
 })
@@ -1889,7 +1892,7 @@ export const SalesPrintModelSchema = z.object({
   kind: z.enum(['invoice', 'credit_note']),
   doc_type: z.enum(['tax_invoice', 'bill_of_supply', 'estimate', 'credit_note']),
   format: PrintFormatSchema,
-  locale: z.object({ primary: z.enum(['ta', 'en']), bilingual: z.boolean() }),
+  locale: z.object({ primary: LocaleSchema, bilingual: z.boolean() }),
   title: BilingualSchema,
   /** A4 tax invoices: copy labels to print (INVOICE_COPY_LABELS), one page each. */
   copies: z.array(BilingualSchema),
@@ -2083,7 +2086,7 @@ export type SalesPrintModel = z.output<typeof SalesPrintModelSchema>
 export const PrintQuerySchema = z.object({
   /** Default: register setting, else settings.invoice.print_format. */
   format: PrintFormatSchema.optional(),
-  locale: z.enum(['ta', 'en']).optional(),
+  locale: LocaleSchema.optional(),
 })
 export type PrintQuery = z.input<typeof PrintQuerySchema>
 
@@ -2279,7 +2282,7 @@ export const PosBootstrapSchema = z.object({
     .object({ id: zId, code: z.string(), name: z.string(), settings: RegisterSettingsSchema })
     .nullable(),
   doc_type: z.enum(['tax_invoice', 'bill_of_supply']),
-  tax_mode: z.enum(['regular', 'composition', 'unregistered']),
+  tax_mode: GstSchemeSchema.describe('Tax mode of the document (= the GST scheme)'),
   settings: TenantSettingsSchema,
   features: z.array(FeatureSchema),
   /** The register's invoice series (offline numbering; per register, used by this device only). */

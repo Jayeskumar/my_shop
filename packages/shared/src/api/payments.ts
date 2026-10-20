@@ -40,17 +40,29 @@ import {
 } from '../enums'
 import { isValidVpa, normalizeVpa, UPI_REFERENCE_RE } from '../upi'
 import {
-  PageQuerySchema,
+  type BilingualLabel,
   dataOf,
+  DATE_ORDER_ISSUE,
+  DATE_RANGE_FIELDS,
+  dateOrderOk,
   defineRoutes,
   listOf,
+  PageQuerySchema,
   sortQuery,
+  zAmountPaise,
   zBooleanQuery,
   zDateStr,
   zId,
   zIdempotencyKey,
+  zIfUpdatedAt,
+  zListFormat,
+  zMilli0,
+  zNullableText,
   zOptionalPhone,
   zPaise,
+  zQueryInt,
+  zQueryList,
+  zReason,
   zSearchQuery,
   zTimestamp,
 } from './common'
@@ -59,54 +71,21 @@ import {
 // Query / body helpers (shared by the payments, sales and purchases contracts)
 // =============================================================================================
 
-/**
- * One or more values of a query parameter: `?status=a&status=b` (repeated keys — what the web
- * client sends for arrays) or a single `?status=a`. Always parses to an array.
- */
-export function zQueryList<T extends z.ZodType>(item: T) {
-  return z
-    .union([item, z.array(item).min(1).max(50)])
-    .transform((v): z.output<T>[] => (Array.isArray(v) ? v : [v]) as z.output<T>[])
-}
-
-/** Integer query parameter coerced from the query string. */
-export function zQueryInt(min: number, max: number) {
-  return z.coerce.number().int().min(min).max(max)
-}
-
-/** Optimistic concurrency for PATCH bodies (ARCHITECTURE.md §7.3) → 409 STALE_WRITE. */
-export const zIfUpdatedAt = zTimestamp
-  .optional()
-  .describe('updated_at the client last saw; when it differs from the stored row → 409 STALE_WRITE')
-
-/** Optional clearable text: missing → undefined (unchanged), null / '' → null, else trimmed. */
-export function zNullableText(max: number) {
-  return z
-    .union([z.null(), z.string().trim().max(max)])
-    .optional()
-    .transform((v) => (v === '' ? null : v))
-}
-
-/** Positive amount in paise (> 0). */
-export const zAmountPaise = z.int().min(1)
-
-/** Non-negative quantity in milli units (returned / free / pending quantities; may be 0). */
-export const zMilli0 = z.int().min(0)
-
-/** Cancellation / reversal reason (required, audited). */
-export const zReason = z.string().trim().min(3, 'reason_required').max(500)
-
-/** `?format=csv` on list endpoints: the same filters, streamed as CSV (no pagination). */
-export const zListFormat = z.enum(['json', 'csv']).default('json')
-
-/** Business date range filter fields (inclusive, tenant timezone). */
-export const DATE_RANGE_FIELDS = { from: zDateStr.optional(), to: zDateStr.optional() }
-
-/** Refinement: from ≤ to. */
-export function dateOrderOk(v: { from?: string | undefined; to?: string | undefined }): boolean {
-  return !v.from || !v.to || v.from <= v.to
-}
-export const DATE_ORDER_ISSUE = { message: 'date_order', path: ['to'] }
+// The helpers are defined once in ./common; re-exported here because the sales, purchases and
+// accounting contracts import them from here.
+export {
+  DATE_ORDER_ISSUE,
+  DATE_RANGE_FIELDS,
+  dateOrderOk,
+  zAmountPaise,
+  zIfUpdatedAt,
+  zListFormat,
+  zMilli0,
+  zNullableText,
+  zQueryInt,
+  zQueryList,
+  zReason,
+} from './common'
 
 // =============================================================================================
 // Validation keys & labels
@@ -134,7 +113,7 @@ export const PAYMENTS_VALIDATION_KEYS = [
 ] as const
 export type PaymentsValidationKey = (typeof PAYMENTS_VALIDATION_KEYS)[number]
 
-type Bilingual = { readonly en: string; readonly ta: string }
+type Bilingual = Readonly<BilingualLabel>
 
 /** Printed / displayed labels of payment methods (receipts, invoices, reports). */
 export const PAYMENT_METHOD_LABELS: Readonly<Record<PaymentMethod, Bilingual>> = {

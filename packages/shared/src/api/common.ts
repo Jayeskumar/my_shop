@@ -180,6 +180,100 @@ export const DateRangeQuerySchema = z
     path: ['to'],
   })
 
+// ---------------------------------------------------------------------------------------------
+// Contract helpers shared by every module contract (one definition each; identity / payments
+// re-export them for older imports). Validation messages are snake_case keys (web:
+// errors:validation.<key>, then <module>:validation.<key>).
+// ---------------------------------------------------------------------------------------------
+
+/** `{ en, ta }` display label (enum label maps, printed titles, CSV headers). */
+export type BilingualLabel = { en: string; ta: string }
+
+/** Integer query-string parameter (coerced from the string Fastify parses). */
+export function zQueryInt(min: number, max: number) {
+  return z.coerce.number().int().min(min).max(max)
+}
+
+/**
+ * One or more values of a query parameter: `?status=a&status=b` (repeated keys — what the web
+ * client sends for arrays) or a single `?status=a`. Always parses to an array.
+ */
+export function zQueryList<T extends z.ZodType>(item: T) {
+  return z
+    .union([item, z.array(item).min(1).max(50)])
+    .transform((v): z.output<T>[] => (Array.isArray(v) ? v : [v]) as z.output<T>[])
+}
+
+/**
+ * List of ids in a query string: `?ids=a&ids=b` (repeated keys) or `?ids=a,b`. At most 500 ids.
+ */
+export const zQueryIds = z
+  .union([z.string(), z.array(z.string())])
+  .transform((v) =>
+    (Array.isArray(v) ? v : [v])
+      .flatMap((s) => s.split(','))
+      .map((s) => s.trim())
+      .filter(Boolean),
+  )
+  .pipe(z.array(zId).max(500))
+
+/** `store_id` filter that may also be 'all' (owners/managers with access to every store). */
+export const zStoreScope = z
+  .union([z.literal('all'), zId])
+  .describe("A store id, or 'all' (aggregate over every store; requires access to all stores)")
+
+/** Optimistic concurrency for PATCH bodies (ARCHITECTURE.md §7.3) → 409 STALE_WRITE. */
+export const zIfUpdatedAt = zTimestamp
+  .optional()
+  .describe('updated_at the client last saw; when it differs from the stored row → 409 STALE_WRITE')
+
+/**
+ * Optional, clearable text for create/PATCH bodies: missing → undefined (unchanged),
+ * null or '' → null (cleared), else trimmed text of at most `max` characters.
+ */
+export function zNullableText(max: number) {
+  return z
+    .union([z.null(), z.string().trim().max(max)])
+    .optional()
+    .transform((v) => (v === '' ? null : v))
+}
+
+/** Positive amount in paise (> 0). */
+export const zAmountPaise = z.int().min(1)
+
+/** Non-negative quantity in milli units (returned / free / pending quantities; may be 0). */
+export const zMilli0 = z.int().min(0)
+
+/** Cancellation / reversal reason (required, audited). */
+export const zReason = z.string().trim().min(3, 'reason_required').max(500)
+
+/** `?format=json|csv` on endpoints that can also stream a CSV (same filters, no pagination). */
+export const ExportFormatSchema = z.enum(['json', 'csv'])
+export type ExportFormat = z.infer<typeof ExportFormatSchema>
+
+/** `?format=` of list endpoints, defaulting to JSON. */
+export const zListFormat = ExportFormatSchema.default('json')
+
+/** Business date range filter fields (inclusive, tenant timezone). */
+export const DATE_RANGE_FIELDS = { from: zDateStr.optional(), to: zDateStr.optional() }
+
+/** Refinement: from ≤ to. */
+export function dateOrderOk(v: { from?: string | undefined; to?: string | undefined }): boolean {
+  return !v.from || !v.to || v.from <= v.to
+}
+export const DATE_ORDER_ISSUE = { message: 'date_order', path: ['to'] }
+
+/*
+ * Response naming conventions (all contracts):
+ *  - users on documents are the flat DB-mirroring pair `<x>_by` (user id, nullable) +
+ *    `<x>_by_name` (created_by, posted_by, cancelled_by, opened_by, closed_by; salesperson_id +
+ *    salesperson_name);
+ *  - list rows flatten their parties (`customer_id`, `customer_name`, `supplier_name`,
+ *    `store_code`); detail responses may embed a richer object under the entity name
+ *    (`supplier`, `customer`, `store`);
+ *  - money `*_paise`, quantities `*_milli`, rates `*_bp`, business dates `*_date`, instants `*_at`.
+ */
+
 /**
  * ?sort= parameter for a fixed set of fields: 'name' / '-created_at' →
  * { field: 'created_at', direction: 'desc' }.

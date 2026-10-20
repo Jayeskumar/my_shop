@@ -16,6 +16,8 @@ import { z } from 'zod'
 import { MeTenantSchema, PasswordSchema, PinSchema } from './auth'
 import {
   AddressSchema,
+  type BilingualLabel,
+  ExportFormatSchema,
   PageQuerySchema,
   dataOf,
   defineRoutes,
@@ -26,9 +28,14 @@ import {
   zE164,
   zFy,
   zId,
+  zIfUpdatedAt,
+  zNullableText,
   zPhone,
+  zQueryIds,
+  zQueryInt,
   zSearchQuery,
   zStateCode,
+  zStoreScope,
   zTimestamp,
 } from './common'
 import {
@@ -66,45 +73,18 @@ import {
 // Shared contract helpers (also imported by the catalog, parties and inventory contracts)
 // =============================================================================================
 
-/** Integer query-string parameter (coerced from the string Fastify parses). */
-export function zQueryInt(min: number, max: number) {
-  return z.coerce.number().int().min(min).max(max)
-}
-
-/**
- * List of ids in a query string: `?ids=a&ids=b` (repeated keys, what the web client sends for
- * arrays) or `?ids=a,b`. At most 500 ids.
- */
-export const zQueryIds = z
-  .union([z.string(), z.array(z.string())])
-  .transform((v) =>
-    (Array.isArray(v) ? v : [v])
-      .flatMap((s) => s.split(','))
-      .map((s) => s.trim())
-      .filter(Boolean),
-  )
-  .pipe(z.array(zId).max(500))
-
-/** `store_id` filter that may also be 'all' (owners/managers with access to every store). */
-export const zStoreScope = z
-  .union([z.literal('all'), zId])
-  .describe("A store id, or 'all' (aggregate over every store; requires access to all stores)")
-
-/** Optimistic concurrency for PATCH bodies (ARCHITECTURE.md §7.3). */
-export const zIfUpdatedAt = zTimestamp
-  .optional()
-  .describe('updated_at the client last saw; when it differs from the stored row → 409 STALE_WRITE')
-
-/**
- * Optional, clearable text for create/PATCH bodies: missing → undefined (unchanged),
- * null or '' → null (cleared), else trimmed text of at most `max` characters.
- */
-export function zNullableText(max: number) {
-  return z
-    .union([z.null(), z.string().trim().max(max)])
-    .optional()
-    .transform((v) => (v === '' ? null : v))
-}
+// The generic query / PATCH helpers live in ./common (one definition for every contract); they
+// are re-exported here because the catalog / parties / inventory contracts import them from here.
+export {
+  type BilingualLabel,
+  type ExportFormat,
+  ExportFormatSchema,
+  zIfUpdatedAt,
+  zNullableText,
+  zQueryIds,
+  zQueryInt,
+  zStoreScope,
+} from './common'
 
 const EmailSchema = z.email().max(254)
 
@@ -146,10 +126,6 @@ export const zTags = z
   .array(z.string().trim().min(1).max(30))
   .max(20)
   .transform((tags) => [...new Set(tags.map((t) => t.toLowerCase()))])
-
-/** `?format=json|csv` on endpoints that can also stream a CSV (same filters). */
-export const ExportFormatSchema = z.enum(['json', 'csv'])
-export type ExportFormat = z.infer<typeof ExportFormatSchema>
 
 /**
  * Result of DELETE on master records with history (products, customers, suppliers, doctors,
@@ -1296,8 +1272,6 @@ export const FileContentQuerySchema = z.object({ download: zBooleanQuery.optiona
 // =============================================================================================
 // Bilingual labels
 // =============================================================================================
-
-export type BilingualLabel = { en: string; ta: string }
 
 export const MEMBERSHIP_STATUS_LABELS: Readonly<Record<MembershipStatus, BilingualLabel>> = {
   active: { en: 'Active', ta: 'செயலில்' },

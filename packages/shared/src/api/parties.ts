@@ -28,10 +28,11 @@ import { panFromGstin } from '../gst'
 import type { TenantSettings } from '../settings'
 import {
   AddressSchema,
-  PageQuerySchema,
+  type BilingualLabel,
   dataOf,
   defineRoutes,
   listOf,
+  PageQuerySchema,
   sortQuery,
   zBooleanQuery,
   zDateStr,
@@ -122,7 +123,7 @@ function refineTaxIds(
 // Bilingual labels
 // =============================================================================================
 
-export type BilingualLabel = { en: string; ta: string }
+export type { BilingualLabel } from './common'
 
 export const CUSTOMER_TYPE_LABELS: Readonly<Record<CustomerType, BilingualLabel>> = {
   retail: { en: 'Retail', ta: 'சில்லறை' },

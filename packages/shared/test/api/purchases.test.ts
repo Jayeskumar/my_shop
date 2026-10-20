@@ -506,11 +506,14 @@ describe('purchase responses', () => {
     payments: [],
     debit_notes: [],
     journal_entry_id: id(),
-    posted_by: { id: id(), name: 'Ravi' },
+    posted_by: id(),
+    posted_by_name: 'Ravi',
     cancelled_at: null,
     cancelled_by: null,
+    cancelled_by_name: null,
     cancel_reason: null,
-    created_by: { id: id(), name: 'Ravi' },
+    created_by: id(),
+    created_by_name: 'Ravi',
     warnings: [
       {
         code: 'mrp_changed',
@@ -644,6 +647,7 @@ describe('purchase responses', () => {
       ],
       bills: [],
       created_by: null,
+      created_by_name: null,
     }
     expect(PurchaseOrderDetailSchema.parse(order).status).toBe('sent')
     expect(
@@ -715,8 +719,10 @@ describe('purchase responses', () => {
         journal_entry_id: id(),
         cancelled_at: null,
         cancelled_by: null,
+        cancelled_by_name: null,
         cancel_reason: null,
         created_by: null,
+        created_by_name: null,
         updated_at: NOW,
       }).total_paise,
     ).toBe(4_480)

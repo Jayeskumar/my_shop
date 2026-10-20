@@ -23,10 +23,11 @@ import { diffDays } from '../fy'
 import { isUuid } from '../ids'
 import { amountForQty } from '../units'
 import {
-  PageQuerySchema,
+  type BilingualLabel,
   dataOf,
   defineRoutes,
   listOf,
+  PageQuerySchema,
   sortQuery,
   zBooleanQuery,
   zDateStr,
@@ -223,7 +224,7 @@ export const ADJUSTMENT_REASONS = [
 // Bilingual labels (server CSV / print output and every web module use the same words)
 // =============================================================================================
 
-export type BilingualLabel = { en: string; ta: string }
+export type { BilingualLabel } from './common'
 
 export const MOVEMENT_TYPE_LABELS: Readonly<Record<StockMovementType, BilingualLabel>> = {
   opening: { en: 'Opening stock', ta: 'தொடக்க இருப்பு' },
