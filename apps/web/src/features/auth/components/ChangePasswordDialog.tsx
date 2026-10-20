@@ -7,7 +7,7 @@ import { Button, Dialog, FormField, notify } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { validationToken } from '@/lib/validation'
 import { useChangePassword } from '../api'
-import { applyServerFieldErrors } from '../form-errors'
+import { applyServerFieldErrors } from '@/lib/form-errors'
 import { PasswordInput } from './PasswordInput'
 
 const FormSchema = PasswordChangeRequestSchema.and(
