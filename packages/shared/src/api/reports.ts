@@ -25,7 +25,7 @@
 import { z } from 'zod'
 import {
   type BusinessType,
-  PaymentMethodSchema,
+  type PaymentMethod,
   SalesChannelSchema,
   ShiftStatusSchema,
 } from '../enums'
@@ -34,6 +34,7 @@ import { addDays, addMonths, diffDays, isPeriod, periodRange, periodToFp } from 
 import { getState } from '../gst'
 import { mulDiv, roundDiv, sumSafe } from '../math'
 import { paiseToRupeesString } from '../money'
+import { formatPhoneDisplay } from '../phone'
 import type { Permission } from '../permissions'
 import { DrugScheduleSchema } from '../settings'
 import { milliToDecimalString } from '../units'
@@ -53,7 +54,13 @@ import {
   zTimestamp,
 } from './common'
 import { type BilingualLabel, type CsvValue, toCsv, zStoreScope } from './identity'
-import { CREDIT_DUE_LABEL, PAYMENT_METHOD_LABELS, zListFormat, zQueryInt, zQueryList } from './payments'
+import {
+  CREDIT_DUE_LABEL,
+  PAYMENT_METHOD_LABELS,
+  zListFormat,
+  zQueryInt,
+  zQueryList,
+} from './payments'
 
 export { marginBp }
 
@@ -343,7 +350,7 @@ export const PAYMENT_MIX_LABELS: Readonly<Record<PaymentMixKey, BilingualLabel>>
 }
 
 /** Payment method → mix slice (bank transfer, cheque, wallet, store credit → other). */
-export function paymentMixKey(method: z.infer<typeof PaymentMethodSchema>): PaymentMixKey {
+export function paymentMixKey(method: PaymentMethod): PaymentMixKey {
   return method === 'cash' || method === 'upi' || method === 'card' ? method : 'other'
 }
 
@@ -597,9 +604,12 @@ export const CategorySalesQuerySchema = z
       .default('leaf')
       .describe('leaf: each category; top: rolled up to top-level categories'),
     category_id: zId.optional().describe('Only this sub-tree'),
-    sort: sortQuery(['net_sales_paise', 'gross_profit_paise', 'margin_bp', 'name'] as const).prefault(
-      '-net_sales_paise',
-    ),
+    sort: sortQuery([
+      'net_sales_paise',
+      'gross_profit_paise',
+      'margin_bp',
+      'name',
+    ] as const).prefault('-net_sales_paise'),
     ...PageFields,
   })
   .superRefine(refineRange(REPORT_MAX_RANGE_DAYS))
@@ -628,9 +638,12 @@ export const BrandSalesQuerySchema = z
     ...RangeFields,
     store_id: zReportStore,
     category_id: zId.optional(),
-    sort: sortQuery(['net_sales_paise', 'gross_profit_paise', 'margin_bp', 'name'] as const).prefault(
-      '-net_sales_paise',
-    ),
+    sort: sortQuery([
+      'net_sales_paise',
+      'gross_profit_paise',
+      'margin_bp',
+      'name',
+    ] as const).prefault('-net_sales_paise'),
     ...PageFields,
   })
   .superRefine(refineRange(REPORT_MAX_RANGE_DAYS))
@@ -661,9 +674,12 @@ export const ProfitQuerySchema = z
     max_margin_bp: zQueryInt(-1_000_000, 10_000)
       .optional()
       .describe('Only rows with margin ≤ this (find low / negative margins)'),
-    sort: sortQuery(['gross_profit_paise', 'margin_bp', 'net_taxable_paise', 'name'] as const).prefault(
-      '-gross_profit_paise',
-    ),
+    sort: sortQuery([
+      'gross_profit_paise',
+      'margin_bp',
+      'net_taxable_paise',
+      'name',
+    ] as const).prefault('-gross_profit_paise'),
     ...PageFields,
   })
   .superRefine(refineRange(REPORT_MAX_RANGE_DAYS))
@@ -708,7 +724,9 @@ export const DiscountsQuerySchema = z
     store_id: zReportStore,
     group_by: DiscountsGroupBySchema.default('bill'),
     user_id: zId.optional(),
-    min_discount_bp: zQueryInt(0, 10_000).optional().describe('Bills / items discounted at least this much'),
+    min_discount_bp: zQueryInt(0, 10_000)
+      .optional()
+      .describe('Bills / items discounted at least this much'),
     sort: sortQuery(['discount_paise', 'discount_bp', 'date', 'label'] as const).prefault(
       '-discount_paise',
     ),
@@ -813,7 +831,9 @@ export const ShiftsReportQuerySchema = z
     store_id: zReportStore,
     register_id: zId.optional(),
     user_id: zId.optional().describe('Opened by'),
-    sort: sortQuery(['opened_at', 'difference_paise', 'sales_paise'] as const).prefault('-opened_at'),
+    sort: sortQuery(['opened_at', 'difference_paise', 'sales_paise'] as const).prefault(
+      '-opened_at',
+    ),
     ...PageFields,
   })
   .superRefine(refineRange(REPORT_MAX_RANGE_DAYS))
@@ -1087,9 +1107,12 @@ const OutstandingQueryFields = {
 
 export const CustomerOutstandingQuerySchema = z.object({
   ...OutstandingQueryFields,
-  sort: sortQuery(['due_paise', 'oldest_due_days', 'name', 'bucket_90_plus_paise'] as const).prefault(
-    '-due_paise',
-  ),
+  sort: sortQuery([
+    'due_paise',
+    'oldest_due_days',
+    'name',
+    'bucket_90_plus_paise',
+  ] as const).prefault('-due_paise'),
 })
 export type CustomerOutstandingQuery = z.input<typeof CustomerOutstandingQuerySchema>
 
@@ -1314,7 +1337,15 @@ export const GstWarningSchema = z.object({
   code: GstWarningCodeSchema,
   severity: z.enum(['error', 'warning']),
   section: z.string().nullable(),
-  ref_type: z.enum(['sales_invoice', 'credit_note', 'purchase_bill', 'expense', 'product', 'customer', 'tenant']),
+  ref_type: z.enum([
+    'sales_invoice',
+    'credit_note',
+    'purchase_bill',
+    'expense',
+    'product',
+    'customer',
+    'tenant',
+  ]),
   ref_id: zId.nullable(),
   /** Invoice / note number, product or customer name. */
   label: z.string().nullable(),
@@ -1377,7 +1408,11 @@ export const Gstr1ReportSchema = z.object({
   ...GstHeaderFields,
   summary: z.array(Gstr1SectionSummarySchema),
   b2b: z.array(
-    z.object({ ctin: z.string(), receiver_name: z.string().nullable(), invoices: z.array(Gstr1InvoiceSchema) }),
+    z.object({
+      ctin: z.string(),
+      receiver_name: z.string().nullable(),
+      invoices: z.array(Gstr1InvoiceSchema),
+    }),
   ),
   b2cl: z.array(z.object({ place_of_supply: z.string(), invoices: z.array(Gstr1InvoiceSchema) })),
   b2cs: z.array(
@@ -1390,7 +1425,11 @@ export const Gstr1ReportSchema = z.object({
     }),
   ),
   cdnr: z.array(
-    z.object({ ctin: z.string(), receiver_name: z.string().nullable(), notes: z.array(Gstr1NoteSchema) }),
+    z.object({
+      ctin: z.string(),
+      receiver_name: z.string().nullable(),
+      notes: z.array(Gstr1NoteSchema),
+    }),
   ),
   cdnur: z.array(Gstr1NoteSchema.extend({ type: z.literal('B2CL') })),
   nil: z.object({
@@ -1522,7 +1561,12 @@ export const Gstr1PortalJsonSchema = z.object({
       z.object({
         pos: z.string(),
         inv: z.array(
-          z.object({ inum: z.string(), idt: z.string(), val: z.number(), itms: z.array(PortalItemSchema) }),
+          z.object({
+            inum: z.string(),
+            idt: z.string(),
+            val: z.number(),
+            itms: z.array(PortalItemSchema),
+          }),
         ),
       }),
     )
@@ -1587,7 +1631,10 @@ export const Gstr1PortalJsonSchema = z.object({
     })
     .optional(),
   hsn: z
-    .object({ hsn_b2b: z.array(PortalHsnSchema).optional(), hsn_b2c: z.array(PortalHsnSchema).optional() })
+    .object({
+      hsn_b2b: z.array(PortalHsnSchema).optional(),
+      hsn_b2c: z.array(PortalHsnSchema).optional(),
+    })
     .optional(),
   doc_issue: z
     .object({
@@ -1773,7 +1820,22 @@ export function gstr1SectionRows(report: Gstr1Report, section: Gstr1Section): Cs
   switch (section) {
     case 'b2b':
       return [
-        ['GSTIN/UIN of Recipient', 'Receiver Name', 'Invoice Number', 'Invoice date', 'Invoice Value', 'Place Of Supply', 'Reverse Charge', 'Invoice Type', 'Rate', 'Taxable Value', 'Integrated Tax', 'Central Tax', 'State/UT Tax', 'Cess Amount'],
+        [
+          'GSTIN/UIN of Recipient',
+          'Receiver Name',
+          'Invoice Number',
+          'Invoice date',
+          'Invoice Value',
+          'Place Of Supply',
+          'Reverse Charge',
+          'Invoice Type',
+          'Rate',
+          'Taxable Value',
+          'Integrated Tax',
+          'Central Tax',
+          'State/UT Tax',
+          'Cess Amount',
+        ],
         ...report.b2b.flatMap((p) =>
           p.invoices.flatMap((inv) =>
             inv.items.map((it) => [
@@ -1797,7 +1859,16 @@ export function gstr1SectionRows(report: Gstr1Report, section: Gstr1Section): Cs
       ]
     case 'b2cl':
       return [
-        ['Invoice Number', 'Invoice date', 'Invoice Value', 'Place Of Supply', 'Rate', 'Taxable Value', 'Integrated Tax', 'Cess Amount'],
+        [
+          'Invoice Number',
+          'Invoice date',
+          'Invoice Value',
+          'Place Of Supply',
+          'Rate',
+          'Taxable Value',
+          'Integrated Tax',
+          'Cess Amount',
+        ],
         ...report.b2cl.flatMap((p) =>
           p.invoices.flatMap((inv) =>
             inv.items.map((it) => [
@@ -1815,7 +1886,17 @@ export function gstr1SectionRows(report: Gstr1Report, section: Gstr1Section): Cs
       ]
     case 'b2cs':
       return [
-        ['Type', 'Supply Type', 'Place Of Supply', 'Rate', 'Taxable Value', 'Integrated Tax', 'Central Tax', 'State/UT Tax', 'Cess Amount'],
+        [
+          'Type',
+          'Supply Type',
+          'Place Of Supply',
+          'Rate',
+          'Taxable Value',
+          'Integrated Tax',
+          'Central Tax',
+          'State/UT Tax',
+          'Cess Amount',
+        ],
         ...report.b2cs.map((r) => [
           r.type,
           r.supply_type === 'INTER' ? 'Inter State' : 'Intra State',
@@ -1830,7 +1911,22 @@ export function gstr1SectionRows(report: Gstr1Report, section: Gstr1Section): Cs
       ]
     case 'cdnr':
       return [
-        ['GSTIN/UIN of Recipient', 'Receiver Name', 'Note Number', 'Note Date', 'Note Type', 'Place Of Supply', 'Reverse Charge', 'Note Value', 'Rate', 'Taxable Value', 'Integrated Tax', 'Central Tax', 'State/UT Tax', 'Cess Amount'],
+        [
+          'GSTIN/UIN of Recipient',
+          'Receiver Name',
+          'Note Number',
+          'Note Date',
+          'Note Type',
+          'Place Of Supply',
+          'Reverse Charge',
+          'Note Value',
+          'Rate',
+          'Taxable Value',
+          'Integrated Tax',
+          'Central Tax',
+          'State/UT Tax',
+          'Cess Amount',
+        ],
         ...report.cdnr.flatMap((p) =>
           p.notes.flatMap((n) =>
             n.items.map((it) => [
@@ -1854,7 +1950,18 @@ export function gstr1SectionRows(report: Gstr1Report, section: Gstr1Section): Cs
       ]
     case 'cdnur':
       return [
-        ['UR Type', 'Note Number', 'Note Date', 'Note Type', 'Place Of Supply', 'Note Value', 'Rate', 'Taxable Value', 'Integrated Tax', 'Cess Amount'],
+        [
+          'UR Type',
+          'Note Number',
+          'Note Date',
+          'Note Type',
+          'Place Of Supply',
+          'Note Value',
+          'Rate',
+          'Taxable Value',
+          'Integrated Tax',
+          'Cess Amount',
+        ],
         ...report.cdnur.flatMap((n) =>
           n.items.map((it) => [
             n.type,
@@ -1872,7 +1979,12 @@ export function gstr1SectionRows(report: Gstr1Report, section: Gstr1Section): Cs
       ]
     case 'nil':
       return [
-        ['Description', 'Nil Rated Supplies', 'Exempted (other than nil rated/non GST supply)', 'Non-GST Supplies'],
+        [
+          'Description',
+          'Nil Rated Supplies',
+          'Exempted (other than nil rated/non GST supply)',
+          'Non-GST Supplies',
+        ],
         ...(
           [
             ['Inter-State supplies to registered persons', report.nil.inter_b2b],
@@ -1880,12 +1992,29 @@ export function gstr1SectionRows(report: Gstr1Report, section: Gstr1Section): Cs
             ['Inter-State supplies to unregistered persons', report.nil.inter_b2c],
             ['Intra-State supplies to unregistered persons', report.nil.intra_b2c],
           ] as const
-        ).map(([label, r]) => [label, money(r.nil_rated_paise), money(r.exempt_paise), money(r.non_gst_paise)]),
+        ).map(([label, r]) => [
+          label,
+          money(r.nil_rated_paise),
+          money(r.exempt_paise),
+          money(r.non_gst_paise),
+        ]),
       ]
     case 'hsn_b2b':
     case 'hsn_b2c':
       return [
-        ['HSN', 'Description', 'UQC', 'Total Quantity', 'Total Value', 'Rate', 'Taxable Value', 'Integrated Tax Amount', 'Central Tax Amount', 'State/UT Tax Amount', 'Cess Amount'],
+        [
+          'HSN',
+          'Description',
+          'UQC',
+          'Total Quantity',
+          'Total Value',
+          'Rate',
+          'Taxable Value',
+          'Integrated Tax Amount',
+          'Central Tax Amount',
+          'State/UT Tax Amount',
+          'Cess Amount',
+        ],
         ...(section === 'hsn_b2b' ? report.hsn.b2b : report.hsn.b2c).map((r) => [
           r.hsn_code,
           r.description,
@@ -1934,7 +2063,12 @@ export const Gstr1ExportQuerySchema = GstPeriodQuerySchema.extend({
 export type Gstr1ExportQuery = z.input<typeof Gstr1ExportQuerySchema>
 
 /** Download file name: 'GSTR1_33ABCDE1234F1Z5_102026.json'. */
-export function gstr1ExportFilename(gstin: string, period: string, format: 'json' | 'csv', section?: string): string {
+export function gstr1ExportFilename(
+  gstin: string,
+  period: string,
+  format: 'json' | 'csv',
+  section?: string,
+): string {
   return `GSTR1_${gstin}_${periodToFp(period)}${section ? `_${section}` : ''}.${format}`
 }
 
@@ -1975,7 +2109,11 @@ export const Gstr3bReportSchema = z.object({
     non_gst: TaxRowSchema,
   }),
   inter_state_unregistered: z.array(
-    z.object({ place_of_supply: z.string(), taxable_paise: zSignedPaise, igst_paise: zSignedPaise }),
+    z.object({
+      place_of_supply: z.string(),
+      taxable_paise: zSignedPaise,
+      igst_paise: zSignedPaise,
+    }),
   ),
   itc: z.object({
     import_goods: TaxHeadsSchema,
@@ -2099,7 +2237,9 @@ export function gstr3bPayment(
   return {
     rows,
     itc_balance: u.balance,
-    cash_total_paise: sumSafe(rows.map((r) => r.paid_cash_paise + Math.max(0, r.rcm_payable_paise))),
+    cash_total_paise: sumSafe(
+      rows.map((r) => r.paid_cash_paise + Math.max(0, r.rcm_payable_paise)),
+    ),
   }
 }
 
@@ -2250,7 +2390,9 @@ export const H1RegisterQuerySchema = z
   .object({
     ...RangeFields,
     store_id: zReportStore,
-    schedule: zQueryList(DrugScheduleSchema).optional().describe("Default ['H1'] (Schedule H1 register)"),
+    schedule: zQueryList(DrugScheduleSchema)
+      .optional()
+      .describe("Default ['H1'] (Schedule H1 register)"),
     q: zSearchQuery.optional().describe('Patient, doctor, drug or invoice number'),
     sort: sortQuery(['date', 'drug_name', 'invoice_number'] as const).prefault('date'),
     ...PageFields,
@@ -2343,7 +2485,7 @@ export const reportsRoutes = defineRoutes({
     permission: 'reports.read',
     query: DashboardQuerySchema,
     response: dataOf(DashboardSchema),
-    summary: "Owner dashboard: today vs yesterday, 30-day trend, payment mix, dues, stock alerts",
+    summary: 'Owner dashboard: today vs yesterday, 30-day trend, payment mix, dues, stock alerts',
   },
   salesSummary: {
     method: 'GET',
@@ -2545,7 +2687,14 @@ export type ReportRouteKey = keyof ReportsRoutes
 // REPORTS catalogue — what the generic viewer (/reports/:reportKey) renders
 // =============================================================================================
 
-export const ReportGroupSchema = z.enum(['sales', 'stock', 'parties', 'gst', 'pharmacy', 'controls'])
+export const ReportGroupSchema = z.enum([
+  'sales',
+  'stock',
+  'parties',
+  'gst',
+  'pharmacy',
+  'controls',
+])
 export type ReportGroup = z.infer<typeof ReportGroupSchema>
 
 export const REPORT_GROUPS: ReadonlyArray<{
@@ -2554,33 +2703,55 @@ export const REPORT_GROUPS: ReadonlyArray<{
   description: BilingualLabel
   business_types?: readonly BusinessType[]
   /** Dedicated pages listed with the group's cards. */
-  links?: ReadonlyArray<{ key: string; path: string; title: BilingualLabel; description: BilingualLabel; permission: Permission; feature: Feature }>
+  links?: ReadonlyArray<{
+    key: string
+    path: string
+    title: BilingualLabel
+    description: BilingualLabel
+    permission: Permission
+    feature: Feature
+  }>
 }> = [
   {
     key: 'sales',
     title: { en: 'Sales', ta: 'விற்பனை' },
-    description: { en: 'What sold, when and how profitably', ta: 'எது, எப்போது, எவ்வளவு இலாபத்தில் விற்றது' },
+    description: {
+      en: 'What sold, when and how profitably',
+      ta: 'எது, எப்போது, எவ்வளவு இலாபத்தில் விற்றது',
+    },
   },
   {
     key: 'stock',
     title: { en: 'Stock', ta: 'சரக்கு இருப்பு' },
-    description: { en: 'Stock value, ageing, expiry and dead stock', ta: 'இருப்பு மதிப்பு, பழமை, காலாவதி, விற்காத சரக்கு' },
+    description: {
+      en: 'Stock value, ageing, expiry and dead stock',
+      ta: 'இருப்பு மதிப்பு, பழமை, காலாவதி, விற்காத சரக்கு',
+    },
   },
   {
     key: 'parties',
     title: { en: 'Customers & suppliers', ta: 'வாடிக்கையாளர்கள் & சப்ளையர்கள்' },
-    description: { en: 'Dues to collect and to pay, with ageing', ta: 'வசூலிக்க வேண்டியதும் செலுத்த வேண்டியதும்' },
+    description: {
+      en: 'Dues to collect and to pay, with ageing',
+      ta: 'வசூலிக்க வேண்டியதும் செலுத்த வேண்டியதும்',
+    },
   },
   {
     key: 'gst',
     title: { en: 'GST', ta: 'GST' },
-    description: { en: 'Returns, HSN summary and registers', ta: 'ரிட்டர்ன்கள், HSN சுருக்கம், பதிவேடுகள்' },
+    description: {
+      en: 'Returns, HSN summary and registers',
+      ta: 'ரிட்டர்ன்கள், HSN சுருக்கம், பதிவேடுகள்',
+    },
     links: [
       {
         key: 'gst-returns',
         path: '/reports/gst',
         title: { en: 'GST returns (GSTR-1, 3B)', ta: 'GST ரிட்டர்ன்கள் (GSTR-1, 3B)' },
-        description: { en: 'Monthly returns with portal JSON download', ta: 'மாதாந்திர ரிட்டர்ன் & போர்டல் JSON' },
+        description: {
+          en: 'Monthly returns with portal JSON download',
+          ta: 'மாதாந்திர ரிட்டர்ன் & போர்டல் JSON',
+        },
         permission: 'reports.gst',
         feature: 'gst_reports',
       },
@@ -2589,13 +2760,19 @@ export const REPORT_GROUPS: ReadonlyArray<{
   {
     key: 'pharmacy',
     title: { en: 'Pharmacy', ta: 'மருந்தகம்' },
-    description: { en: 'Schedule H1 register and scheduled drug sales', ta: 'அட்டவணை H1 பதிவேடு, அட்டவணை மருந்து விற்பனை' },
+    description: {
+      en: 'Schedule H1 register and scheduled drug sales',
+      ta: 'அட்டவணை H1 பதிவேடு, அட்டவணை மருந்து விற்பனை',
+    },
     business_types: ['pharmacy'],
   },
   {
     key: 'controls',
     title: { en: 'Shifts & controls', ta: 'ஷிஃப்ட் & கட்டுப்பாடுகள்' },
-    description: { en: 'Cash differences, cancellations and discounts', ta: 'ரொக்க வித்தியாசம், ரத்துகள், தள்ளுபடிகள்' },
+    description: {
+      en: 'Cash differences, cancellations and discounts',
+      ta: 'ரொக்க வித்தியாசம், ரத்துகள், தள்ளுபடிகள்',
+    },
   },
 ]
 
@@ -2634,7 +2811,11 @@ export interface ReportColumnDef {
    * Link the cell to a detail page (journalSourcePath type + the row field with the id); `type_by`
    * picks the type from another field (e.g. kind invoice → sales_invoice, credit_note → credit_note).
    */
-  link?: { type: string; id_field: string; type_by?: { field: string; map: Readonly<Record<string, string>> } }
+  link?: {
+    type: string
+    id_field: string
+    type_by?: { field: string; map: Readonly<Record<string, string>> }
+  }
   /** Shown only for these group_by values. */
   group_by?: readonly string[]
   /** Mobile card role (DataTable meta.mobile). */
@@ -2722,11 +2903,23 @@ const F = {
     presets: ALL_PRESETS,
   }),
   store: { key: 'store_id', kind: 'store', label: L('Store', 'கிளை') } as ReportFilterDef,
-  category: { key: 'category_id', kind: 'category', label: L('Category', 'வகை') } as ReportFilterDef,
+  category: {
+    key: 'category_id',
+    kind: 'category',
+    label: L('Category', 'வகை'),
+  } as ReportFilterDef,
   brand: { key: 'brand_id', kind: 'brand', label: L('Brand', 'பிராண்ட்') } as ReportFilterDef,
-  supplier: { key: 'supplier_id', kind: 'supplier', label: L('Supplier', 'சப்ளையர்') } as ReportFilterDef,
+  supplier: {
+    key: 'supplier_id',
+    kind: 'supplier',
+    label: L('Supplier', 'சப்ளையர்'),
+  } as ReportFilterDef,
   user: { key: 'user_id', kind: 'user', label: L('User', 'பயனர்') } as ReportFilterDef,
-  register: { key: 'register_id', kind: 'register', label: L('Counter', 'கவுண்டர்') } as ReportFilterDef,
+  register: {
+    key: 'register_id',
+    kind: 'register',
+    label: L('Counter', 'கவுண்டர்'),
+  } as ReportFilterDef,
   q: { key: 'q', kind: 'text', label: L('Search', 'தேடு') } as ReportFilterDef,
   days: (def: number, label: BilingualLabel): ReportFilterDef => ({
     key: 'days',
@@ -2747,7 +2940,12 @@ const F = {
 }
 
 const C = {
-  money: (key: string, en: string, ta: string, extra: Partial<ReportColumnDef> = {}): ReportColumnDef => ({
+  money: (
+    key: string,
+    en: string,
+    ta: string,
+    extra: Partial<ReportColumnDef> = {},
+  ): ReportColumnDef => ({
     key,
     label: L(en, ta),
     format: 'money',
@@ -2755,7 +2953,12 @@ const C = {
     total: true,
     ...extra,
   }),
-  int: (key: string, en: string, ta: string, extra: Partial<ReportColumnDef> = {}): ReportColumnDef => ({
+  int: (
+    key: string,
+    en: string,
+    ta: string,
+    extra: Partial<ReportColumnDef> = {},
+  ): ReportColumnDef => ({
     key,
     label: L(en, ta),
     format: 'int',
@@ -2763,13 +2966,23 @@ const C = {
     total: true,
     ...extra,
   }),
-  text: (key: string, en: string, ta: string, extra: Partial<ReportColumnDef> = {}): ReportColumnDef => ({
+  text: (
+    key: string,
+    en: string,
+    ta: string,
+    extra: Partial<ReportColumnDef> = {},
+  ): ReportColumnDef => ({
     key,
     label: L(en, ta),
     format: 'text',
     ...extra,
   }),
-  qty: (key: string, en: string, ta: string, extra: Partial<ReportColumnDef> = {}): ReportColumnDef => ({
+  qty: (
+    key: string,
+    en: string,
+    ta: string,
+    extra: Partial<ReportColumnDef> = {},
+  ): ReportColumnDef => ({
     key,
     label: L(en, ta),
     format: 'qty',
@@ -2778,14 +2991,24 @@ const C = {
     pack_size_field: 'pack_size',
     ...extra,
   }),
-  pct: (key: string, en: string, ta: string, extra: Partial<ReportColumnDef> = {}): ReportColumnDef => ({
+  pct: (
+    key: string,
+    en: string,
+    ta: string,
+    extra: Partial<ReportColumnDef> = {},
+  ): ReportColumnDef => ({
     key,
     label: L(en, ta),
     format: 'percent_bp',
     align: 'right',
     ...extra,
   }),
-  date: (key: string, en: string, ta: string, extra: Partial<ReportColumnDef> = {}): ReportColumnDef => ({
+  date: (
+    key: string,
+    en: string,
+    ta: string,
+    extra: Partial<ReportColumnDef> = {},
+  ): ReportColumnDef => ({
     key,
     label: L(en, ta),
     format: 'date',
@@ -2797,9 +3020,14 @@ const SALES_METRIC_COLUMNS: readonly ReportColumnDef[] = [
   C.int('bills', 'Bills', 'பில்கள்'),
   C.money('sales_paise', 'Sales', 'விற்பனை'),
   C.money('returns_paise', 'Returns', 'திருப்பம்'),
-  C.money('net_sales_paise', 'Net sales', 'நிகர விற்பனை', { mobile: 'value', sort: 'net_sales_paise' }),
+  C.money('net_sales_paise', 'Net sales', 'நிகர விற்பனை', {
+    mobile: 'value',
+    sort: 'net_sales_paise',
+  }),
   C.money('discount_paise', 'Discount', 'தள்ளுபடி', { hidden_by_default: true }),
-  C.money('net_taxable_paise', 'Taxable value', 'வரிக்குட்பட்ட மதிப்பு', { hidden_by_default: true }),
+  C.money('net_taxable_paise', 'Taxable value', 'வரிக்குட்பட்ட மதிப்பு', {
+    hidden_by_default: true,
+  }),
   C.money('tax_paise', 'GST', 'GST', { hidden_by_default: true }),
   C.money('cost_paise', 'Cost', 'அடக்க விலை'),
   C.money('gross_profit_paise', 'Gross profit', 'மொத்த இலாபம்', { sort: 'gross_profit_paise' }),
@@ -2807,15 +3035,28 @@ const SALES_METRIC_COLUMNS: readonly ReportColumnDef[] = [
 ]
 
 const OUTSTANDING_COLUMNS = (dueKey: 'customer' | 'supplier'): readonly ReportColumnDef[] => [
-  C.money('due_paise', dueKey === 'customer' ? 'Due' : 'Payable', dueKey === 'customer' ? 'நிலுவை' : 'செலுத்த வேண்டியது', { mobile: 'value', sort: 'due_paise' }),
-  ...(dueKey === 'supplier' ? [C.money('not_due_paise', 'Not yet due', 'இன்னும் தவணை வரவில்லை')] : []),
+  C.money(
+    'due_paise',
+    dueKey === 'customer' ? 'Due' : 'Payable',
+    dueKey === 'customer' ? 'நிலுவை' : 'செலுத்த வேண்டியது',
+    { mobile: 'value', sort: 'due_paise' },
+  ),
+  ...(dueKey === 'supplier'
+    ? [C.money('not_due_paise', 'Not yet due', 'இன்னும் தவணை வரவில்லை')]
+    : []),
   C.money('bucket_0_30_paise', '0–30 days', '0–30 நாட்கள்'),
   C.money('bucket_31_60_paise', '31–60 days', '31–60 நாட்கள்'),
   C.money('bucket_61_90_paise', '61–90 days', '61–90 நாட்கள்'),
   C.money('bucket_90_plus_paise', 'Over 90 days', '90+ நாட்கள்'),
   C.money('unallocated_credit_paise', 'Advance / credit', 'முன்பணம் / வரவு'),
   C.money('balance_paise', 'Ledger balance', 'கணக்கு இருப்பு'),
-  { key: 'oldest_due_days', label: L('Oldest due (days)', 'பழைய நிலுவை (நாட்கள்)'), format: 'days', align: 'right', sort: 'oldest_due_days' },
+  {
+    key: 'oldest_due_days',
+    label: L('Oldest due (days)', 'பழைய நிலுவை (நாட்கள்)'),
+    format: 'days',
+    align: 'right',
+    sort: 'oldest_due_days',
+  },
   C.date('last_payment_date', 'Last payment', 'கடைசி வரவு'),
 ]
 
@@ -2850,7 +3091,10 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'salesSummary',
     group: 'sales',
     title: L('Sales summary', 'விற்பனைச் சுருக்கம்'),
-    description: L('Sales, returns and profit by day, month, hour, counter or user', 'நாள், மாதம், மணி, கவுண்டர், பயனர் வாரியாக விற்பனை'),
+    description: L(
+      'Sales, returns and profit by day, month, hour, counter or user',
+      'நாள், மாதம், மணி, கவுண்டர், பயனர் வாரியாக விற்பனை',
+    ),
     permission: 'reports.read',
     feature: 'reports_basic',
     filters: [
@@ -2861,19 +3105,37 @@ export const REPORTS: readonly ReportDef[] = [
         kind: 'select',
         label: L('Group by', 'வகைப்படுத்து'),
         default: 'day',
-        options: SalesSummaryGroupBySchema.options.map((value) => ({ value, label: GROUP_BY_LABELS[value] })),
+        options: SalesSummaryGroupBySchema.options.map((value) => ({
+          value,
+          label: GROUP_BY_LABELS[value],
+        })),
       },
       F.register,
       F.user,
     ],
     columns: [
-      { key: 'group_label', label: L('Group', 'பிரிவு'), format: 'text', mobile: 'title', sort: 'group' },
+      {
+        key: 'group_label',
+        label: L('Group', 'பிரிவு'),
+        format: 'text',
+        mobile: 'title',
+        sort: 'group',
+      },
       ...SALES_METRIC_COLUMNS.map((c) => ({ ...c, group_by: SALES_GROUPS })),
-      { ...C.money('avg_bill_paise', 'Average bill', 'சராசரி பில்'), total: true, group_by: SALES_GROUPS },
+      {
+        ...C.money('avg_bill_paise', 'Average bill', 'சராசரி பில்'),
+        total: true,
+        group_by: SALES_GROUPS,
+      },
       C.int('payments_count', 'Payments', 'வரவுகள்', { group_by: ['payment_method'] }),
       C.money('collected_paise', 'Collected', 'வசூல்', { group_by: ['payment_method'] }),
-      C.money('refunded_paise', 'Refunded', 'திருப்பிக் கொடுத்தது', { group_by: ['payment_method'] }),
-      C.money('net_collected_paise', 'Net collected', 'நிகர வசூல்', { group_by: ['payment_method'], mobile: 'value' }),
+      C.money('refunded_paise', 'Refunded', 'திருப்பிக் கொடுத்தது', {
+        group_by: ['payment_method'],
+      }),
+      C.money('net_collected_paise', 'Net collected', 'நிகர வசூல்', {
+        group_by: ['payment_method'],
+        mobile: 'value',
+      }),
     ],
     row_key: ['group_key'],
     default_sort: 'group',
@@ -2894,12 +3156,19 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'itemSales',
     group: 'sales',
     title: L('Item-wise sales', 'பொருள் வாரியான விற்பனை'),
-    description: L('Quantity, net sales, cost and profit of each item', 'ஒவ்வொரு பொருளின் அளவு, விற்பனை, இலாபம்'),
+    description: L(
+      'Quantity, net sales, cost and profit of each item',
+      'ஒவ்வொரு பொருளின் அளவு, விற்பனை, இலாபம்',
+    ),
     permission: 'reports.read',
     feature: 'reports_basic',
     filters: [F.range(), F.store, F.category, F.brand, F.q],
     columns: [
-      C.text('name', 'Item', 'பொருள்', { mobile: 'title', sort: 'name', link: { type: 'product', id_field: 'product_id' } }),
+      C.text('name', 'Item', 'பொருள்', {
+        mobile: 'title',
+        sort: 'name',
+        link: { type: 'product', id_field: 'product_id' },
+      }),
       C.text('category_name', 'Category', 'வகை', { mobile: 'subtitle' }),
       C.text('hsn_code', 'HSN', 'HSN', { hidden_by_default: true }),
       C.qty('net_qty_milli', 'Net qty', 'நிகர அளவு', { sort: 'net_qty_milli' }),
@@ -2916,7 +3185,10 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'categorySales',
     group: 'sales',
     title: L('Category-wise sales', 'வகை வாரியான விற்பனை'),
-    description: L('Which categories bring sales and profit', 'எந்த வகைகள் விற்பனையும் இலாபமும் தருகின்றன'),
+    description: L(
+      'Which categories bring sales and profit',
+      'எந்த வகைகள் விற்பனையும் இலாபமும் தருகின்றன',
+    ),
     permission: 'reports.read',
     feature: 'reports_basic',
     filters: [
@@ -2974,7 +3246,10 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'profit',
     group: 'sales',
     title: L('Profit & margin', 'இலாபம் & இலாப விகிதம்'),
-    description: L('Gross profit by item, category or brand; find low margins', 'பொருள் / வகை / பிராண்ட் வாரியான இலாபம்'),
+    description: L(
+      'Gross profit by item, category or brand; find low margins',
+      'பொருள் / வகை / பிராண்ட் வாரியான இலாபம்',
+    ),
     permission: 'reports.read',
     feature: 'advanced_reports',
     filters: [
@@ -2992,15 +3267,26 @@ export const REPORTS: readonly ReportDef[] = [
         ],
       },
       F.category,
-      { key: 'max_margin_bp', kind: 'number', label: L('Margin at most (bp)', 'அதிகபட்ச இலாப விகிதம் (bp)'), min: -1_000_000, max: 10_000 },
+      {
+        key: 'max_margin_bp',
+        kind: 'number',
+        label: L('Margin at most (bp)', 'அதிகபட்ச இலாப விகிதம் (bp)'),
+        min: -1_000_000,
+        max: 10_000,
+      },
     ],
     columns: [
       C.text('name', 'Name', 'பெயர்', { mobile: 'title', sort: 'name' }),
       C.text('category_name', 'Category', 'வகை', { group_by: ['item'], mobile: 'subtitle' }),
       C.qty('net_qty_milli', 'Net qty', 'நிகர அளவு', { group_by: ['item'] }),
-      C.money('net_taxable_paise', 'Net sales (ex GST)', 'நிகர விற்பனை (GST இல்லாமல்)', { sort: 'net_taxable_paise' }),
+      C.money('net_taxable_paise', 'Net sales (ex GST)', 'நிகர விற்பனை (GST இல்லாமல்)', {
+        sort: 'net_taxable_paise',
+      }),
       C.money('cost_paise', 'Cost', 'அடக்க விலை'),
-      C.money('gross_profit_paise', 'Gross profit', 'மொத்த இலாபம்', { mobile: 'value', sort: 'gross_profit_paise' }),
+      C.money('gross_profit_paise', 'Gross profit', 'மொத்த இலாபம்', {
+        mobile: 'value',
+        sort: 'gross_profit_paise',
+      }),
       C.pct('margin_bp', 'Margin %', 'இலாப %', { total: true, sort: 'margin_bp' }),
       C.pct('profit_share_bp', 'Share of profit %', 'இலாபப் பங்கு %'),
     ],
@@ -3014,7 +3300,10 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'stockSummary',
     group: 'stock',
     title: L('Stock valuation', 'இருப்பு மதிப்பு'),
-    description: L('Stock value at cost, MRP and selling price', 'அடக்க விலை, MRP, விற்பனை விலையில் இருப்பு மதிப்பு'),
+    description: L(
+      'Stock value at cost, MRP and selling price',
+      'அடக்க விலை, MRP, விற்பனை விலையில் இருப்பு மதிப்பு',
+    ),
     permission: 'reports.read',
     feature: 'reports_basic',
     filters: [
@@ -3031,7 +3320,12 @@ export const REPORTS: readonly ReportDef[] = [
       },
       F.category,
       F.brand,
-      { key: 'include_zero', kind: 'boolean', label: L('Include zero stock', 'பூஜ்ய இருப்பையும் காட்டு'), default: false },
+      {
+        key: 'include_zero',
+        kind: 'boolean',
+        label: L('Include zero stock', 'பூஜ்ய இருப்பையும் காட்டு'),
+        default: false,
+      },
       F.q,
     ],
     columns: [
@@ -3039,8 +3333,14 @@ export const REPORTS: readonly ReportDef[] = [
       C.text('category_name', 'Category', 'வகை', { group_by: ['product'], mobile: 'subtitle' }),
       C.int('products', 'Items', 'பொருட்கள்', { group_by: ['category'] }),
       C.qty('qty_milli', 'Quantity', 'அளவு', { group_by: ['product'], sort: 'qty_milli' }),
-      C.money('avg_cost_paise', 'Average cost', 'சராசரி அடக்க விலை', { group_by: ['product'], total: false }),
-      C.money('value_cost_paise', 'Value at cost', 'அடக்க விலை மதிப்பு', { mobile: 'value', sort: 'value_cost_paise' }),
+      C.money('avg_cost_paise', 'Average cost', 'சராசரி அடக்க விலை', {
+        group_by: ['product'],
+        total: false,
+      }),
+      C.money('value_cost_paise', 'Value at cost', 'அடக்க விலை மதிப்பு', {
+        mobile: 'value',
+        sort: 'value_cost_paise',
+      }),
       C.money('value_mrp_paise', 'Value at MRP', 'MRP மதிப்பு', { sort: 'value_mrp_paise' }),
       C.money('value_sale_paise', 'Value at selling price', 'விற்பனை விலை மதிப்பு'),
       C.int('negative_count', 'Negative stock', 'எதிர்மறை இருப்பு', { hidden_by_default: true }),
@@ -3055,7 +3355,10 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'stockAgeing',
     group: 'stock',
     title: L('Stock ageing', 'இருப்பின் பழமை'),
-    description: L('How long stock has been lying since it came in', 'சரக்கு வந்து எத்தனை நாட்கள் ஆகிறது'),
+    description: L(
+      'How long stock has been lying since it came in',
+      'சரக்கு வந்து எத்தனை நாட்கள் ஆகிறது',
+    ),
     permission: 'reports.read',
     feature: 'advanced_reports',
     filters: [
@@ -3079,13 +3382,31 @@ export const REPORTS: readonly ReportDef[] = [
       },
     ],
     columns: [
-      C.text('name', 'Item', 'பொருள்', { mobile: 'title', sort: 'name', link: { type: 'product', id_field: 'product_id' } }),
+      C.text('name', 'Item', 'பொருள்', {
+        mobile: 'title',
+        sort: 'name',
+        link: { type: 'product', id_field: 'product_id' },
+      }),
       C.text('batch_no', 'Batch', 'பேட்ச்', { group_by: ['batch'] }),
       C.qty('qty_milli', 'Quantity', 'அளவு'),
-      C.money('value_cost_paise', 'Value at cost', 'அடக்க விலை மதிப்பு', { mobile: 'value', sort: 'value_cost_paise' }),
+      C.money('value_cost_paise', 'Value at cost', 'அடக்க விலை மதிப்பு', {
+        mobile: 'value',
+        sort: 'value_cost_paise',
+      }),
       C.date('last_inbound_date', 'Last received', 'கடைசியாக வந்தது'),
-      { key: 'age_days', label: L('Age (days)', 'பழமை (நாட்கள்)'), format: 'days', align: 'right', sort: 'age_days' },
-      { key: 'bucket', label: L('Bucket', 'பிரிவு'), format: 'enum', enum_labels: AGEING_BUCKET_LABELS },
+      {
+        key: 'age_days',
+        label: L('Age (days)', 'பழமை (நாட்கள்)'),
+        format: 'days',
+        align: 'right',
+        sort: 'age_days',
+      },
+      {
+        key: 'bucket',
+        label: L('Bucket', 'பிரிவு'),
+        format: 'enum',
+        enum_labels: AGEING_BUCKET_LABELS,
+      },
     ],
     row_key: ['product_id', 'batch_id'],
     default_sort: '-age_days',
@@ -3097,29 +3418,52 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'expiry',
     group: 'stock',
     title: L('Expiry report', 'காலாவதி அறிக்கை'),
-    description: L('Expired and soon-expiring batches with value', 'காலாவதியான / விரைவில் காலாவதியாகும் பேட்சுகள்'),
+    description: L(
+      'Expired and soon-expiring batches with value',
+      'காலாவதியான / விரைவில் காலாவதியாகும் பேட்சுகள்',
+    ),
     permission: 'reports.read',
     feature: 'batches_expiry',
     filters: [
       F.store,
       F.days(90, L('Expiring within (days)', 'காலாவதி (நாட்களுக்குள்)')),
-      { key: 'include_expired', kind: 'boolean', label: L('Include expired', 'காலாவதியானவையும்'), default: true },
+      {
+        key: 'include_expired',
+        kind: 'boolean',
+        label: L('Include expired', 'காலாவதியானவையும்'),
+        default: true,
+      },
       F.category,
       F.supplier,
     ],
     columns: [
-      C.text('name', 'Item', 'பொருள்', { mobile: 'title', sort: 'name', link: { type: 'product', id_field: 'product_id' } }),
+      C.text('name', 'Item', 'பொருள்', {
+        mobile: 'title',
+        sort: 'name',
+        link: { type: 'product', id_field: 'product_id' },
+      }),
       C.text('batch_no', 'Batch', 'பேட்ச்', { mobile: 'subtitle' }),
       C.date('expiry_date', 'Expiry', 'காலாவதி', { sort: 'expiry_date' }),
-      { key: 'days_to_expiry', label: L('Days left', 'மீதி நாட்கள்'), format: 'days', align: 'right' },
+      {
+        key: 'days_to_expiry',
+        label: L('Days left', 'மீதி நாட்கள்'),
+        format: 'days',
+        align: 'right',
+      },
       {
         key: 'status',
         label: L('Status', 'நிலை'),
         format: 'enum',
-        enum_labels: { expired: L('Expired', 'காலாவதியானது'), expiring: L('Expiring', 'காலாவதியாகிறது') },
+        enum_labels: {
+          expired: L('Expired', 'காலாவதியானது'),
+          expiring: L('Expiring', 'காலாவதியாகிறது'),
+        },
       },
       C.qty('qty_milli', 'Quantity', 'அளவு'),
-      C.money('value_cost_paise', 'Value at cost', 'அடக்க விலை மதிப்பு', { mobile: 'value', sort: 'value_cost_paise' }),
+      C.money('value_cost_paise', 'Value at cost', 'அடக்க விலை மதிப்பு', {
+        mobile: 'value',
+        sort: 'value_cost_paise',
+      }),
       C.money('value_mrp_paise', 'Value at MRP', 'MRP மதிப்பு'),
       C.text('supplier_name', 'Supplier', 'சப்ளையர்'),
       C.text('store_name', 'Store', 'கிளை', { hidden_by_default: true }),
@@ -3134,17 +3478,33 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'deadStock',
     group: 'stock',
     title: L('Dead stock', 'விற்காத சரக்கு'),
-    description: L('Items in stock that have not sold for a while', 'நீண்ட நாட்களாக விற்காத இருப்புப் பொருட்கள்'),
+    description: L(
+      'Items in stock that have not sold for a while',
+      'நீண்ட நாட்களாக விற்காத இருப்புப் பொருட்கள்',
+    ),
     permission: 'reports.read',
     feature: 'advanced_reports',
     filters: [F.store, F.days(90, L('No sale for (days)', 'விற்பனை இல்லாத நாட்கள்')), F.category],
     columns: [
-      C.text('name', 'Item', 'பொருள்', { mobile: 'title', sort: 'name', link: { type: 'product', id_field: 'product_id' } }),
+      C.text('name', 'Item', 'பொருள்', {
+        mobile: 'title',
+        sort: 'name',
+        link: { type: 'product', id_field: 'product_id' },
+      }),
       C.text('category_name', 'Category', 'வகை', { mobile: 'subtitle' }),
       C.qty('qty_milli', 'Quantity', 'அளவு'),
-      C.money('value_cost_paise', 'Value at cost', 'அடக்க விலை மதிப்பு', { mobile: 'value', sort: 'value_cost_paise' }),
+      C.money('value_cost_paise', 'Value at cost', 'அடக்க விலை மதிப்பு', {
+        mobile: 'value',
+        sort: 'value_cost_paise',
+      }),
       C.date('last_sold_date', 'Last sold', 'கடைசி விற்பனை'),
-      { key: 'days_since_last_sale', label: L('Days unsold', 'விற்காத நாட்கள்'), format: 'days', align: 'right', sort: 'days_since_last_sale' },
+      {
+        key: 'days_since_last_sale',
+        label: L('Days unsold', 'விற்காத நாட்கள்'),
+        format: 'days',
+        align: 'right',
+        sort: 'days_since_last_sale',
+      },
       C.date('last_inbound_date', 'Last received', 'கடைசியாக வந்தது'),
     ],
     row_key: ['product_id'],
@@ -3162,7 +3522,12 @@ export const REPORTS: readonly ReportDef[] = [
     feature: 'reports_basic',
     filters: [
       F.store,
-      { key: 'overdue_only', kind: 'boolean', label: L('Overdue only', 'தவணை தாண்டியவை மட்டும்'), default: false },
+      {
+        key: 'overdue_only',
+        kind: 'boolean',
+        label: L('Overdue only', 'தவணை தாண்டியவை மட்டும்'),
+        default: false,
+      },
       {
         key: 'bucket',
         kind: 'select',
@@ -3172,7 +3537,11 @@ export const REPORTS: readonly ReportDef[] = [
       F.q,
     ],
     columns: [
-      C.text('name', 'Customer', 'வாடிக்கையாளர்', { mobile: 'title', sort: 'name', link: { type: 'customer', id_field: 'customer_id' } }),
+      C.text('name', 'Customer', 'வாடிக்கையாளர்', {
+        mobile: 'title',
+        sort: 'name',
+        link: { type: 'customer', id_field: 'customer_id' },
+      }),
       { key: 'phone', label: L('Phone', 'தொலைபேசி'), format: 'phone', mobile: 'subtitle' },
       ...OUTSTANDING_COLUMNS('customer'),
       C.money('overdue_paise', 'Overdue', 'தவணை தாண்டியது'),
@@ -3187,16 +3556,28 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'supplierOutstanding',
     group: 'parties',
     title: L('Supplier dues (ageing)', 'சப்ளையர் நிலுவை (பழமை)'),
-    description: L('What the shop owes suppliers, by due date', 'சப்ளையர்களுக்குச் செலுத்த வேண்டியது'),
+    description: L(
+      'What the shop owes suppliers, by due date',
+      'சப்ளையர்களுக்குச் செலுத்த வேண்டியது',
+    ),
     permission: 'reports.read',
     feature: 'reports_basic',
     filters: [
       F.store,
-      { key: 'overdue_only', kind: 'boolean', label: L('Overdue only', 'தவணை தாண்டியவை மட்டும்'), default: false },
+      {
+        key: 'overdue_only',
+        kind: 'boolean',
+        label: L('Overdue only', 'தவணை தாண்டியவை மட்டும்'),
+        default: false,
+      },
       F.q,
     ],
     columns: [
-      C.text('name', 'Supplier', 'சப்ளையர்', { mobile: 'title', sort: 'name', link: { type: 'supplier', id_field: 'supplier_id' } }),
+      C.text('name', 'Supplier', 'சப்ளையர்', {
+        mobile: 'title',
+        sort: 'name',
+        link: { type: 'supplier', id_field: 'supplier_id' },
+      }),
       { key: 'gstin', label: L('GSTIN', 'GSTIN'), format: 'gstin', hidden_by_default: true },
       ...OUTSTANDING_COLUMNS('supplier'),
       C.money('overdue_paise', 'Overdue', 'தவணை தாண்டியது'),
@@ -3212,7 +3593,10 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'hsnSummary',
     group: 'gst',
     title: L('HSN summary', 'HSN சுருக்கம்'),
-    description: L('HSN-wise quantity, value and tax (GSTR-1 table 12)', 'HSN வாரியான அளவு, மதிப்பு, வரி'),
+    description: L(
+      'HSN-wise quantity, value and tax (GSTR-1 table 12)',
+      'HSN வாரியான அளவு, மதிப்பு, வரி',
+    ),
     permission: 'reports.gst',
     feature: 'gst_reports',
     filters: [
@@ -3241,7 +3625,10 @@ export const REPORTS: readonly ReportDef[] = [
       { key: 'qty_milli', label: L('Quantity', 'அளவு'), format: 'qty', align: 'right' },
       C.pct('rate_bp', 'Rate %', 'வரி %', { sort: 'rate_bp' }),
       ...GST_AMOUNT_COLUMNS,
-      C.money('total_value_paise', 'Total value', 'மொத்த மதிப்பு', { mobile: 'value', total: false }),
+      C.money('total_value_paise', 'Total value', 'மொத்த மதிப்பு', {
+        mobile: 'value',
+        total: false,
+      }),
     ],
     row_key: ['supply', 'hsn_code', 'uqc', 'rate_bp'],
     default_sort: 'hsn_code',
@@ -3259,7 +3646,12 @@ export const REPORTS: readonly ReportDef[] = [
     filters: [
       F.gstRange(),
       F.store,
-      { key: 'include_credit_notes', kind: 'boolean', label: L('Include credit notes', 'கிரெடிட் நோட்டுகளும்'), default: true },
+      {
+        key: 'include_credit_notes',
+        kind: 'boolean',
+        label: L('Include credit notes', 'கிரெடிட் நோட்டுகளும்'),
+        default: true,
+      },
       { key: 'b2b_only', kind: 'boolean', label: L('B2B only', 'B2B மட்டும்'), default: false },
       F.q,
     ],
@@ -3278,13 +3670,19 @@ export const REPORTS: readonly ReportDef[] = [
         key: 'kind',
         label: L('Type', 'வகை'),
         format: 'enum',
-        enum_labels: { invoice: L('Invoice', 'பில்'), credit_note: L('Credit note', 'கிரெடிட் நோட்') },
+        enum_labels: {
+          invoice: L('Invoice', 'பில்'),
+          credit_note: L('Credit note', 'கிரெடிட் நோட்'),
+        },
       },
       C.text('customer_name', 'Customer', 'வாடிக்கையாளர்', { mobile: 'subtitle' }),
       { key: 'customer_gstin', label: L('GSTIN', 'GSTIN'), format: 'gstin' },
       C.text('place_of_supply', 'Place of supply', 'விநியோக இடம்'),
       ...GST_AMOUNT_COLUMNS,
-      C.money('round_off_paise', 'Round off', 'முழுமையாக்கல்', { total: false, hidden_by_default: true }),
+      C.money('round_off_paise', 'Round off', 'முழுமையாக்கல்', {
+        total: false,
+        hidden_by_default: true,
+      }),
       C.money('total_paise', 'Total', 'மொத்தம்', { mobile: 'value', sort: 'total_paise' }),
     ],
     row_key: ['kind', 'document_id'],
@@ -3297,15 +3695,28 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'purchaseRegister',
     group: 'gst',
     title: L('Purchase register', 'கொள்முதல் பதிவேடு'),
-    description: L('Bill-wise purchases and expenses with tax and ITC', 'பில் வாரியான கொள்முதல், வரி, உள்ளீட்டு வரி'),
+    description: L(
+      'Bill-wise purchases and expenses with tax and ITC',
+      'பில் வாரியான கொள்முதல், வரி, உள்ளீட்டு வரி',
+    ),
     permission: 'reports.gst',
     feature: 'gst_reports',
     filters: [
       F.gstRange(),
       F.store,
       F.supplier,
-      { key: 'include_expenses', kind: 'boolean', label: L('Include expenses', 'செலவுகளும்'), default: true },
-      { key: 'itc_only', kind: 'boolean', label: L('ITC only', 'உள்ளீட்டு வரி உள்ளவை மட்டும்'), default: false },
+      {
+        key: 'include_expenses',
+        kind: 'boolean',
+        label: L('Include expenses', 'செலவுகளும்'),
+        default: true,
+      },
+      {
+        key: 'itc_only',
+        kind: 'boolean',
+        label: L('ITC only', 'உள்ளீட்டு வரி உள்ளவை மட்டும்'),
+        default: false,
+      },
       F.q,
     ],
     columns: [
@@ -3348,7 +3759,10 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'h1Register',
     group: 'pharmacy',
     title: L('Schedule H1 register', 'அட்டவணை H1 பதிவேடு'),
-    description: L('Register of Schedule H1 drugs dispensed (Drugs & Cosmetics Rules)', 'வழங்கிய அட்டவணை H1 மருந்துகளின் பதிவேடு'),
+    description: L(
+      'Register of Schedule H1 drugs dispensed (Drugs & Cosmetics Rules)',
+      'வழங்கிய அட்டவணை H1 மருந்துகளின் பதிவேடு',
+    ),
     permission: 'reports.read',
     feature: 'reports_basic',
     business_types: ['pharmacy'],
@@ -3366,7 +3780,10 @@ export const REPORTS: readonly ReportDef[] = [
     ],
     columns: [
       C.date('date', 'Date', 'தேதி', { sort: 'date' }),
-      C.text('invoice_number', 'Bill no', 'பில் எண்', { sort: 'invoice_number', link: { type: 'sales_invoice', id_field: 'invoice_id' } }),
+      C.text('invoice_number', 'Bill no', 'பில் எண்', {
+        sort: 'invoice_number',
+        link: { type: 'sales_invoice', id_field: 'invoice_id' },
+      }),
       C.text('patient_name', 'Patient', 'நோயாளி', { mobile: 'subtitle' }),
       C.text('doctor_name', 'Doctor', 'மருத்துவர்'),
       C.text('doctor_reg_no', 'Doctor reg. no', 'மருத்துவர் பதிவு எண்'),
@@ -3385,7 +3802,10 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'scheduleSales',
     group: 'pharmacy',
     title: L('Scheduled drug sales', 'அட்டவணை மருந்து விற்பனை'),
-    description: L('Schedule H / H1 / X sales and prescription capture', 'அட்டவணை H / H1 / X விற்பனை, மருந்துச் சீட்டு'),
+    description: L(
+      'Schedule H / H1 / X sales and prescription capture',
+      'அட்டவணை H / H1 / X விற்பனை, மருந்துச் சீட்டு',
+    ),
     permission: 'reports.read',
     feature: 'reports_basic',
     business_types: ['pharmacy'],
@@ -3405,10 +3825,17 @@ export const REPORTS: readonly ReportDef[] = [
     ],
     columns: [
       C.text('schedule', 'Schedule', 'அட்டவணை', { mobile: 'title' }),
-      C.text('name', 'Drug', 'மருந்து', { group_by: ['product'], mobile: 'subtitle', sort: 'name' }),
+      C.text('name', 'Drug', 'மருந்து', {
+        group_by: ['product'],
+        mobile: 'subtitle',
+        sort: 'name',
+      }),
       C.qty('qty_milli', 'Quantity', 'அளவு', { group_by: ['product'] }),
       C.int('bills', 'Bills', 'பில்கள்', { sort: 'bills' }),
-      C.money('net_sales_paise', 'Net sales', 'நிகர விற்பனை', { mobile: 'value', sort: 'net_sales_paise' }),
+      C.money('net_sales_paise', 'Net sales', 'நிகர விற்பனை', {
+        mobile: 'value',
+        sort: 'net_sales_paise',
+      }),
       C.int('rx_captured', 'With prescription', 'மருந்துச் சீட்டுடன்'),
       C.int('rx_missing', 'Without prescription', 'மருந்துச் சீட்டு இல்லாமல்'),
     ],
@@ -3422,12 +3849,21 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'shifts',
     group: 'controls',
     title: L('Shift summary', 'ஷிஃப்ட் சுருக்கம்'),
-    description: L('Sales, tenders and cash difference of every shift', 'ஒவ்வொரு ஷிஃப்டின் விற்பனை, ரொக்க வித்தியாசம்'),
+    description: L(
+      'Sales, tenders and cash difference of every shift',
+      'ஒவ்வொரு ஷிஃப்டின் விற்பனை, ரொக்க வித்தியாசம்',
+    ),
     permission: 'reports.read',
     feature: 'shifts',
     filters: [F.range(), F.store, F.register, F.user],
     columns: [
-      { key: 'opened_at', label: L('Opened', 'தொடக்கம்'), format: 'datetime', sort: 'opened_at', link: { type: 'shift', id_field: 'shift_id' } },
+      {
+        key: 'opened_at',
+        label: L('Opened', 'தொடக்கம்'),
+        format: 'datetime',
+        sort: 'opened_at',
+        link: { type: 'shift', id_field: 'shift_id' },
+      },
       C.text('register_code', 'Counter', 'கவுண்டர்', { mobile: 'title' }),
       C.text('opened_by_name', 'Cashier', 'காசாளர்', { mobile: 'subtitle' }),
       { key: 'closed_at', label: L('Closed', 'முடிவு'), format: 'datetime' },
@@ -3439,7 +3875,10 @@ export const REPORTS: readonly ReportDef[] = [
       C.money('other_paise', 'Other', 'மற்றவை', { hidden_by_default: true }),
       C.money('expected_cash_paise', 'Expected cash', 'எதிர்பார்த்த ரொக்கம்', { total: false }),
       C.money('counted_cash_paise', 'Counted cash', 'எண்ணிய ரொக்கம்', { total: false }),
-      C.money('difference_paise', 'Difference', 'வித்தியாசம்', { mobile: 'value', sort: 'difference_paise' }),
+      C.money('difference_paise', 'Difference', 'வித்தியாசம்', {
+        mobile: 'value',
+        sort: 'difference_paise',
+      }),
     ],
     row_key: ['shift_id'],
     default_sort: '-opened_at',
@@ -3451,7 +3890,10 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'cancellations',
     group: 'controls',
     title: L('Cancellations', 'ரத்துகள்'),
-    description: L('Cancelled bills and returns: who, when and why', 'ரத்தான பில்கள்: யார், எப்போது, ஏன்'),
+    description: L(
+      'Cancelled bills and returns: who, when and why',
+      'ரத்தான பில்கள்: யார், எப்போது, ஏன்',
+    ),
     permission: 'reports.read',
     feature: 'reports_basic',
     filters: [
@@ -3469,7 +3911,12 @@ export const REPORTS: readonly ReportDef[] = [
       F.user,
     ],
     columns: [
-      { key: 'cancelled_at', label: L('Cancelled at', 'ரத்து நேரம்'), format: 'datetime', sort: 'cancelled_at' },
+      {
+        key: 'cancelled_at',
+        label: L('Cancelled at', 'ரத்து நேரம்'),
+        format: 'datetime',
+        sort: 'cancelled_at',
+      },
       C.text('number', 'Number', 'எண்', {
         mobile: 'title',
         sort: 'number',
@@ -3488,7 +3935,12 @@ export const REPORTS: readonly ReportDef[] = [
       C.text('cancelled_by_name', 'Cancelled by', 'ரத்து செய்தவர்', { mobile: 'subtitle' }),
       C.text('created_by_name', 'Billed by', 'பில் போட்டவர்'),
       C.text('reason', 'Reason', 'காரணம்'),
-      { key: 'minutes_after', label: L('Minutes after billing', 'பில்லுக்குப் பின் நிமிடங்கள்'), format: 'int', align: 'right' },
+      {
+        key: 'minutes_after',
+        label: L('Minutes after billing', 'பில்லுக்குப் பின் நிமிடங்கள்'),
+        format: 'int',
+        align: 'right',
+      },
       C.money('total_paise', 'Amount', 'தொகை', { mobile: 'value', sort: 'total_paise' }),
       C.money('refunded_paise', 'Refunded', 'திருப்பிக் கொடுத்தது'),
     ],
@@ -3502,7 +3954,10 @@ export const REPORTS: readonly ReportDef[] = [
     route: 'discounts',
     group: 'controls',
     title: L('Discounts given', 'வழங்கிய தள்ளுபடிகள்'),
-    description: L('Discounts by bill, item, offer or cashier', 'பில், பொருள், சலுகை, காசாளர் வாரியான தள்ளுபடி'),
+    description: L(
+      'Discounts by bill, item, offer or cashier',
+      'பில், பொருள், சலுகை, காசாளர் வாரியான தள்ளுபடி',
+    ),
     permission: 'reports.read',
     feature: 'advanced_reports',
     filters: [
@@ -3521,7 +3976,13 @@ export const REPORTS: readonly ReportDef[] = [
         ],
       },
       F.user,
-      { key: 'min_discount_bp', kind: 'number', label: L('Discount at least (bp)', 'குறைந்தபட்ச தள்ளுபடி (bp)'), min: 0, max: 10_000 },
+      {
+        key: 'min_discount_bp',
+        kind: 'number',
+        label: L('Discount at least (bp)', 'குறைந்தபட்ச தள்ளுபடி (bp)'),
+        min: 0,
+        max: 10_000,
+      },
     ],
     columns: [
       C.text('label', 'Name', 'பெயர்', { mobile: 'title', sort: 'label' }),
@@ -3540,8 +4001,13 @@ export const REPORTS: readonly ReportDef[] = [
       C.money('gross_paise', 'Gross', 'மொத்தம்'),
       C.money('item_discount_paise', 'Item discount', 'பொருள் தள்ளுபடி'),
       C.money('bill_discount_paise', 'Bill discount', 'பில் தள்ளுபடி'),
-      C.money('promotion_discount_paise', 'Offer discount', 'சலுகை தள்ளுபடி', { hidden_by_default: true }),
-      C.money('discount_paise', 'Total discount', 'மொத்த தள்ளுபடி', { mobile: 'value', sort: 'discount_paise' }),
+      C.money('promotion_discount_paise', 'Offer discount', 'சலுகை தள்ளுபடி', {
+        hidden_by_default: true,
+      }),
+      C.money('discount_paise', 'Total discount', 'மொத்த தள்ளுபடி', {
+        mobile: 'value',
+        sort: 'discount_paise',
+      }),
       C.pct('discount_bp', 'Discount %', 'தள்ளுபடி %', { total: true, sort: 'discount_bp' }),
     ],
     row_key: ['group_key'],
@@ -3561,11 +4027,16 @@ export function getReportDef(key: string): ReportDef | undefined {
 
 /** Columns of a report shown for a group_by value (all when the column has no group_by). */
 export function reportColumns(defn: ReportDef, groupBy?: string | null): ReportColumnDef[] {
-  return defn.columns.filter((c) => !c.group_by || (groupBy != null && c.group_by.includes(groupBy)))
+  return defn.columns.filter(
+    (c) => !c.group_by || (groupBy != null && c.group_by.includes(groupBy)),
+  )
 }
 
 /** Web path a linked cell opens, or null. */
-export function reportCellPath(column: ReportColumnDef, row: Record<string, unknown>): string | null {
+export function reportCellPath(
+  column: ReportColumnDef,
+  row: Record<string, unknown>,
+): string | null {
   const link = column.link
   if (!link) return null
   const id = row[link.id_field]
@@ -3574,7 +4045,10 @@ export function reportCellPath(column: ReportColumnDef, row: Record<string, unkn
   return journalSourcePath(type, id)
 }
 
-/** Locale-neutral CSV text of one value (money '1234.50', qty '1.5', bp '12.50', ISO dates). */
+/**
+ * Locale-neutral CSV text of one value (money '1234.50', qty '1.5', bp '12.50', ISO dates, phones
+ * '98765 43210' so spreadsheets keep them as text).
+ */
 export function reportCsvValue(column: ReportColumnDef, value: unknown): CsvValue {
   if (value === null || value === undefined) return ''
   switch (column.format) {
@@ -3584,6 +4058,8 @@ export function reportCsvValue(column: ReportColumnDef, value: unknown): CsvValu
       return typeof value === 'number' ? milliToDecimalString(value) : String(value)
     case 'percent_bp':
       return typeof value === 'number' ? (value / 100).toFixed(2) : String(value)
+    case 'phone':
+      return typeof value === 'string' ? formatPhoneDisplay(value) : String(value)
     case 'boolean':
       return value ? 'Yes' : 'No'
     case 'enum':
@@ -3611,7 +4087,11 @@ export function reportCsv(
   if (defn.totals && totals) {
     lines.push(
       cols.map((c, i) =>
-        c.total && totals[c.key] !== undefined ? reportCsvValue(c, totals[c.key]) : i === 0 ? 'Total' : '',
+        c.total && totals[c.key] !== undefined
+          ? reportCsvValue(c, totals[c.key])
+          : i === 0
+            ? 'Total'
+            : '',
       ),
     )
   }
@@ -3619,6 +4099,10 @@ export function reportCsv(
 }
 
 /** CSV download file name: 'item-sales_2026-10-01_2026-10-31.csv'. */
-export function reportCsvFilename(key: ReportKey, from?: string | null, to?: string | null): string {
+export function reportCsvFilename(
+  key: ReportKey,
+  from?: string | null,
+  to?: string | null,
+): string {
   return `${key}${from ? `_${from}` : ''}${to && to !== from ? `_${to}` : ''}.csv`
 }

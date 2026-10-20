@@ -5,6 +5,9 @@
  *          tenants.plan_code; features/limits from `plans`, then subscriptions.limit_overrides.
  * onprem — the signed license in system_settings: plan features (or the license's own list),
  *          limits from the plan overridden by the license and `max_stores`.
+ *          Add-on features (Kadai Connect, cloud backup) come from the licence's `addons` while
+ *          each add-on is valid (licenseEffectiveFeatures); a lapsed licence stays on its edition
+ *          during grace_days.
  *            no license            → Free plan (evaluation), writable
  *            expired / not yet     → Free plan, writable (data is never locked away)
  *            tampered / foreign    → Free plan and READ-ONLY (writes get 403 LICENSE_INVALID)
@@ -32,6 +35,7 @@ import {
   periodOf,
   todayIn,
 } from '@kadai/shared'
+import { licenseEffectiveFeatures } from '@kadai/shared/api/licensing'
 import type { Config } from '../config'
 import type { DB } from '../db/schema.generated'
 import type { Tx } from '../db/tenant'
@@ -236,10 +240,11 @@ export class EntitlementsService {
       }
     }
     if (doc === null) return free('missing', false)
+    const today = this.opts.today?.() ?? todayIn('Asia/Kolkata')
     const result = verifyLicense(doc, {
       keys: trustedLicenseKeys(this.opts.config.licensePublicKey),
       production: this.opts.config.isProduction,
-      today: this.opts.today?.() ?? todayIn('Asia/Kolkata'),
+      today,
       installationId: await getInstallationId(db),
     })
     if (!result.ok) {
@@ -255,7 +260,7 @@ export class EntitlementsService {
     limits.stores = lic.max_stores
     return {
       plan_code: plan.code,
-      features: new Set((lic.features ?? plan.features).filter(isFeature)),
+      features: new Set(licenseEffectiveFeatures(lic.features ?? plan.features, lic.addons, today)),
       limits,
       source: 'license',
       valid_until: lic.valid_until ? `${lic.valid_until}T23:59:59.999+05:30` : null,

@@ -193,52 +193,182 @@ bill-entry grid); debit notes are pro-rata with `prorateReturnLine()`.
 
 ## accounting
 
-| Method & path | perm |
-|---|---|
-| `L/C /accounts` · `G/U /accounts/:id` (system accounts: rename only) | `accounting.read` / `accounting.write` |
-| `L /journal-entries` · `G /journal-entries/:id` · `C /journal-entries` (manual, balanced) · `POST /journal-entries/:id/reverse` | `accounting.read` / `accounting.write` |
-| `L/C /expenses` · `G /expenses/:id` · `POST /expenses/:id/cancel` | `expenses.write` / `accounting.read` |
-| `POST /shifts/open` `{register_id, opening_cash_paise}` · `GET /shifts/current?register_id=` · `POST /shifts/:id/close` `{counted_cash_paise, denominations}` · `L /shifts` · `G /shifts/:id` (X/Z report) · `POST /shifts/:id/cash-entries` | `shifts.operate` / `shifts.manage` |
-| `GET /books/day-book?date=&store_id=` · `GET /books/cash-book?from=&to=` · `GET /books/ledger/:accountId?from=&to=` | `accounting.read` |
-| `GET /statements/trial-balance?as_of=` · `/statements/profit-loss?from=&to=` · `/statements/balance-sheet?as_of=` | `accounting.read` |
+Route catalogue: `accountingRoutes` in `@kadai/shared/api/accounting`. Balances are always derived
+from `journal_lines` (natural sign: + = the account's normal side). Posting plans and maths are
+shared: `computeExpenseAmounts()` / `expenseJournalLines()`, `cashEntryJournalLines()`,
+`expectedShiftCash()` / `shiftDifferenceJournalLines()`, `buildAccountTree()`, `runningBalances()`.
+Every list, book and statement takes `?format=csv`; errors carry `details.reason` from
+`ACCOUNTING_ERROR_REASONS`.
+
+| Method & path | perm | Notes |
+|---|---|---|
+| `GET /accounts?as_of=&store_id=&type=&money=cash\|bank&q=&include_inactive=&balances=` | `accounting.read`, `expenses.write`, `shifts.operate` or `payments.configure` | whole chart, not paginated; balances need `accounting.read` |
+| `C /accounts` · `G/U/D /accounts/:id` | `accounting.write` (C: also `expenses.write` for expense heads) | code 3–6 digits starting with the type digit (`suggestAccountCode()`), unique; parent of the same type; system accounts: name / name_ta / bank details only (422 `system_account_locked`); D = delete without journal lines, else deactivate (balance-sheet accounts need a zero balance: 409 `account_has_balance`) |
+| `L /journal-entries` (`from`, `to`, `source_type`, `source_id`, `account_id`, `party_type`+`party_id`, `store_id`, `reversals`, `q`, `sort`) · `G /journal-entries/:id` | `accounting.read` (+feat `accounting`) | detail: lines with account / party names and the source document link (`journalSourcePath()`) |
+| `C /journal-entries` · `POST /journal-entries/:id/reverse` `{reason, entry_date?}` | `accounting.write` (+feat `accounting`) | manual JV: balanced, ≥ 2 lines, receivable / payable lines need a party, JV number, audited; reverse manual entries only (409 `not_manual`), once (409 `already_reversed`) |
+| `L/C /expenses` · `G /expenses/:id` · `POST /expenses/:id/cancel` `{reason}` | `expenses.write` (L/G: or `accounting.read`) | amount as `total_paise` (incl. GST) or `taxable_paise`; ITC; cash / bank / credit (`supplier_id` → payable); EXP number; cash paid from a counter joins its open shift; list `summary` by category and method; cancel = reversal (409 `expense_has_payments`) |
+| `POST /shifts/open` `{register_id, opening_cash_paise, denominations?}` · `GET /shifts/current?register_id=` · `L /shifts` · `G /shifts/:id` | `shifts.operate` (+feat `shifts`; current: or `pos.use`) | one open shift per register (409 `shift_already_open`); detail = live X report while open, stored Z report once closed; operate-only members see their own shifts |
+| `POST /shifts/:id/cash-entries` `{kind, amount_paise, reason, account_id? \| counter?}` · `POST /shifts/:id/close` `{counted_cash_paise, denominations?, notes?}` | `shifts.operate` (another member's shift: `shifts.manage`) | pay-in / pay-out journal vs drawings / capital / bank / other income or an account; close: expected = opening + cash receipts − cash payments + pay-ins − pay-outs − cash expenses, the difference posts to `cash_short_excess`; no reopen (corrections by journal) |
+| `GET /books/day-book?date=&store_id=` · `GET /books/cash-book?from=&to=&account_id=` · `GET /books/ledger/:accountId?from=&to=&party_type=&party_id=` | `accounting.read` (+feat `accounting`) | paginated rows with the running balance over the whole range; opening / closing |
+| `GET /statements/trial-balance?as_of=` · `/statements/profit-loss?from=&to=&store_id=&compare_from=&compare_to=` · `/statements/balance-sheet?as_of=` | `accounting.read` (+feat `accounting`) | TB / BS tenant-wide (store-scoped members: 403 `all_stores_required`); BS equity includes this FY's profit and earlier years' profit; `balanced` checks |
+
+Cross-module: the accounting module adds the system subtype `cash_short_excess` (5250 "Cash short /
+excess", `CASH_SHORT_EXCESS_ACCOUNT`) to the shared DEFAULT_CHART and backfills existing tenants
+with a 07xx migration.
 
 ## reports & GST
 
-All support `?format=csv` and `store_id` filter.
+Route catalogue: `reportsRoutes` in `@kadai/shared/api/reports`; the generic viewer renders the
+`REPORTS` catalogue (report key → route, filters, columns with formats, totals, chart). Tabular
+reports answer `{data, page, totals, meta}` (`limit` ≤ 5000); `?format=csv` streams every row with
+the English column labels and a totals row (`reportCsv()`); `store_id` = a store or `all` (store
+access respected); ranges ≤ 366 days (400 `range_too_long`). Only completed documents count; credit
+notes reduce sales.
 
-| Method & path | perm |
+| Method & path | perm (+feat) |
 |---|---|
-| `GET /reports/dashboard?store_id=&date=` (today vs yesterday, 30-day trend, payment mix, top items, low stock, dues, expiring) | `reports.read` |
-| `GET /reports/sales-summary?group_by=day\|month\|store\|register\|user\|payment_method&from=&to=` | `reports.read` |
-| `GET /reports/item-sales` · `/reports/category-sales` · `/reports/brand-sales` · `/reports/profit` (margin by item/category) | `reports.read` |
-| `GET /reports/stock-summary` (valuation) · `/reports/stock-ageing` · `/reports/expiry` · `/reports/dead-stock` | `reports.read` |
-| `GET /reports/customer-outstanding` (ageing 0–30/31–60/61–90/90+) · `/reports/supplier-outstanding` | `reports.read` |
-| `GET /reports/tax/gstr1?period=YYYY-MM` (sections) · `GET /reports/tax/gstr1/export?period=&format=json\|csv` (GST portal offline-tool JSON) | `reports.gst` (+feat `gst_reports`) |
-| `GET /reports/tax/gstr3b?period=` · `/reports/tax/hsn-summary?from=&to=` · `/reports/tax/purchase-register` · `/reports/tax/sales-register` | `reports.gst` |
-| `GET /reports/pharmacy/h1-register?from=&to=` · `/reports/pharmacy/schedule-sales` | `reports.read` |
-| `GET /reports/shifts?from=&to=` · `/reports/cancellations` · `/reports/discounts` | `reports.read` |
+| `GET /reports/dashboard?store_id=&date=` (today vs yesterday, 30-day trend, payment mix, top items, dues, payables, stock alerts, open shifts, UPI) | `reports.read` |
+| `GET /reports/sales-summary?group_by=day\|month\|hour\|store\|register\|user\|payment_method&from=&to=` · `/reports/item-sales` · `/reports/category-sales` · `/reports/cancellations` | `reports.read` (`reports_basic`) |
+| `GET /reports/brand-sales` · `/reports/profit?group_by=item\|category\|brand` · `/reports/discounts?group_by=bill\|item\|promotion\|user` | `reports.read` (`advanced_reports`) |
+| `GET /reports/shifts?from=&to=` | `reports.read` (`shifts`) |
+| `GET /reports/stock-summary` (`reports_basic`) · `/reports/expiry?days=` (`batches_expiry`) · `/reports/stock-ageing` · `/reports/dead-stock?days=` (`advanced_reports`) | `reports.read` |
+| `GET /reports/customer-outstanding` (ageing 0–30/31–60/61–90/90+ by invoice date) · `/reports/supplier-outstanding` (by due date) | `reports.read` (`reports_basic`) |
+| `GET /reports/tax/gstr1?period=YYYY-MM&gstin=` (`kind: gstr1 \| composition \| unregistered`) · `GET /reports/tax/gstr1/export?period=&format=json\|csv&section=` (file) · `/reports/tax/gstr3b?period=` · `/reports/tax/hsn-summary` · `/reports/tax/sales-register` · `/reports/tax/purchase-register` | `reports.gst` (`gst_reports`) |
+| `GET /reports/pharmacy/h1-register?from=&to=` · `/reports/pharmacy/schedule-sales` | `reports.read` (`reports_basic`) |
+
+GSTR-1 JSON = `buildGstr1PortalJson()` (offline-tool layout, `GSTR1_PORTAL_SCHEMA_VERSION`, HSN split
+`hsn_b2b` / `hsn_b2c`, B2CL above ₹1,00,000); CSV = `gstr1Csv()`; GSTR-3B tax payment uses
+`utiliseItc()` (rule 88A order). Composition tenants get the CMP-08 quarterly summary.
 
 ## notifications
 
-| Method & path | perm |
-|---|---|
-| `L /notifications` (outbox with status) · `POST /notifications/:id/retry` | `settings.manage` |
-| `POST /notifications/send` `{channel, template_code, to, params}` | `notifications.send` |
-| `L /notification-templates` · `PUT /notification-templates/:code/:channel/:locale` | `settings.manage` |
-| `POST /customers/:id/remind` `{channel}` (due reminder with UPI link) | `customers.write` |
-| `POST /webhooks/notifications/:provider` (delivery receipts) | public, verified |
+Route catalogue: `notificationsRoutes` in `@kadai/shared/api/notifications`. Business code writes
+the outbox with `enqueueNotification(tx, ctx, …)` (`apps/server/src/core/notify.ts`) inside its
+transaction; job `notifications.send` delivers it (5 attempts, `notificationRetryDelaySeconds()`
+backoff; `notifications.sweep` every minute). Templates: `NOTIFICATION_TEMPLATES` (10 codes ×
+channels × ta/en) + tenant overrides; providers implement `NotificationProvider` and register in
+`getNotificationProviders()` (core/notify.ts; on-prem relay: `kadai_relay`).
 
-## platform, billing & system
+| Method & path | perm | Notes |
+|---|---|---|
+| `L /notifications` (`status`, `channel`, `template_code`, `q`, `ref_type`, `ref_id`, `from`, `to`) · `G /notifications/:id` · `POST /notifications/:id/retry` | `settings.manage` | list `summary` by status / channel; retry failed / cancelled (409 `not_retryable`); OTP params redacted |
+| `POST /notifications/send` `{channel, template_code, to, params, recipient_name?, locale?, ref_type?, ref_id?, scheduled_at?}` | `notifications.send` (+feat `notifications`) | template-based only (`ADHOC_TEMPLATE_CODES`; no free text over SMS: DLT); rate limited 30/min |
+| `GET /notification-templates?code=&channel=&locale=` · `PUT /notification-templates/:code/:channel/:locale` · `DELETE /notification-templates/:code/:channel/:locale` | `settings.manage` (PUT: +feat `notifications`) | defaults merged with overrides, provider status and `settings.notifications`; PUT validated by `templateBodyIssues()` (an SMS override needs its DLT template id); DELETE = back to the default |
+| `POST /customers/:id/remind` `{channel: whatsapp\|sms\|wa_me, include_payment_link?, amount_paise?, store_id?, phone?, locale?}` | `customers.write` | due > 0 (422 `no_due`); payment-link intent (payments) + `due_reminder` notification; `wa_me` returns the text and a wa.me link on every plan |
+| `POST /webhooks/notifications/:provider` · `GET /webhooks/notifications/whatsapp_cloud` (hub.challenge) | public, verified | WhatsApp `X-Hub-Signature-256` (app secret), MSG91 delivery reports; statuses only move forward (`nextNotificationStatus()`) |
 
-| Method & path | perm |
-|---|---|
-| `GET /billing/plans` · `GET /billing/subscription` · `POST /billing/checkout` `{plan_code, cycle}` (Razorpay subscription link) · `POST /billing/cancel` · `GET /billing/invoices` | `billing.manage` (cloud) |
-| `POST /webhooks/platform/razorpay` | public, verified |
-| `GET /platform/tenants` · `GET /platform/tenants/:id` · `POST /platform/tenants/:id/suspend` · `…/resume` · `…/plan` · `GET /platform/metrics` · `PUT /platform/plans/:code` | platform admin (cloud) |
-| `GET /system/info` (version, mode, license, db size, last backup) | `settings.manage` |
-| `GET/PUT /system/license` (upload signed license) | `settings.manage` (onprem) |
-| `L/C /system/backups` · `GET /system/backups/:id/download` | `settings.manage` (onprem) |
-| `L/C /api-keys` · `POST /api-keys/:id/revoke` | `settings.manage` (+feat `api_access`) |
+Jobs: `notifications.send`, `notifications.sweep` (every minute), `notifications.due-reminders`
+(10:00 IST, `shouldSendDueReminder()`), `notifications.daily-summary` (21:30 IST).
+
+## platform, billing & system (cloud billing, api-keys, system info)
+
+Route catalogue: `platformRoutes` in `@kadai/shared/api/platform`. Every price is computed by the
+shared `priceOrder()` (`@kadai/shared/api/licensing`; buyer channel `cloud`, place of supply =
+tenant state vs `KADAI_VENDOR_STATE_CODE`); cloud plan purchases are price-book lines
+`cloudPlanProductCode(plan, cycle)` (`cloud_growth_yearly` rows; monthly lines synthesized from
+`plans.price_monthly_paise`). Offers, announcements and vendor orders live in the vendor tables
+(0010) and are read/written through the system pool (justified in each handler).
+
+| Method & path | perm | Notes |
+|---|---|---|
+| `GET /billing/plans` | `billing.manage` (cloud) | public plans: features, limits, monthly/yearly excl. & incl. 18% GST, yearly savings, recommended (Valarchi) |
+| `GET /billing/subscription` | 〃 | plan, subscription, entitlements, usage meters vs limits (incl. bills this month), trial days left, active vendor offers for this tenant (audience: business type, state, segment), pending checkout |
+| `POST /billing/quote` `{plan_code, cycle, coupon_code?}` | 〃 | `PriceQuote` with offer / coupon result + CGST/SGST or IGST, period, first charge date |
+| `POST /billing/checkout` `{plan_code, cycle, coupon_code?, auto_renew?}` | 〃 | prepaid (yearly / monthly): `vendor_orders` (kind `cloud_plan`) + Razorpay payment link → `short_url`; monthly `auto_renew`: Razorpay subscription (`RAZORPAY_PLAN_<CODE>_<CYCLE>`, free months → future `start_at`) |
+| `POST /billing/cancel` `{reason?, feedback?}` | 〃 | cancel at period end |
+| `GET /billing/invoices` · `GET /billing/invoices/:id/print` | 〃 | paid vendor orders + `platform_invoices`; print = `VendorInvoicePrint` (GST, bilingual) |
+| `POST /webhooks/platform/razorpay` | public, verified | `RAZORPAY_PLATFORM_WEBHOOK_SECRET`; dedup `payment_webhook_events` provider `razorpay_platform`; `payment_link.paid`: `cloud_plan` orders fulfilled here (gapless `KD/<FY>/<seq>` via `vendorInvoiceCounterKey`), other kinds → job `licensing.fulfil-order`; `subscription.*` → `RAZORPAY_SUBSCRIPTION_EVENT_STATUS` |
+| `GET /announcements` · `POST /announcements/:id/dismiss` | any member (cloud) | `Banner[]` from the shared `selectBanners()` (channel cloud, business type, plan); critical banners cannot be dismissed |
+| `GET /system/info` | `settings.manage` (both modes) | version, commit, mode, node, uptime, db version/size, migrations, worker heartbeat, storage; `onprem` summary filled by the onprem module |
+| `L/C /api-keys` · `POST /api-keys/:id/revoke` | `settings.manage` (+feat `api_access`) | create `{name, permissions ⊆ yours (missingPermissions → 403), store_ids?, expires_at?}` → full key `kd_live_<prefix>_<secret>` shown once |
+
+Job `platform.subscription-renewals` (hourly, cloud): trial ended → Free, `past_due` > 7 days →
+downgrade, prepaid renewal reminders 7 and 1 days before the period end.
+
+## licensing & vendor console
+
+Our control plane (cloud deployment with `KADAI_VENDOR_CONSOLE=true`; 404 otherwise). Tables of
+migration 0010 — system pool only. Route catalogues in `@kadai/shared/api/licensing`:
+`licensingRoutes` (console, `/api/v1/platform/*`, tenant-less user tokens, guarded by the staff
+capability in `VendorRouteDef.vendor` — `STAFF_ROLE_CAPABILITIES`; partner users only see their own
+partner's rows; every mutation writes `platform_audit_logs`) and `licensingPublicRoutes`
+(`/public/v1/*`, `LicensingPublicRouteDef.licensing` = authentication + rate limit). Errors carry
+`details.reason` from `LICENSING_ERROR_REASONS`. Shared helpers: licence keys
+(`generateLicenseKey`, `parseLicenseKey`, `formatLicenseKeyInput`), signed requests
+(`installationSignaturePayload`), `priceOrder`, `planUpgrades` / `isReleaseEligible`,
+`amcStatus` / `licenseTermStatus` / `extendTermEnd`, `licenseEffectiveFeatures` /
+`licenseEffectiveLimits`, `selectBanners`, `formatVendorInvoiceNumber`, `partnerCommissionPaise`.
+
+| Method & path | capability | Notes |
+|---|---|---|
+| `GET /platform/me` | any staff | role, partner, capabilities |
+| `L/C /platform/staff` · `PATCH /platform/staff/:userId` · `GET /platform/audit-logs` | `vendor.staff.manage` / `vendor.audit.read` | create by phone (temporary password once for new users); owner/admin roles only by an owner; `users.is_platform_admin` kept in sync |
+| `GET /platform/metrics?months=` | `vendor.dashboard` | KPIs, cloud (tenants by plan/status/type/state, MRR, signups, bills/day), on-prem (licences by edition/type, activations, check-ins 7 d, version adoption, renewals due 30/60/90 + rate, top districts), revenue by month, partner revenue, recent orders |
+| `L/C /platform/products` · `PATCH /platform/products/:code` | `vendor.products.read` / `.write` | price book (`license_products`) |
+| `L/C /platform/customers` · `G/U /platform/customers/:id` | `vendor.customers.read` / `.write` | search phone/business/GSTIN, partner, tag, AMC state; G = customer 360 (licences, activations, orders, timeline, AMC, versions) |
+| `L/C /platform/licenses` · `G/U /platform/licenses/:id` · `GET …/:id/events` | `vendor.licenses.read` / `.issue` / `.manage` | issue → key `KD-XXXX-XXXX-XXXX-XXXX` shown once + sent (WhatsApp/SMS/email); only sha256 + prefix stored |
+| `POST /platform/licenses/:id/suspend` · `…/resume` · `…/revoke` · `…/reissue-key` | `vendor.licenses.manage` | reason required; re-issue = new key (keys are never stored) |
+| `POST /platform/licenses/:id/upgrade` · `…/addons` · `…/renew` | `vendor.licenses.issue` | limits recomputed; renew extends from max(today, current end) |
+| `POST /platform/licenses/offline-activate` `{license_id \| license_key, request}` | `vendor.activations.manage` | shop's request file / `KDREQ1.` code → signed licence file |
+| `L /platform/activations` · `POST …/:id/deactivate` · `POST …/:id/block` · `GET …/:id/license-file` | `vendor.licenses.read` / `vendor.activations.manage` / `vendor.licenses.manage` | transfer = deactivate (limit `LICENSE_TRANSFERS_PER_YEAR`, override by owner/admin) |
+| `L/C /platform/offers` · `G/U /platform/offers/:id` · `GET …/:id/redemptions` · `POST /platform/offers/validate` | `vendor.offers.read` / `.write` | coupon codes and automatic campaigns (code null): kind, applies_to, channel, audience, schedule, limits, partner-exclusive, stackable, banner ta/en |
+| `POST /platform/orders/quote` · `L/C /platform/orders` · `G/U /platform/orders/:id` | `vendor.orders.read` / `.write` | priced by `priceOrder` (partner pricing for partner-placed orders); draft → pending_payment → paid → fulfilled (`VENDOR_ORDER_TRANSITIONS`) |
+| `POST /platform/orders/:id/payment-link` · `…/mark-paid` · `…/fulfil` · `…/cancel` · `…/refund` · `GET …/:id/invoice` | `vendor.orders.write` / `.payments` / `.read` | Razorpay payment link or manual UTR / partner credit; paid → gapless `KD/<FY>/<seq>`, licence issued/extended, commission accrued, redemption recorded; refund voids the commission; invoice = `VendorInvoicePrint` (SAC 997331) |
+| `L/C /platform/partners` · `G/U /platform/partners/:id` · `L /platform/commissions` · `POST …/:id/approve` · `POST …/:id/pay` | `vendor.partners.*` / `vendor.commissions.*` | partner discount_bp (tier defaults 20/25/30%), commission_bp on referred direct sales |
+| `L/C /platform/releases` · `G/U /platform/releases/:id` | `vendor.releases.read` / `.write` | notes ta/en, artifacts (sha256; Ed25519 signature over `sha256\|version\|platform` made server-side with `KADAI_RELEASE_SIGNING_KEY`), mandatory, min_upgrade_from, installs |
+| `L/C /platform/announcements` · `G/U /platform/announcements/:id` | `vendor.announcements.read` / `.write` | audience: channels, business types, plan codes, states, version range, AMC state |
+| `L /platform/tenants` · `G /platform/tenants/:id` · `POST …/:id/suspend` · `…/resume` · `…/plan` · `GET /platform/plans` · `PUT /platform/plans/:code` | `vendor.tenants.read` / `.manage` / `vendor.plans.write` | cloud tenant admin (moved here from the platform module) |
+
+Public licensing API (scope `/public/v1`, no shop data ever required):
+
+| Method & path | auth | Notes |
+|---|---|---|
+| `POST /licensing/activate` | licence key (+ installation signature with the new key) | validates key/status/max activations; same installation → idempotent (`reactivated`); same installation id with another fingerprint → 409 `clone_suspected`; returns the signed licence bound to the installation, `check_in_days`, vendor info |
+| `POST /licensing/offline-activate` `{license_key, request}` | licence key | public `/activate` page: request file → licence file |
+| `POST /licensing/check-in` | installation signature | `{license_id, app_version, platform, stats (counts only), connect_snapshot?, update_status?}` → refreshed licence (when changed), banners, priced offers, renewal (due, quote, checkout), releases (eligible + newest ineligible), add-on entitlements, vendor info |
+| `GET /licensing/releases?channel=&from_version=&platform=` | 〃 | `ReleasePlan` with signed artifacts |
+| `POST /licensing/renewal-quote` · `POST /licensing/renewal-checkout` `{items, coupon_code?}` | 〃 | live price / vendor order + Razorpay payment link paid from inside the shop app |
+| `POST /licensing/license/refresh` · `POST /licensing/deactivate` | 〃 | freshly signed licence; self-service transfer (limited per year) |
+| `POST /licensing/backups/upload-url` · `POST …/backups/:id/complete` · `GET …/backups` · `POST …/backups/:id/download-url` · `DELETE …/backups/:id` | 〃 (feat `cloud_backup`) | presigned S3 URLs for encrypted blobs (10 GB per add-on, 30 days retention); we never hold the key |
+| `POST /licensing/relay/messages` · `GET /licensing/relay/messages/:id` | 〃 | SMS / WhatsApp / email through our providers, idempotent by `client_ref`, metered per licence & month (`RELAY_MONTHLY_QUOTA`) |
+| `POST /connect/otp/request` · `POST /connect/otp/verify` | none (rate limited) | licensee phone OTP → connect token (`X-Kadai-Connect-Token`) |
+| `GET /connect/shops` · `GET /connect/shops/:activationId/snapshot` | connect token | the owner's shops and their latest dashboard snapshot (another owner's shop → 404) |
+
+Signed requests: headers `X-Kadai-Installation`, `X-Kadai-Timestamp` (unix seconds) and
+`X-Kadai-Signature` (base64 Ed25519 over `METHOD\npath+query\ntimestamp\nsha256(body)`), ±10 min
+skew, replayed signatures refused. Jobs: `licensing.fulfil-order` (on payment),
+`licensing.renewal-reminders` (daily 10:00 IST: 30/15/7/1 days before, 7/30 days after; customer +
+partner), `licensing.stale-installations` (no check-in for 45 days), `licensing.backup-retention`.
+
+## on-prem system
+
+Route catalogue: `onpremRoutes` in `@kadai/shared/api/onprem` (supersedes the old `/system/license`
+and `/system/backups` lines). All routes are mode `onprem` (404 in cloud) and need
+`settings.manage` unless noted. Every vendor call (`KADAI_VENDOR_URL`, default
+`https://kadai.app`) is optional; an unreachable vendor is 502 `PROVIDER_ERROR`
+`{reason: 'vendor_unreachable'}` and vendor errors are relayed with their `LICENSING_ERROR_REASONS`
+reason. Licence verification stays local (core/license.ts): perpetual licences never need the
+internet.
+
+| Method & path | perm | Notes |
+|---|---|---|
+| `GET /system/license` | `settings.manage` | `LicenseStatusView`: state none/valid/grace/expired/not_yet_valid/tampered, edition, type, licensee, entitlements (limits), validity, AMC (`updates_until`), support, activation method, last vendor status |
+| `POST /system/license/activate` `{license_key}` | 〃 | online activation (vendor) → stored licence, entitlements invalidated; allowed in read-only mode |
+| `GET /system/license/activation-request` · `PUT /system/license` `{license}` | 〃 | offline: signed request (file / `KDREQ1.` code / QR, no secret inside) → licence file (`.kadai-license` JSON or `KDLIC1.` code) verified locally; PUT allowed in read-only mode |
+| `POST /system/license/refresh` · `POST /system/license/deactivate` `{confirm}` | 〃 | refreshed licence after renewal; move to a new computer (vendor frees the seat first, audited) |
+| `GET /system/vendor-state` · `POST /system/check-in` · `POST /system/banners/:id/dismiss` | vendor-state & dismiss: any member | last check-in: visible banners, offers with quotes, renewal, releases, add-on entitlements, support contacts, AMC status |
+| `POST /system/renewal-quote` · `POST /system/renewal-checkout` `{items, coupon_code?}` | 〃 | live quote / payment URL; the extended licence arrives with the next check-in or refresh |
+| `GET /system/updates?refresh=` · `POST /system/updates/install` `{version}` (202) · `GET /system/updates/status` | 〃 | eligible releases (AMC), stepping stones; install = pre_upgrade backup + `KADAI_DATA_DIR/updates/request.json`; status from `status.json` written by the host updater |
+| `L/C /system/backups` · `GET /system/backups/:id/download` · `POST /system/backups/:id/restore-request` (202) | 〃 | `pg_dump -Fc` (202, background), retention 14 daily + 12 monthly + 10 manual (+5 pre-upgrade) `backupsToPrune`; restore only through the host updater (typed confirmation) |
+| `GET/PUT /system/backup-settings` · `POST /system/backup-settings/test-path` | 〃 | schedule (default 23:00 IST), retention, external drive / USB folder, cloud upload |
+| `GET /system/backups/cloud` · `POST …/cloud/setup` · `POST …/cloud/confirm` · `POST /system/backups/:id/upload-cloud` · `POST /system/backups/cloud/:cloudId/download` | 〃 (+feat `cloud_backup` for writes) | recovery code shown once (only a verifier stored); AES-256-GCM, scrypt key (`CLOUD_BACKUP_ENCRYPTION`) |
+| `GET/PUT /system/connect` | 〃 (+feat `connect` for PUT) | Kadai Connect opt-in |
+| `GET /system/network` | `settings.manage` or `pos.use` | LAN addresses, app/POS URLs for counters & phones, firewall command |
+| `GET /system/disk` · `POST /system/support-bundle` | `settings.manage` | free space (warn < 2 GB); tar.gz with version, redacted config (`redactConfig`), migrations, logs, disk, last check-in — never database data |
+
+Jobs: `onprem.check-in` (every 6 h when online + on demand; backoff `checkInDelaySeconds`),
+`onprem.backup` (daily at the configured time), `onprem.cloud-backup-upload`. The messaging relay
+is the notifications provider `kadai_relay` (used when no own SMS/WhatsApp provider is set).
 
 ## health
 

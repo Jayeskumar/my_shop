@@ -782,7 +782,12 @@ data, { tx })` (`core/jobs.ts`) so a job exists only if the business transaction
 | `notifications.daily-summary` | daily 21:30 IST | notifications |
 | `inventory.alerts` (low stock / expiry digest) | daily 08:00 IST | inventory |
 | `platform.subscription-renewals` | hourly | platform (cloud) |
-| `platform.backup` | daily 23:00 local | platform (onprem) |
+| `licensing.fulfil-order` | on payment (platform webhook / manual) | licensing (vendor) |
+| `licensing.renewal-reminders` | daily 10:00 IST | licensing (vendor) |
+| `licensing.stale-installations` · `licensing.backup-retention` | daily | licensing (vendor) |
+| `onprem.check-in` | every 6 h when online (+ on demand, backoff offline) | onprem |
+| `onprem.backup` | daily at the configured time (default 23:00 IST) | onprem |
+| `onprem.cloud-backup-upload` | after a backup (cloud_backup add-on) | onprem |
 | `core.cleanup` (idempotency keys, OTPs, sessions) | hourly | foundation |
 
 ---

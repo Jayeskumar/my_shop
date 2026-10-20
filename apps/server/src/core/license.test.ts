@@ -8,7 +8,7 @@ import { closeTestDb, getTestConfig, insertTestTenant, testDb } from '../test/he
 import { EntitlementsService } from './entitlements'
 import {
   INSTALLATION_ID_KEY,
-  type LicensePayload,
+  type LicensePayloadInput,
   type TrustedKey,
   getInstallationId,
   parsePublicKey,
@@ -28,7 +28,7 @@ function keypair() {
   }
 }
 
-const payload = (over: Partial<LicensePayload> = {}): LicensePayload => ({
+const payload = (over: Partial<LicensePayloadInput> = {}): LicensePayloadInput => ({
   license_id: 'LIC-2026-0001',
   licensee: 'Murugan Stores',
   business_name: 'Murugan Stores',
@@ -99,6 +99,117 @@ describe('license signing & verification', () => {
     })
     const perpetual = signLicense(payload({ valid_until: null }), kp.privatePem, 'test-1')
     expect(verifyLicense(perpetual, { keys, production: true, today: '2099-01-01' }).ok).toBe(true)
+  })
+
+  it('accepts old (pre-0010) and extended payloads; the extension stays optional', () => {
+    const old = signLicense(payload(), kp.privatePem, 'test-1')
+    const oldRes = verifyLicense(old, { keys, production: true, today: '2026-06-01' })
+    expect(oldRes).toMatchObject({ ok: true, in_grace: false })
+    if (oldRes.ok) expect(oldRes.license.license_type).toBeUndefined()
+
+    const extended = signLicense(
+      payload({
+        plan_code: 'onprem_standard',
+        license_type: 'perpetual',
+        edition: 'onprem_standard',
+        key_prefix: 'KD-7Q2M',
+        valid_until: null,
+        updates_until: '2027-05-31',
+        support_until: '2027-05-31',
+        grace_days: 15,
+        addons: [
+          { product_code: 'addon_counter', qty: 2, limits: { registers: 1 } },
+          {
+            product_code: 'addon_connect',
+            qty: 1,
+            features: ['connect'],
+            valid_until: '2026-12-31',
+          },
+        ],
+        customer_id: newId(),
+        partner_id: null,
+        check_in_days: 7,
+      }),
+      kp.privatePem,
+      'test-1',
+    )
+    const res = verifyLicense(extended, { keys, production: true, today: '2026-06-01' })
+    expect(res).toMatchObject({
+      ok: true,
+      license: {
+        license_type: 'perpetual',
+        edition: 'onprem_standard',
+        updates_until: '2027-05-31',
+        // nested add-on defaults are filled (and signed) by signLicense
+        addons: [
+          { product_code: 'addon_counter', features: [], valid_until: null },
+          { product_code: 'addon_connect', features: ['connect'], limits: {} },
+        ],
+      },
+    })
+    // Still tamper-evident: raising an add-on quantity breaks the signature.
+    const lic = extended.license as { addons: Array<Record<string, unknown>> }
+    const raised = {
+      ...extended,
+      license: { ...extended.license, addons: [{ ...lic.addons[0], qty: 9 }, lic.addons[1]] },
+    }
+    expect(verifyLicense(raised, { keys, production: true, today: '2026-06-01' })).toMatchObject({
+      ok: false,
+      reason: 'bad_signature',
+    })
+  })
+
+  it('an older shop version (original schema) still verifies an extended document', () => {
+    // The original v1 schema is a non-strict z.object: unknown fields are ignored after the
+    // signature check over the raw object, and every original required field is present.
+    const doc = signLicense(
+      payload({ license_type: 'subscription', grace_days: 10, edition: 'onprem_pro' }),
+      kp.privatePem,
+      'test-1',
+    )
+    for (const field of [
+      'license_id',
+      'licensee',
+      'business_name',
+      'plan_code',
+      'max_stores',
+      'valid_from',
+      'valid_until',
+      'issued_at',
+    ])
+      expect(doc.license).toHaveProperty(field)
+  })
+
+  it('honours grace_days after valid_until (in_grace) and expires after the grace', () => {
+    const doc = signLicense(
+      payload({ license_type: 'subscription', grace_days: 15 }),
+      kp.privatePem,
+      'test-1',
+    )
+    expect(verifyLicense(doc, { keys, production: true, today: '2026-12-31' })).toMatchObject({
+      ok: true,
+      in_grace: false,
+    })
+    expect(verifyLicense(doc, { keys, production: true, today: '2027-01-15' })).toMatchObject({
+      ok: true,
+      in_grace: true,
+    })
+    expect(verifyLicense(doc, { keys, production: true, today: '2027-01-16' })).toMatchObject({
+      ok: false,
+      reason: 'expired',
+    })
+  })
+
+  it('rejects invalid extension values', () => {
+    expect(() => signLicense(payload({ grace_days: -1 }), kp.privatePem, 'test-1')).toThrow()
+    expect(() =>
+      signLicense(
+        payload({ license_type: 'forever' as unknown as 'perpetual' }),
+        kp.privatePem,
+        'test-1',
+      ),
+    ).toThrow()
+    expect(() => signLicense(payload({ key_prefix: 'KD-12' }), kp.privatePem, 'test-1')).toThrow()
   })
 
   it('binds to an installation when installation_id is set', () => {
@@ -218,6 +329,71 @@ describe('on-prem entitlements from the license', () => {
       read_only: true,
       license_status: 'bad_signature',
     })
+  })
+
+  it('add-on features count while each add-on is valid; limits are taken as signed', async () => {
+    const { systemDb } = testDb()
+    const installationId = await getInstallationId(systemDb)
+    await storeLicense(
+      systemDb,
+      signLicense(
+        payload({
+          installation_id: installationId,
+          plan_code: 'onprem_standard',
+          valid_until: null,
+          max_stores: 1,
+          limits: { registers: 5 },
+          addons: [
+            { product_code: 'addon_counter', qty: 2, limits: { registers: 1 } },
+            {
+              product_code: 'addon_connect',
+              qty: 1,
+              features: ['connect'],
+              valid_until: '2026-12-31',
+            },
+            {
+              product_code: 'addon_cloud_backup',
+              qty: 1,
+              features: ['cloud_backup'],
+              valid_until: '2026-05-31',
+            },
+          ],
+        }),
+        kp.privatePem,
+        'k',
+      ),
+      licenseKey,
+    )
+    const tenant = await insertTestTenant(systemDb)
+    const ent = await service().get(tenant.tenant.id)
+    expect(ent).toMatchObject({ plan_code: 'onprem_standard', license_status: 'valid' })
+    expect(ent.features.has('connect')).toBe(true)
+    expect(ent.features.has('cloud_backup')).toBe(false) // lapsed on 2026-05-31
+    expect(ent.features.has('upi_dynamic')).toBe(true) // edition features
+    // limits are already effective in the payload (edition 3 + 2 add-on counters = 5)
+    expect(ent.limits).toMatchObject({ stores: 1, registers: 5 })
+  })
+
+  it('a lapsed subscription within grace_days keeps its edition', async () => {
+    const { systemDb } = testDb()
+    const installationId = await getInstallationId(systemDb)
+    await storeLicense(
+      systemDb,
+      signLicense(
+        payload({
+          installation_id: installationId,
+          plan_code: 'onprem_pro',
+          valid_until: '2026-05-25',
+          grace_days: 15,
+        }),
+        kp.privatePem,
+        'k',
+      ),
+      licenseKey,
+    )
+    const tenant = await insertTestTenant(systemDb)
+    const ent = await service().get(tenant.tenant.id)
+    expect(ent).toMatchObject({ plan_code: 'onprem_pro', read_only: false })
   })
 
   it('expired license → Free plan but still writable', async () => {

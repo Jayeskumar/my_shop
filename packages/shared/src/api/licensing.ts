@@ -1903,10 +1903,10 @@ function betterOption(a: PricedOption, b: PricedOption): PricedOption {
  *    - free_months: `value` extra months on lines with a term (or an edition's included AMC).
  *    applies_to limits an offer to product codes (empty = all lines). Discounts are spread over
  *    lines pro-rata (allocateProRata), never exceeding a line.
- *    Non-stackable offers apply alone; all stackable offers apply together (price_override →
- *    percent → flat → free_months). The option giving the buyer the most value wins
- *    (discount + free months valued at the line's monthly price; ties: the one using the entered
- *    coupon, then fewer offers, then offer id) — independent of input order.
+ *    Non-stackable offers apply alone; stackable offers also apply together (price_override →
+ *    percent → flat → free_months, each on what is left). The option giving the buyer the most
+ *    value wins (discount + free months valued at the line's monthly price; ties: the one using
+ *    the entered coupon, then fewer offers, then offer id) — independent of input order.
  * 3. GST per line on the taxable value at the product's rate: CGST + SGST (splitGst) when the
  *    buyer's state equals the vendor's, otherwise IGST. No round-off.
  *
@@ -1972,9 +1972,10 @@ export function priceOrder(input: PriceOrderInput): PriceQuote {
   const stackable = candidates
     .filter((o) => o.stackable === true)
     .sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || byId(a, b))
-  for (const o of candidates.filter((x) => x.stackable !== true).sort(byId))
-    options.push(evaluateOption([o], lines, couponId))
-  if (stackable.length) options.push(evaluateOption(stackable, lines, couponId))
+  // Every offer alone is an option (a stackable one too: integer rounding can make the combination
+  // a paisa worse than one of its members), plus all stackable offers together.
+  for (const o of [...candidates].sort(byId)) options.push(evaluateOption([o], lines, couponId))
+  if (stackable.length > 1) options.push(evaluateOption(stackable, lines, couponId))
   const viable = options.filter((o) => o.value > 0)
   const best = viable.length ? viable.reduce(betterOption) : null
 
@@ -4444,7 +4445,11 @@ export const RelayMessageRequestSchema = z
     template_code: z
       .string()
       .trim()
-      .regex(/^[a-z][a-z0-9_]{1,63}$/),
+      .regex(/^[a-z][a-z0-9_]{1,63}$/)
+      .describe(
+        'NOTIFICATION_TEMPLATE_CODES (@kadai/shared/api/notifications); the vendor renders its ' +
+          'registered default text — anything else → 400 template_not_allowed',
+      ),
     locale: LocaleSchema,
     /** E.164 phone (sms / whatsapp) or email address (email). */
     to: z.string().trim().min(3).max(254),

@@ -158,6 +158,13 @@ const routes: KadaiPlugin = async (app) => {
 
 const publicRoutes: KadaiPlugin = async (app) => {
   app.get('/__test/ping', async () => ({ data: { pong: true } }))
+  // Installation-signed licensing requests hash the exact body (raw bytes kept).
+  app.post('/licensing/__test/raw', async (req) => ({
+    data: { raw_sha256: req.rawBody ? sha256Hex(req.rawBody) : null },
+  }))
+  app.post('/__test/raw', async (req) => ({
+    data: { raw_sha256: req.rawBody ? sha256Hex(req.rawBody) : null },
+  }))
 }
 
 const webhooks: KadaiPlugin = async (app) => {

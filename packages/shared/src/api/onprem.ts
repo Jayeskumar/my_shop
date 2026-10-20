@@ -501,7 +501,10 @@ export const UPDATE_STATE_LABELS: Readonly<Record<UpdateState, BilingualLabel>> 
   restoring: { en: 'Restoring the backup…', ta: 'காப்புப்பிரதி மீட்டமைக்கப்படுகிறது…' },
   migrating: { en: 'Updating the database…', ta: 'தரவுத்தளம் புதுப்பிக்கப்படுகிறது…' },
   starting: { en: 'Starting Kadai…', ta: 'கடை தொடங்கப்படுகிறது…' },
-  health_check: { en: 'Making sure everything works…', ta: 'அனைத்தும் சரியாக இயங்குகிறதா எனச் சரிபார்க்கிறது…' },
+  health_check: {
+    en: 'Making sure everything works…',
+    ta: 'அனைத்தும் சரியாக இயங்குகிறதா எனச் சரிபார்க்கிறது…',
+  },
   done: { en: 'Done', ta: 'முடிந்தது' },
   rolled_back: {
     en: 'The update did not work, so the previous version was restored',
@@ -680,7 +683,8 @@ export function backupsToPrune(
   return completed.filter((b) => !keep.has(b.id)).map((b) => b.id)
 }
 
-const BACKUP_NAME_RE = /^kadai-([A-Za-z0-9_]+)-(\d{8}-\d{6})-(scheduled|manual|pre_upgrade)(?:-([a-z0-9-]{1,40}))?\.dump$/
+const BACKUP_NAME_RE =
+  /^kadai-([A-Za-z0-9_]+)-(\d{8}-\d{6})-(scheduled|manual|pre_upgrade)(?:-([a-z0-9-]{1,40}))?\.dump$/
 
 /**
  * Backup file name shared with deploy/onprem/backup.sh & backup.ps1 (so host retention covers
@@ -982,9 +986,10 @@ export function lanUrls(address: string, port: number): { app_url: string; pos_u
 }
 
 /** Firewall command that opens the Kadai port. */
-export function firewallCommand(os: 'windows' | 'linux' | 'docker' | 'unknown', port: number):
-  | string
-  | null {
+export function firewallCommand(
+  os: 'windows' | 'linux' | 'docker' | 'unknown',
+  port: number,
+): string | null {
   if (os === 'windows')
     return `netsh advfirewall firewall add rule name="Kadai" dir=in action=allow protocol=TCP localport=${port}`
   if (os === 'linux') return `sudo ufw allow ${port}/tcp`
@@ -1022,8 +1027,9 @@ export function redactConfig(
     if (value !== null && value !== '' && SECRET_KEY_RE.test(key)) {
       out[key] = '[redacted]'
     } else if (typeof value === 'string') {
-      out[key] = value.replace(/(\b[a-z][a-z0-9+.-]*:\/\/)([^/@\s:]+)(:[^/@\s]*)?@/gi, (_m, p) =>
-        `${p}[redacted]@`,
+      out[key] = value.replace(
+        /(\b[a-z][a-z0-9+.-]*:\/\/)([^/@\s:]+)(:[^/@\s]*)?@/gi,
+        (_m, p) => `${p}[redacted]@`,
       )
     } else {
       out[key] = value
@@ -1139,7 +1145,7 @@ export const onpremRoutes = defineRoutes({
     method: 'POST',
     path: '/system/banners/:id/dismiss',
     mode: 'onprem',
-    params: IdParams,
+    params: BannerParams,
     summary: 'Hide an announcement / offer banner on this server (any member)',
   },
   renewalQuote: {

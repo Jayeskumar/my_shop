@@ -420,6 +420,27 @@ describe('auth plugin & request context', () => {
     expect(body.data.parsed).toEqual({ event: 'payment.captured', amount: 100 })
   })
 
+  it('keeps raw bodies for installation-signed licensing requests only', async () => {
+    const { createHash } = await import('node:crypto')
+    const raw = '{"license_id":"x",  "stats":{"stores":1}}'
+    const signed = await t.app.inject({
+      method: 'POST',
+      url: '/public/v1/licensing/__test/raw',
+      headers: { 'content-type': 'application/json' },
+      payload: raw,
+    })
+    expect(signed.json<{ data: { raw_sha256: string } }>().data.raw_sha256).toBe(
+      createHash('sha256').update(raw).digest('hex'),
+    )
+    const other = await t.app.inject({
+      method: 'POST',
+      url: '/public/v1/__test/raw',
+      headers: { 'content-type': 'application/json' },
+      payload: raw,
+    })
+    expect(other.json<{ data: { raw_sha256: string | null } }>().data.raw_sha256).toBeNull()
+  })
+
   it('registers catalogued routes with guards, 204 and deployment mode', async () => {
     const echo = await t.app.inject({
       method: 'POST',

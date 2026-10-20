@@ -466,9 +466,7 @@ export function suggestAccountCode(
   }
   const min = Number(prefix) * 1000
   const max = min + 999
-  const inRange = [...used]
-    .filter((c) => /^[0-9]{4}$/.test(c) && c.startsWith(prefix))
-    .map(Number)
+  const inRange = [...used].filter((c) => /^[0-9]{4}$/.test(c) && c.startsWith(prefix)).map(Number)
   const highest = inRange.length ? Math.max(...inRange) : min
   for (let n = Math.floor(highest / 10) * 10 + 10; n <= max; n += 10) if (free(n)) return String(n)
   for (let n = min + 1; n <= max; n++) if (free(n)) return String(n)
@@ -476,7 +474,11 @@ export function suggestAccountCode(
 }
 
 /** Tree node built by {@link buildAccountTree}. */
-export type AccountTreeNode<T> = T & { depth: number; rollup_balance_paise: number; children: AccountTreeNode<T>[] }
+export type AccountTreeNode<T> = T & {
+  depth: number
+  rollup_balance_paise: number
+  children: AccountTreeNode<T>[]
+}
 
 /**
  * Builds the chart tree (parents before children, siblings by code) with roll-up balances
@@ -653,7 +655,7 @@ export const ManualJournalLineSchema = z
     /** Store dimension of the line (default: the entry's store). */
     store_id: zId.nullable().optional(),
   })
-  .refine((l) => (l.debit_paise > 0) !== (l.credit_paise > 0), {
+  .refine((l) => l.debit_paise > 0 !== l.credit_paise > 0, {
     message: 'journal_line_side',
     path: ['debit_paise'],
   })
@@ -664,7 +666,9 @@ export const ManualJournalLineSchema = z
 export type ManualJournalLine = z.input<typeof ManualJournalLineSchema>
 
 /** Totals of journal lines for the live balance indicator and validation. */
-export function journalTotals(lines: ReadonlyArray<{ debit_paise?: number; credit_paise?: number }>): {
+export function journalTotals(
+  lines: ReadonlyArray<{ debit_paise?: number; credit_paise?: number }>,
+): {
   debit_paise: number
   credit_paise: number
   /** debit − credit (0 when balanced). */
@@ -816,7 +820,11 @@ export function expenseJournalLines(e: {
     })
   } else {
     if (!e.paid_from_account_id) throw new RangeError('paid_from_account_id is required')
-    lines.push({ account: { id: e.paid_from_account_id }, debit_paise: 0, credit_paise: a.total_paise })
+    lines.push({
+      account: { id: e.paid_from_account_id },
+      debit_paise: 0,
+      credit_paise: a.total_paise,
+    })
   }
   return lines.filter((l) => l.debit_paise > 0 || l.credit_paise > 0)
 }
@@ -908,7 +916,10 @@ export const ExpenseCreateSchema = z
     paid_from_account_id: zId.nullable().optional(),
     supplier_id: zId.nullable().optional(),
     reference: zNullableText(100).describe('Bill / receipt number, UTR, cheque number'),
-    attachment_file_id: zId.nullable().optional().describe('Bill photo (POST /files?purpose=attachment)'),
+    attachment_file_id: zId
+      .nullable()
+      .optional()
+      .describe('Bill photo (POST /files?purpose=attachment)'),
     register_id: zId.optional().describe('Counter whose drawer paid a cash expense'),
     client_ref: zIdempotencyKey.optional(),
   })
@@ -973,7 +984,11 @@ export const ExpenseListSummarySchema = z.object({
     }),
   ),
   by_method: z.array(
-    z.object({ payment_method: ExpensePaymentMethodSchema, count: z.int().min(0), total_paise: zPaise }),
+    z.object({
+      payment_method: ExpensePaymentMethodSchema,
+      count: z.int().min(0),
+      total_paise: zPaise,
+    }),
   ),
 })
 export type ExpenseListSummary = z.output<typeof ExpenseListSummarySchema>
@@ -999,9 +1014,23 @@ export const EXPENSE_QUICK_TILES: ReadonlyArray<
   { key: string; code: string | null; suggestion: string | null; icon: string } & BilingualLabel
 > = [
   { key: 'rent', code: '5300', suggestion: null, icon: 'home', en: 'Rent', ta: 'வாடகை' },
-  { key: 'electricity', code: '5310', suggestion: null, icon: 'zap', en: 'Electricity', ta: 'மின்சாரம்' },
+  {
+    key: 'electricity',
+    code: '5310',
+    suggestion: null,
+    icon: 'zap',
+    en: 'Electricity',
+    ta: 'மின்சாரம்',
+  },
   { key: 'salaries', code: '5320', suggestion: null, icon: 'users', en: 'Salaries', ta: 'சம்பளம்' },
-  { key: 'transport', code: '5330', suggestion: null, icon: 'truck', en: 'Transport', ta: 'போக்குவரத்து' },
+  {
+    key: 'transport',
+    code: '5330',
+    suggestion: null,
+    icon: 'truck',
+    en: 'Transport',
+    ta: 'போக்குவரத்து',
+  },
   {
     key: 'tea',
     code: null,
@@ -1010,7 +1039,14 @@ export const EXPENSE_QUICK_TILES: ReadonlyArray<
     en: 'Tea & snacks',
     ta: 'டீ & சிற்றுண்டி',
   },
-  { key: 'repairs', code: '5340', suggestion: null, icon: 'wrench', en: 'Repairs', ta: 'பழுது பார்த்தல்' },
+  {
+    key: 'repairs',
+    code: '5340',
+    suggestion: null,
+    icon: 'wrench',
+    en: 'Repairs',
+    ta: 'பழுது பார்த்தல்',
+  },
   {
     key: 'phone',
     code: '5350',
@@ -1019,8 +1055,22 @@ export const EXPENSE_QUICK_TILES: ReadonlyArray<
     en: 'Phone & internet',
     ta: 'தொலைபேசி & இணையம்',
   },
-  { key: 'packing', code: '5370', suggestion: null, icon: 'package', en: 'Packing', ta: 'பேக்கிங்' },
-  { key: 'misc', code: '5390', suggestion: null, icon: 'ellipsis', en: 'Others', ta: 'இதர செலவுகள்' },
+  {
+    key: 'packing',
+    code: '5370',
+    suggestion: null,
+    icon: 'package',
+    en: 'Packing',
+    ta: 'பேக்கிங்',
+  },
+  {
+    key: 'misc',
+    code: '5390',
+    suggestion: null,
+    icon: 'ellipsis',
+    en: 'Others',
+    ta: 'இதர செலவுகள்',
+  },
 ]
 
 /** The active expense account a quick tile stands for (by preset code, else by name), or null. */
@@ -1052,7 +1102,9 @@ export const DenominationsSchema = z.object({
   '50': zCount.default(0),
   '20': zCount.default(0),
   '10': zCount.default(0),
-  coins: zPaise.default(0).describe('Coins (₹1 / ₹2 / ₹5 / ₹10 coins, ₹5 notes) as an amount in paise'),
+  coins: zPaise
+    .default(0)
+    .describe('Coins (₹1 / ₹2 / ₹5 / ₹10 coins, ₹5 notes) as an amount in paise'),
 })
 export type Denominations = z.output<typeof DenominationsSchema>
 export type DenominationsInput = z.input<typeof DenominationsSchema>
@@ -1060,7 +1112,8 @@ export type DenominationsInput = z.input<typeof DenominationsSchema>
 /** Σ notes × face value + coins, in paise. */
 export function denominationsTotalPaise(d: DenominationsInput): number {
   let total = d.coins ?? 0
-  for (const note of DENOMINATION_NOTES) total += (d[String(note) as `${DenominationNote}`] ?? 0) * note * 100
+  for (const note of DENOMINATION_NOTES)
+    total += (d[String(note) as `${DenominationNote}`] ?? 0) * note * 100
   return total
 }
 
@@ -1176,12 +1229,54 @@ export const CASH_ENTRY_PRESETS: ReadonlyArray<
     needs_account: 'expense' | null
   } & BilingualLabel
 > = [
-  { key: 'bank_deposit', kind: 'pay_out', counter: 'bank', needs_account: null, en: 'Deposited in bank', ta: 'வங்கியில் செலுத்தியது' },
-  { key: 'owner_drawings', kind: 'pay_out', counter: 'drawings', needs_account: null, en: 'Taken by owner', ta: 'உரிமையாளர் எடுத்தது' },
-  { key: 'petty_expense', kind: 'pay_out', counter: null, needs_account: 'expense', en: 'Small expense', ta: 'சிறு செலவு' },
-  { key: 'float_in', kind: 'pay_in', counter: 'capital', needs_account: null, en: 'Change / float added', ta: 'சில்லறை சேர்த்தது' },
-  { key: 'bank_withdrawal', kind: 'pay_in', counter: 'bank', needs_account: null, en: 'Cash from bank', ta: 'வங்கியிலிருந்து ரொக்கம்' },
-  { key: 'other_income', kind: 'pay_in', counter: 'other_income', needs_account: null, en: 'Other income', ta: 'இதர வருமானம்' },
+  {
+    key: 'bank_deposit',
+    kind: 'pay_out',
+    counter: 'bank',
+    needs_account: null,
+    en: 'Deposited in bank',
+    ta: 'வங்கியில் செலுத்தியது',
+  },
+  {
+    key: 'owner_drawings',
+    kind: 'pay_out',
+    counter: 'drawings',
+    needs_account: null,
+    en: 'Taken by owner',
+    ta: 'உரிமையாளர் எடுத்தது',
+  },
+  {
+    key: 'petty_expense',
+    kind: 'pay_out',
+    counter: null,
+    needs_account: 'expense',
+    en: 'Small expense',
+    ta: 'சிறு செலவு',
+  },
+  {
+    key: 'float_in',
+    kind: 'pay_in',
+    counter: 'capital',
+    needs_account: null,
+    en: 'Change / float added',
+    ta: 'சில்லறை சேர்த்தது',
+  },
+  {
+    key: 'bank_withdrawal',
+    kind: 'pay_in',
+    counter: 'bank',
+    needs_account: null,
+    en: 'Cash from bank',
+    ta: 'வங்கியிலிருந்து ரொக்கம்',
+  },
+  {
+    key: 'other_income',
+    kind: 'pay_in',
+    counter: 'other_income',
+    needs_account: null,
+    en: 'Other income',
+    ta: 'இதர வருமானம்',
+  },
 ]
 
 export const ShiftCashEntrySchema = z.object({
@@ -1334,10 +1429,13 @@ export const ShiftOpenSchema = z
     notes: zNullableText(500),
     client_ref: zIdempotencyKey.optional(),
   })
-  .refine((v) => !v.denominations || denominationsTotalPaise(v.denominations) === v.opening_cash_paise, {
-    message: 'denominations_total_mismatch',
-    path: ['opening_cash_paise'],
-  })
+  .refine(
+    (v) => !v.denominations || denominationsTotalPaise(v.denominations) === v.opening_cash_paise,
+    {
+      message: 'denominations_total_mismatch',
+      path: ['opening_cash_paise'],
+    },
+  )
 export type ShiftOpen = z.input<typeof ShiftOpenSchema>
 
 export const ShiftCurrentQuerySchema = z.object({ register_id: zId })
@@ -1375,10 +1473,13 @@ export const ShiftCloseSchema = z
     denominations: DenominationsSchema.optional(),
     notes: zNullableText(500),
   })
-  .refine((v) => !v.denominations || denominationsTotalPaise(v.denominations) === v.counted_cash_paise, {
-    message: 'denominations_total_mismatch',
-    path: ['counted_cash_paise'],
-  })
+  .refine(
+    (v) => !v.denominations || denominationsTotalPaise(v.denominations) === v.counted_cash_paise,
+    {
+      message: 'denominations_total_mismatch',
+      path: ['counted_cash_paise'],
+    },
+  )
 export type ShiftClose = z.input<typeof ShiftCloseSchema>
 
 /**
@@ -1431,7 +1532,11 @@ export const DayBookResponseSchema = listOf(JournalEntryDetailSchema).extend({
     total_debit_paise: zPaise,
     total_credit_paise: zPaise,
     by_source_type: z.array(
-      z.object({ source_type: JournalSourceTypeSchema, count: z.int().min(0), total_paise: zPaise }),
+      z.object({
+        source_type: JournalSourceTypeSchema,
+        count: z.int().min(0),
+        total_paise: zPaise,
+      }),
     ),
   }),
 })
@@ -1791,7 +1896,8 @@ export const accountingRoutes = defineRoutes({
     permission: 'accounting.write',
     params: IdParams,
     response: dataOf(DeleteResultSchema),
-    summary: 'Custom accounts: deleted without journal lines, else deactivated (409 when not allowed)',
+    summary:
+      'Custom accounts: deleted without journal lines, else deactivated (409 when not allowed)',
   },
 
   // ---- journal ----------------------------------------------------------------------------------
@@ -1989,7 +2095,8 @@ export const accountingRoutes = defineRoutes({
     feature: 'accounting',
     query: BalanceSheetQuerySchema,
     response: dataOf(BalanceSheetSchema),
-    summary: 'Balance sheet as of a date incl. current-period profit (A = L + E check); ?format=csv',
+    summary:
+      'Balance sheet as of a date incl. current-period profit (A = L + E check); ?format=csv',
   },
 })
 export type AccountingRoutes = typeof accountingRoutes

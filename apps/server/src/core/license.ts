@@ -7,20 +7,43 @@
  *     "format": "kadai-license-v1",
  *     "kid": "prod-2026",
  *     "license": { license_id, licensee, business_name, plan_code, features?, limits?, max_stores,
- *                  valid_from, valid_until, installation_id?, issued_at },
+ *                  valid_from, valid_until, installation_id?, issued_at,
+ *                  // 0010 extension (all optional): license_type?, edition?, key_prefix?,
+ *                  // updates_until?, support_until?, grace_days?, addons?, customer_id?,
+ *                  // partner_id?, check_in_days? },
  *     "signature": "<base64 Ed25519 signature of canonicalJson(license)>"
  *   }
  *
  * The signature covers the canonical JSON (keys sorted) of the raw `license` object, so any edit
  * — including fields this version does not know — invalidates it. Verification uses the embedded
- * keys (license-keys.ts) or KADAI_LICENSE_PUBLIC_KEY. The installed license lives in
+ * keys (license-keys.ts) or KADAI_LICENSE_PUBLIC_KEY.
+ *
+ * Compatibility: documents signed before the 0010 extension verify unchanged (every new field is
+ * optional), and new documents still carry every original required field (the vendor writes
+ * `max_stores` = licenseMaxStores(effective limits)) so older shop versions — which ignore
+ * unknown fields after checking the signature over the raw object — keep accepting them.
+ * Semantics of the new fields: `grace_days` keeps a lapsed licence valid until valid_until +
+ * grace_days (verification reports `in_grace`); `updates_until` gates updates only, never daily
+ * use; `features` stays the base list and add-on features come from `addons` while each add-on's
+ * valid_until has not passed (licenseEffectiveFeatures in @kadai/shared/api/licensing); `limits`
+ * / `max_stores` are already effective (edition + overrides + add-ons) and are never re-added.
+ * The installed license lives in
  * system_settings under {@link LICENSE_SETTINGS_KEY}; the installation id under
  * {@link INSTALLATION_ID_KEY}.
  */
 import { type KeyObject, createPrivateKey, createPublicKey, sign, verify } from 'node:crypto'
 import { type Kysely, sql } from 'kysely'
 import { z } from 'zod'
-import { FeatureSchema, PlanLimitsSchema, isDateStr, newId, todayIn } from '@kadai/shared'
+import {
+  FeatureSchema,
+  LicenseTypeSchema,
+  PlanLimitsSchema,
+  addDays,
+  isDateStr,
+  newId,
+  todayIn,
+} from '@kadai/shared'
+import { LicenseAddonSchema, PRODUCT_CODE_RE } from '@kadai/shared/api/licensing'
 import type { DB } from '../db/schema.generated'
 import { jsonb } from '../db/json'
 import { canonicalJson } from './crypto'
@@ -48,8 +71,35 @@ export const LicensePayloadSchema = z.object({
   /** Binds the license to one installation (system_settings.installation_id). */
   installation_id: z.string().trim().min(1).max(100).optional(),
   issued_at: z.iso.datetime({ offset: true }),
+
+  // ---- vendor control plane extension (migration 0010) — all optional -------------------------
+  /** perpetual | subscription | trial | nfr (absent on older licences). */
+  license_type: LicenseTypeSchema.optional(),
+  /** license_products.code of the edition / yearly licence (e.g. 'onprem_standard'). */
+  edition: z.string().regex(PRODUCT_CODE_RE).optional(),
+  /** 'KD-7Q2M' — shown on the licence card (never the full key). */
+  key_prefix: z
+    .string()
+    .regex(/^KD-[0-9A-Z]{4}$/)
+    .optional(),
+  /** AMC end (inclusive): releases published after it are not installable; null = unlimited. */
+  updates_until: zDate.nullable().optional(),
+  /** Support end (inclusive); null = unlimited. */
+  support_until: zDate.nullable().optional(),
+  /** Days after valid_until during which the licence still counts as valid (default 0). */
+  grace_days: z.int().min(0).max(365).optional(),
+  /** Add-ons (counters, branches, Kadai Connect, cloud backup) — see the header comment. */
+  addons: z.array(LicenseAddonSchema).max(50).optional(),
+  /** vendor_customers.id of the licensee. */
+  customer_id: z.string().trim().min(1).max(100).optional(),
+  /** partners.id of the reseller, when sold / supported by one. */
+  partner_id: z.string().trim().min(1).max(100).nullable().optional(),
+  /** Suggested check-in interval in days (informational: never enforced, offline is fine). */
+  check_in_days: z.int().min(1).max(365).optional(),
 })
 export type LicensePayload = z.infer<typeof LicensePayloadSchema>
+/** Payload as written by the issuer (defaults of nested add-on fields may be omitted). */
+export type LicensePayloadInput = z.input<typeof LicensePayloadSchema>
 
 export const SignedLicenseSchema = z.object({
   format: z.literal(LICENSE_FORMAT),
@@ -69,7 +119,13 @@ export type LicenseFailure =
   | 'installation_mismatch'
 
 export type LicenseVerification =
-  | { ok: true; license: LicensePayload; kid: string }
+  | {
+      ok: true
+      license: LicensePayload
+      kid: string
+      /** Past valid_until but within grace_days (the edition stays unlocked). */
+      in_grace: boolean
+    }
   | { ok: false; reason: LicenseFailure; message: string; license?: LicensePayload }
 
 export interface TrustedKey {
@@ -153,7 +209,9 @@ export function verifyLicense(doc: unknown, opts: VerifyLicenseOptions): License
       license,
     }
   }
-  if (license.valid_until !== null && today > license.valid_until) {
+  const graceEnds =
+    license.valid_until === null ? null : addDays(license.valid_until, license.grace_days ?? 0)
+  if (graceEnds !== null && today > graceEnds) {
     return {
       ok: false,
       reason: 'expired',
@@ -169,12 +227,13 @@ export function verifyLicense(doc: unknown, opts: VerifyLicenseOptions): License
       license,
     }
   }
-  return { ok: true, license, kid }
+  const inGrace = license.valid_until !== null && today > license.valid_until
+  return { ok: true, license, kid, in_grace: inGrace }
 }
 
 /** Signs a license payload (vendor side: scripts/issue-license.ts). */
 export function signLicense(
-  payload: LicensePayload,
+  payload: LicensePayloadInput,
   privateKeyPem: string,
   kid: string,
 ): SignedLicense {

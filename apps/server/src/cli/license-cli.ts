@@ -21,7 +21,8 @@ import type { CliIo } from './types'
 const USAGE = `Usage:
   issue-license keygen --out <dir> [--kid <kid>]
   issue-license sign --key <private.pem> --kid <kid> --licensee <name> --business-name <name>
-                     --plan <free|growth|pro|enterprise> --max-stores <n> --valid-from <YYYY-MM-DD>
+                     --plan <onprem_starter|onprem_standard|onprem_pro|onprem_enterprise>
+                     --max-stores <n> --valid-from <YYYY-MM-DD>
                      (--valid-until <YYYY-MM-DD> | --perpetual) [--installation-id <id>]
                      [--features a,b,c] [--limits '{"users":10}'] [--license-id <id>] [--out <file>]
   issue-license verify --file <license.json> [--public-key <public.pem>] [--installation-id <id>]

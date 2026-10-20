@@ -3,10 +3,16 @@
  * for /webhooks routes, also keeps the raw bytes on `req.rawBody`: providers sign the exact body
  * (Razorpay `X-Razorpay-Signature`, Meta `X-Hub-Signature-256`), and re-serialising parsed JSON
  * would not reproduce it. Webhooks may also post form-encoded or plain-text bodies.
+ * Installation-signed requests to the public licensing API (/public/v1/licensing/*) are signed
+ * over sha256 of the exact body too (`installationSignaturePayload`, @kadai/shared/api/licensing),
+ * so their raw bytes are kept as well.
  */
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 
-const isWebhook = (req: FastifyRequest): boolean => req.url.startsWith('/webhooks/')
+const RAW_BODY_PREFIXES = ['/webhooks/', '/public/v1/licensing/'] as const
+
+const isWebhook = (req: FastifyRequest): boolean =>
+  RAW_BODY_PREFIXES.some((prefix) => req.url.startsWith(prefix))
 
 export function registerBodyParsers(app: FastifyInstance): void {
   const defaultJson = app.getDefaultJsonParser('error', 'error')
