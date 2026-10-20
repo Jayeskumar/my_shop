@@ -52,8 +52,10 @@ check 'env_get missing file' 'd' "$(env_get "$tmp/missing.env" X d)"
 # --- env_set --------------------------------------------------------------------------------
 printf 'A=1\nB=2\n# keep me\n' >"$tmp/b.env"
 chmod 600 "$tmp/b.env"
+# shellcheck disable=SC2016 # a literal $ in the value is the point of the test
 env_set "$tmp/b.env" B 'new value with $dollar & stuff'
 env_set "$tmp/b.env" C 3
+# shellcheck disable=SC2016
 check 'env_set replaces' 'new value with $dollar & stuff' "$(env_get "$tmp/b.env" B)"
 check 'env_set appends' '3' "$(env_get "$tmp/b.env" C)"
 check 'env_set keeps others' '1' "$(env_get "$tmp/b.env" A)"

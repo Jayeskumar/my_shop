@@ -23,6 +23,8 @@
 ARG NODE_IMAGE=node:22-trixie-slim
 
 # -----------------------------------------------------------------------------
+# NODE_IMAGE defaults to a tagged image (node:22-trixie-slim); hadolint cannot resolve ARGs.
+# hadolint ignore=DL3006
 FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS toolchain
 ENV PNPM_HOME=/pnpm \
     PATH=/pnpm:$PATH \
@@ -52,6 +54,7 @@ RUN pnpm --filter @kadai/server build \
  && test -f apps/web/dist/index.html
 
 # -----------------------------------------------------------------------------
+# hadolint ignore=DL3006
 FROM ${NODE_IMAGE} AS prod-deps
 ENV PNPM_HOME=/pnpm \
     PATH=/pnpm:$PATH \
@@ -73,6 +76,7 @@ RUN --mount=type=secret,id=extra_ca \
  && find /out/node_modules -type f \( -name '*.d.ts' -o -name '*.d.mts' -o -name '*.d.cts' \) -delete
 
 # -----------------------------------------------------------------------------
+# hadolint ignore=DL3006
 FROM ${NODE_IMAGE} AS runtime
 
 # Major version of the PostgreSQL client tools (pg_dump/pg_restore must be >= the server).

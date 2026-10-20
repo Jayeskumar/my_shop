@@ -1,0 +1,225 @@
+# Release on a version tag (vX.Y.Z or vX.Y.Z-rc.N):
+#   1. full CI (ci.yml) on the tagged commit
+#   2. multi-arch image (linux/amd64 + arm64) → GHCR, with BuildKit provenance + SBOM
+#      attestations, a build-provenance attestation and an SPDX SBOM file
+#   3. native server bundles (linux-x64 tar.gz, win-x64 zip), built and smoke-tested on
+#      their own platform
+#   4. on-prem kit zip (compose, installers, backup/restore/upgrade, docs) stamped with the image
+#   5. GitHub release with every asset + SHA256SUMS (pre-release for -rc/-beta tags)
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch: # run from a tag ("Use workflow from" → the tag) to rebuild its assets
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  meta:
+    name: Release metadata
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      version: ${{ steps.v.outputs.version }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+      image: ${{ steps.v.outputs.image }}
+    steps:
+      - id: v
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$REF_TYPE" != tag ] || ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::releases are built from tags named vX.Y.Z[-pre] (got $REF_TYPE '$TAG')"
+            exit 1
+          fi
+          version=${TAG#v}
+          prerelease=false
+          [[ "$version" == *-* ]] && prerelease=true
+          {
+            echo "tag=$TAG"
+            echo "version=$version"
+            echo "prerelease=$prerelease"
+            echo "image=ghcr.io/${REPO,,}"
+          } >> "$GITHUB_OUTPUT"
+
+  ci:
+    name: CI
+    needs: meta
+    uses: ./.github/workflows/ci.yml
+
+  image:
+    name: Image → GHCR (amd64 + arm64)
+    needs: [meta, ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: docker-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ needs.meta.outputs.image }}
+          # 1.4.2 → 1.4.2, 1.4, 1 and latest; pre-releases get only their own tag.
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref_name, 'v0.') }}
+            type=sha,format=long
+          flavor: |
+            latest=auto
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.docker-meta.outputs.tags }}
+          labels: ${{ steps.docker-meta.outputs.labels }}
+          build-args: |
+            KADAI_VERSION=${{ needs.meta.outputs.version }}
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ fromJSON(steps.docker-meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=kadai-release
+          cache-to: type=gha,mode=max,scope=kadai-release
+          provenance: mode=max
+          sbom: true
+      - name: Build provenance attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ needs.meta.outputs.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+      - name: SBOM (SPDX JSON)
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ needs.meta.outputs.image }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: kadai-image-${{ needs.meta.outputs.version }}.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Image reference for the release notes
+        env:
+          IMAGE: ${{ needs.meta.outputs.image }}
+          VERSION: ${{ needs.meta.outputs.version }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: printf '%s:%s\n%s@%s\n' "$IMAGE" "$VERSION" "$IMAGE" "$DIGEST" > "kadai-image-${VERSION}.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-image
+          path: |
+            kadai-image-*.spdx.json
+            kadai-image-*.txt
+          if-no-files-found: error
+
+  bundles:
+    name: Native bundle (${{ matrix.target }})
+    needs: [meta, ci]
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: linux-x64
+          - os: windows-2022
+            target: win-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build server and web app
+        run: |
+          pnpm --filter @kadai/server build
+          pnpm --filter @kadai/web build
+      - name: Assemble and smoke-test the bundle
+        run: .github/scripts/bundle.sh "${{ needs.meta.outputs.version }}" "${{ matrix.target }}" dist/release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-bundle-${{ matrix.target }}
+          path: dist/release/*
+          if-no-files-found: error
+
+  onprem-kit:
+    name: On-prem kit
+    needs: [meta, ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble kadai-onprem-<version>.zip
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+          IMAGE: ${{ needs.meta.outputs.image }}
+          RELEASE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ needs.meta.outputs.tag }}
+        run: .github/scripts/onprem-kit.sh "$VERSION" "$IMAGE" "$RELEASE_URL" dist/release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-onprem-kit
+          path: dist/release/*
+          if-no-files-found: error
+
+  publish:
+    name: GitHub release
+    needs: [meta, image, bundles, onprem-kit]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: assets
+          merge-multiple: true
+      - name: Checksums
+        working-directory: assets
+        run: |
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.meta.outputs.tag }}
+          VERSION: ${{ needs.meta.outputs.version }}
+          PRERELEASE: ${{ needs.meta.outputs.prerelease }}
+          IMAGE: ${{ needs.meta.outputs.image }}
+        run: |
+          # shellcheck disable=SC2016 # the backticks are Markdown, not command substitution
+          notes=$(printf 'Container image: `%s:%s`\n\nOn-prem: download `kadai-onprem-%s.zip` (Linux/Windows installers, Docker Compose, backup/restore/upgrade).\nUpgrade guide: docs/DEPLOYMENT.md#upgrades. Verify downloads with `sha256sum -c SHA256SUMS`.\n' "$IMAGE" "$VERSION" "$VERSION")
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" assets/* --clobber
+          else
+            flags=(--verify-tag --title "Kadai $VERSION" --notes "$notes" --generate-notes)
+            [ "$PRERELEASE" = true ] && flags+=(--prerelease)
+            gh release create "$TAG" "${flags[@]}" assets/*
+          fi

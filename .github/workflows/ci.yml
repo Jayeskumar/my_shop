@@ -199,9 +199,12 @@ jobs:
           test "$(docker image inspect kadai:ci --format '{{.Config.User}}')" = "kadai:kadai"
           docker image inspect kadai:ci --format '{{json .Config.Healthcheck}}'
           docker image ls kadai:ci
+      # Root: the kit's data folder belongs to the container user (uid 10001), as on a shop PC.
       - name: On-prem compose end-to-end (setup → backup → restore)
-        run: bash deploy/tests/onprem-compose.test.sh kadai:ci
-      - name: Cloud compose smoke (migrate job, api replicas, worker)
+        run: sudo -E bash deploy/tests/onprem-compose.test.sh kadai:ci
+      - name: Cloud compose smoke (migrate job, api replicas, worker, Caddy TLS)
+        env:
+          KADAI_E2E_CADDY: '1'
         run: bash deploy/tests/cloud-compose.test.sh kadai:ci
 
   deploy-kit:

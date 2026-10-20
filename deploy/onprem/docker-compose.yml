@@ -139,7 +139,7 @@ services:
     depends_on:
       - kadai
     environment:
-      # Space/comma separated names the counter PCs use, e.g. "kadai.local, 192.168.1.10".
+      # Space-separated names/IPs the counter PCs use, e.g. "kadai.local 192.168.1.10".
       KADAI_TLS_SITES: ${KADAI_TLS_SITES:-localhost}
     ports:
       - ${KADAI_HTTPS_PORT:-443}:443

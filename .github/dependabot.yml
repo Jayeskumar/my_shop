@@ -1,0 +1,47 @@
+# Weekly dependency updates (Monday morning IST), grouped to keep the PR count manageable.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '05:30'
+      timezone: Asia/Kolkata
+    open-pull-requests-limit: 10
+    groups:
+      production:
+        dependency-type: production
+        update-types: [minor, patch]
+      development:
+        dependency-type: development
+        update-types: [minor, patch]
+    ignore:
+      # Platform pins (docs/ARCHITECTURE.md §4): TypeScript 5.x, Node.js 22 types.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '05:30'
+      timezone: Asia/Kolkata
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: docker
+    directory: /deploy/docker
+    schedule:
+      interval: weekly
+      day: monday
+      time: '05:30'
+      timezone: Asia/Kolkata
+    ignore:
+      # Node.js 22 LTS is the supported runtime; majors are adopted deliberately.
+      - dependency-name: node
+        update-types: [version-update:semver-major]

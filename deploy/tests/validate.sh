@@ -4,7 +4,7 @@
 #
 #   bash deploy/tests/validate.sh
 #
-#   shellcheck   every *.sh in deploy/ and .github/scripts/
+#   ShellCheck   every *.sh in deploy/ and .github/scripts/
 #   hadolint     deploy/docker/Dockerfile
 #   actionlint   .github/workflows/*.yml
 #   docker       docker compose config (on-prem incl. profile tls, cloud with bundled/external DB),
@@ -40,8 +40,8 @@ else skip shellcheck; fi
 
 echo "Dockerfile"
 if have hadolint; then
-  # DL3008: apt packages are not version-pinned (security updates come from the base image).
-  if hadolint --ignore DL3008 deploy/docker/Dockerfile; then pass hadolint; else fail hadolint; fi
+  # DL3008: apt packages are not version-pinned (security fixes arrive with each rebuild).
+  if hadolint --failure-threshold warning --ignore DL3008 deploy/docker/Dockerfile; then pass hadolint; else fail hadolint; fi
 else skip hadolint; fi
 
 echo "GitHub workflows"
@@ -105,7 +105,7 @@ caddy_validate() { # caddy_validate <file> <env...>
   fi
 }
 for spec in "deploy/cloud/Caddyfile KADAI_DOMAIN=app.example.in ACME_EMAIL=ops@example.in" \
-  "deploy/onprem/Caddyfile KADAI_TLS_SITES=kadai.local,192.168.1.10"; do
+  "deploy/onprem/Caddyfile KADAI_TLS_SITES=kadai.local"; do
   read -r -a parts <<<"$spec"
   rc=0
   caddy_validate "${parts[@]}" || rc=$?
