@@ -62,7 +62,11 @@ export const MOVEMENT_DIRECTION: Readonly<Record<StockMovementType, 1 | -1 | 0>>
  * Inbound types that must carry their own cost. Other inbound movements (adjustment gains,
  * returns / cancellations posted without a cost) fall back to the row's current cost.
  */
-const COST_REQUIRED: ReadonlySet<StockMovementType> = new Set(['opening', 'purchase', 'transfer_in'])
+const COST_REQUIRED: ReadonlySet<StockMovementType> = new Set([
+  'opening',
+  'purchase',
+  'transfer_in',
+])
 
 export interface StockMovementInput {
   store_id: string
@@ -181,7 +185,10 @@ interface NormalizedMovement {
 function normalize(m: StockMovementInput, i: number): NormalizedMovement {
   const path = `movements.${i}`
   if (!StockMovementTypeSchema.safeParse(m.movement_type).success) {
-    throw invalidField(`${path}.movement_type`, `Unknown movement type "${String(m.movement_type)}"`)
+    throw invalidField(
+      `${path}.movement_type`,
+      `Unknown movement type "${String(m.movement_type)}"`,
+    )
   }
   if (!Number.isSafeInteger(m.qty_milli) || m.qty_milli === 0) {
     throw invalidField(`${path}.qty_milli`, 'Quantity must be a non-zero integer (milli units)')
@@ -220,7 +227,12 @@ export function stockValuePaise(unitCostPaise: number, qtyMilli: number, packSiz
 }
 
 /** Moving average per pack after an inbound movement (BigInt: qty × cost can exceed 2^53). */
-export function movingAverage(oldQty: number, oldAvg: number, inQty: number, inCost: number): number {
+export function movingAverage(
+  oldQty: number,
+  oldAvg: number,
+  inQty: number,
+  inCost: number,
+): number {
   if (oldQty <= 0) return inCost
   const total = BigInt(oldQty) * BigInt(oldAvg) + BigInt(inQty) * BigInt(inCost)
   return toSafeNumber(roundDivBig(total, BigInt(oldQty + inQty)))
@@ -576,10 +588,15 @@ export async function pickBatchesFefo(
     .where('sl.product_id', '=', input.product_id)
     .where('b.is_active', '=', true)
   if (settings.block_expired_sale) {
-    q = q.where((eb) => eb.or([eb('b.expiry_date', 'is', null), eb('b.expiry_date', '>=', input.today)]))
+    q = q.where((eb) =>
+      eb.or([eb('b.expiry_date', 'is', null), eb('b.expiry_date', '>=', input.today)]),
+    )
   }
   q = settings.fefo
-    ? q.orderBy(sql`b.expiry_date asc nulls last`).orderBy('b.created_at').orderBy('b.id')
+    ? q
+        .orderBy(sql`b.expiry_date asc nulls last`)
+        .orderBy('b.created_at')
+        .orderBy('b.id')
     : q.orderBy('b.created_at').orderBy('b.id')
   const rows = await q.execute()
 
@@ -589,7 +606,12 @@ export async function pickBatchesFefo(
     if (remaining === 0) break
     if (r.qty_milli <= 0) continue
     const take = Math.min(remaining, r.qty_milli)
-    picks.push({ batch_id: r.batch_id, qty_milli: take, batch_no: r.batch_no, expiry_date: r.expiry_date })
+    picks.push({
+      batch_id: r.batch_id,
+      qty_milli: take,
+      batch_no: r.batch_no,
+      expiry_date: r.expiry_date,
+    })
     remaining -= take
   }
   if (remaining > 0) {

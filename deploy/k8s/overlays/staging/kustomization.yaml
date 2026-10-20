@@ -1,0 +1,71 @@
+# Staging: smaller footprint, Let's Encrypt staging issuer, image tag "main" (pushed by CI).
+#   kubectl kustomize deploy/k8s/overlays/staging        # render
+#   deploy/k8s/deploy.sh staging <image tag>             # migrate, then roll out
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kadai-staging
+
+resources:
+  - namespace.yaml
+  - ../../base
+
+components:
+  - ../../components/monitoring
+
+images:
+  - name: kadai
+    newName: ghcr.io/jayeskumar/my_shop
+    newTag: main
+
+configMapGenerator:
+  - name: kadai-config
+    behavior: merge
+    envs:
+      - config.env
+
+replicas:
+  - name: kadai-api
+    count: 2
+  - name: kadai-worker
+    count: 1
+
+patches:
+  - target:
+      kind: Ingress
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: staging.example.in
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: staging.example.in
+      - op: replace
+        path: /metadata/annotations/cert-manager.io~1cluster-issuer
+        value: letsencrypt-staging
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: kadai-api
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 2
+      - op: replace
+        path: /spec/maxReplicas
+        value: 4
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: kadai-worker
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+  - target:
+      kind: Deployment
+      name: kadai-api
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 100m

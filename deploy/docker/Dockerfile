@@ -14,6 +14,10 @@
 # The JavaScript build runs on the build platform (fast multi-arch builds); only the
 # production dependency install runs on the target platform, so native optional packages
 # (@node-rs/argon2 prebuilt binaries) match the image architecture.
+#
+# Behind a TLS-inspecting corporate proxy, pass its root certificate as a build secret; it is
+# trusted during the build only and is not part of the final image:
+#   docker build --secret id=extra_ca,src=corp-root-ca.pem -f deploy/docker/Dockerfile .
 # =============================================================================
 
 ARG NODE_IMAGE=node:22-trixie-slim
@@ -35,7 +39,9 @@ COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 # `pnpm fetch` reads only the lockfile: downloads every package into the store.
-RUN --mount=type=cache,id=kadai-pnpm-store,target=/pnpm/store,sharing=locked \
+RUN --mount=type=secret,id=extra_ca \
+    --mount=type=cache,id=kadai-pnpm-store,target=/pnpm/store,sharing=locked \
+    if [ -s /run/secrets/extra_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/extra_ca; fi; \
     pnpm fetch
 COPY . .
 RUN --mount=type=cache,id=kadai-pnpm-store,target=/pnpm/store,sharing=locked \
@@ -59,9 +65,12 @@ COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 # Only the server's production dependencies. The server bundle already inlines @kadai/shared;
 # --legacy: workspace packages are not injected (pnpm 10 default deploy requires that).
-RUN --mount=type=cache,id=kadai-pnpm-store,target=/pnpm/store,sharing=locked \
+RUN --mount=type=secret,id=extra_ca \
+    --mount=type=cache,id=kadai-pnpm-store,target=/pnpm/store,sharing=locked \
+    if [ -s /run/secrets/extra_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/extra_ca; fi; \
     pnpm --filter @kadai/server deploy --prod --legacy /out \
- && rm -rf /out/node_modules/.cache
+ && rm -rf /out/node_modules/.cache /out/node_modules/.bin \
+ && find /out/node_modules -type f \( -name '*.d.ts' -o -name '*.d.mts' -o -name '*.d.cts' \) -delete
 
 # -----------------------------------------------------------------------------
 FROM ${NODE_IMAGE} AS runtime
@@ -86,9 +95,14 @@ LABEL org.opencontainers.image.title="Kadai" \
 
 # tini (PID 1, signal forwarding) and the PostgreSQL client from the PGDG repository
 # (Debian's own client may be older than the server major version).
-RUN set -eux; \
+RUN --mount=type=secret,id=extra_ca \
+    set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends ca-certificates curl tini; \
+    if [ -s /run/secrets/extra_ca ]; then \
+      cp /run/secrets/extra_ca /usr/local/share/ca-certificates/kadai-build-extra-ca.crt; \
+      update-ca-certificates; \
+    fi; \
     install -d /usr/share/postgresql-common/pgdg; \
     curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
       https://www.postgresql.org/media/keys/ACCC4CF8.asc; \
@@ -98,6 +112,10 @@ RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends "postgresql-client-${PG_MAJOR}"; \
     apt-get purge -y --auto-remove curl; \
+    if [ -f /usr/local/share/ca-certificates/kadai-build-extra-ca.crt ]; then \
+      rm /usr/local/share/ca-certificates/kadai-build-extra-ca.crt; \
+      update-ca-certificates --fresh; \
+    fi; \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
     pg_dump --version; \
     groupadd --system --gid 10001 kadai; \

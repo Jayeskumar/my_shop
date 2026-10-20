@@ -240,7 +240,7 @@ function Install-PostgreSQL {
   return $superPw
 }
 
-function Initialize-Database([string]$SuperPassword, [string]$OwnerPassword, [string]$AppPassword) {
+function Initialize-Database([string]$SuperSecret, [string]$OwnerSecret, [string]$AppSecret) {
   $psql = Join-Path $PgBin 'psql.exe'
   $sql = @'
 SELECT format('CREATE ROLE %I LOGIN CREATEDB PASSWORD %L', :'owner', :'owner_pw')
@@ -258,10 +258,10 @@ SELECT format('GRANT ALL ON DATABASE %I TO %I', :'db', :'owner') \gexec
   # Variables are set on stdin (\set), so the passwords never appear on a command line.
   $vars = @(
     "\set db '$KadaiDbName'", "\set owner '$KadaiDbOwner'", "\set app '$KadaiDbAppUser'",
-    "\set owner_pw '$OwnerPassword'", "\set app_pw '$AppPassword'"
+    "\set owner_pw '$OwnerSecret'", "\set app_pw '$AppSecret'"
   ) -join "`n"
   $previous = $env:PGPASSWORD
-  $env:PGPASSWORD = $SuperPassword
+  $env:PGPASSWORD = $SuperSecret
   try {
     ($vars + "`n" + $sql) | & $psql -X -q -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 5432 -U postgres -d postgres | Out-Null
     if ($LASTEXITCODE -ne 0) { Stop-WithError 'creating the database roles failed' }
@@ -303,7 +303,7 @@ function Install-KadaiService([string]$NodeExe) {
   Write-Step "Windows service 'Kadai Server' registered"
 }
 
-function Set-FolderPermissions {
+function Set-FolderPermission {
   foreach ($d in @((Join-Path $DataRoot 'data'), (Join-Path $DataRoot 'data\backups'), (Join-Path $DataRoot 'logs'))) {
     New-Item -ItemType Directory -Force -Path $d | Out-Null
   }
@@ -352,7 +352,7 @@ function Register-BackupTask {
   Write-Step "scheduled task 'Kadai Backup' (daily 22:45) registered"
 }
 
-function Copy-Scripts {
+function Copy-KadaiScript {
   New-Item -ItemType Directory -Force -Path $ScriptsDir | Out-Null
   foreach ($f in @('install.ps1', 'backup.ps1', 'restore.ps1', 'kadai-common.ps1', 'kadai-service.xml', 'README.md')) {
     $src = Join-Path $PSScriptRoot $f
@@ -432,7 +432,7 @@ if ($Upgrade) {
   Move-Item -LiteralPath $AppDir -Destination $prev
   Move-Item -LiteralPath $new -Destination $AppDir
   Set-EnvValue $EnvFile 'KADAI_VERSION' ([string]$info.version)
-  Copy-Scripts
+  Copy-KadaiScript
   Start-Service -Name $KadaiServiceName
   if (Wait-KadaiReady $cfg 900) { Write-Step "upgrade to $($info.version) complete"; return }
   Stop-WithError "the new version is not healthy: see $(Join-Path $DataRoot 'logs'), or run .\install.ps1 -Rollback"
@@ -487,8 +487,8 @@ Write-Utf8File -Path $EnvFile -Lines @(
   'KADAI_BACKUP_RETENTION_DAYS=30',
   'KADAI_BACKUP_KEEP_MIN=7'
 )
-Set-FolderPermissions
-Copy-Scripts
+Set-FolderPermission
+Copy-KadaiScript
 Install-KadaiService $nodeExe
 Start-Service -Name $KadaiServiceName
 Set-Firewall

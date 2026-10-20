@@ -1,0 +1,58 @@
+# Kadai cloud edge: automatic HTTPS (Let's Encrypt), HTTP/3, compression, security headers and
+# load balancing across the api replicas (Docker DNS, refreshed every 5 s).
+{
+	email {$ACME_EMAIL}
+	servers {
+		# X-Forwarded-For is honoured only from private addresses (a cloud load balancer in
+		# front of Caddy); internet clients are identified by their TCP address.
+		trusted_proxies static private_ranges
+	}
+}
+
+{$KADAI_DOMAIN} {
+	# /metrics is scraped inside the Docker network (http://api:8080/metrics + METRICS_TOKEN).
+	@metrics path /metrics /metrics/*
+	respond @metrics 404
+
+	# Server-sent events (payment-intent status) must stream: no compression for them.
+	@compress not path */stream
+	encode @compress zstd gzip
+
+	# CSV/XLSX imports up to 20 MB (FILE_RULES in apps/server/src/core/files.ts).
+	request_body {
+		max_size 25MB
+	}
+
+	header {
+		# The application sets CSP, HSTS and the other headers; "?" only fills in missing ones.
+		?Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		?X-Content-Type-Options "nosniff"
+		?Referrer-Policy "strict-origin-when-cross-origin"
+		?Permissions-Policy "camera=(self), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# Passive health checks (dynamic upstreams): a replica that refuses connections or answers
+	# 502/503/504 (e.g. while shutting down) is skipped for 30 s and the request is retried on
+	# another one. The app keeps a client's X-Request-Id or creates one; it is in the access log.
+	reverse_proxy {
+		dynamic a api 8080 {
+			refresh 5s
+		}
+		lb_policy least_conn
+		lb_try_duration 10s
+		lb_try_interval 250ms
+		fail_duration 30s
+		max_fails 2
+		unhealthy_status 502 503 504
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 120s
+		}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

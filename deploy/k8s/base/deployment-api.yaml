@@ -1,0 +1,120 @@
+# HTTP API + web app. Stateless: uploads go to S3 (S3_BUCKET), shared rate limits to Redis.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kadai-api
+  labels:
+    app.kubernetes.io/component: api
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kadai
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kadai
+        app.kubernetes.io/component: api
+      annotations:
+        kubectl.kubernetes.io/default-container: api
+    spec:
+      serviceAccountName: kadai
+      automountServiceAccountToken: false
+      # close-with-grace drains for up to 25 s after SIGTERM (+ preStop delay).
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: kadai
+              app.kubernetes.io/component: api
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: kadai
+              app.kubernetes.io/component: api
+      containers:
+        - name: api
+          image: kadai
+          args: [server]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: kadai-config
+            - secretRef:
+                name: kadai-secrets
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=768
+          resources:
+            requests:
+              cpu: 250m
+              memory: 384Mi
+            # No CPU limit (avoids CFS throttling of the event loop); memory is bounded.
+            limits:
+              memory: 1Gi
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            # Database reachable and migrations current (the worker is monitored separately).
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              # Let the ingress controller drop this endpoint before the server stops accepting.
+              exec:
+                command: [sleep, '5']
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+        # Scratch only: in Kubernetes files must live in S3 (set S3_BUCKET), not on this volume.
+        - name: data
+          emptyDir:
+            sizeLimit: 1Gi

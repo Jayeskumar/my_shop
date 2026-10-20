@@ -1,0 +1,89 @@
+# Zero-trust defaults for the namespace: deny everything, then allow
+#   * ingress to the API pods from the ingress controller and Prometheus only
+#   * egress from Kadai pods to DNS, PostgreSQL (5432), Redis (6379) and external HTTPS/SMTP
+# PostgreSQL/Redis may run in the cluster (any namespace) or as managed services on private
+# addresses. Overlays may narrow the CIDRs (e.g. the database subnet only).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kadai-default-deny
+  labels:
+    kadai.io/deploy-phase: pre-migrate
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kadai-api-ingress
+  labels:
+    kadai.io/deploy-phase: pre-migrate
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kadai
+      app.kubernetes.io/component: api
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kadai-egress
+  labels:
+    kadai.io/deploy-phase: pre-migrate
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kadai
+  policyTypes: [Egress]
+  egress:
+    # DNS (CoreDNS / kube-dns)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # PostgreSQL and Redis: in-cluster pods or managed services on private addresses.
+    - to:
+        - namespaceSelector: {}
+        - ipBlock:
+            cidr: 10.0.0.0/8
+        - ipBlock:
+            cidr: 172.16.0.0/12
+        - ipBlock:
+            cidr: 192.168.0.0/16
+      ports:
+        - port: 5432
+          protocol: TCP
+        - port: 6379
+          protocol: TCP
+    # Providers: Razorpay, MSG91, WhatsApp Cloud API, S3, OTLP collector (HTTPS); SMTP.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - port: 443
+          protocol: TCP
+        - port: 465
+          protocol: TCP
+        - port: 587
+          protocol: TCP

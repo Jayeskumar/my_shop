@@ -30,12 +30,29 @@ import type { Tx } from '../db/tenant'
 import type { RequestContext } from './context'
 import { AppError, conflict, invalidField, notFound, unprocessable } from './errors'
 
-/** GST: document serial numbers may not exceed 16 characters. */
+/** GST (rule 46): serial numbers of documents issued under GST may not exceed 16 characters. */
 export const MAX_NUMBER_LENGTH = 16
+/** Internal documents (estimates, GRNs, journals, …) are not bound by the GST limit. */
+export const MAX_INTERNAL_NUMBER_LENGTH = 32
 export const DEFAULT_PADDING = 5
 export const MIN_PADDING = 3
-/** Characters allowed in a GST document number. */
-const NUMBER_RE = /^[A-Z0-9/-]{1,16}$/
+/** Characters allowed in a document number. */
+const NUMBER_RE = /^[A-Z0-9/-]+$/
+
+/** Documents issued under GST: invoices, notes, receipt / payment vouchers, delivery challans. */
+export const GST_DOC_TYPES: ReadonlySet<NumberSeriesDocType> = new Set([
+  'sales_invoice',
+  'bill_of_supply',
+  'credit_note',
+  'debit_note',
+  'receipt',
+  'payment_voucher',
+  'stock_transfer',
+])
+
+export function maxNumberLength(docType: NumberSeriesDocType): number {
+  return GST_DOC_TYPES.has(docType) ? MAX_NUMBER_LENGTH : MAX_INTERNAL_NUMBER_LENGTH
+}
 
 /** Document types numbered per register when a register is given (POS / offline numbering). */
 export const REGISTER_SERIES_DOC_TYPES: ReadonlySet<NumberSeriesDocType> = new Set([
@@ -145,19 +162,25 @@ export function renderPrefix(
     .replaceAll('{fy}', fyShort(codes.fy))
 }
 
-/** Padding for a new series: the default, shrunk so `prefix + digits` fits 16 characters. */
-export function paddingFor(prefix: string): number {
-  const room = MAX_NUMBER_LENGTH - prefix.length
+/**
+ * Padding for a new series: the default, shrunk (down to 3) so `prefix + digits` fits the
+ * document type's maximum length (16 characters for GST documents).
+ */
+export function paddingFor(prefix: string, maxLength = MAX_NUMBER_LENGTH): number {
+  const room = maxLength - prefix.length
   if (room < MIN_PADDING) {
     throw conflict(
-      `Document number prefix "${prefix}" is too long for the 16-character GST limit; shorten the store or register code`,
-      { prefix, max_length: MAX_NUMBER_LENGTH },
+      `Document number prefix "${prefix}" is too long for the ${maxLength}-character limit; shorten the store or register code`,
+      { prefix, max_length: maxLength },
     )
   }
   return Math.min(DEFAULT_PADDING, room)
 }
 
-function usesRegister(docType: NumberSeriesDocType, registerId: string | null | undefined): boolean {
+function usesRegister(
+  docType: NumberSeriesDocType,
+  registerId: string | null | undefined,
+): boolean {
   return Boolean(registerId) && REGISTER_SERIES_DOC_TYPES.has(docType)
 }
 
@@ -189,7 +212,9 @@ async function findSeries(
     .where('store_id', '=', key.storeId)
     .where('doc_type', '=', key.docType)
     .where('fy', '=', key.fy)
-  q = key.registerId ? q.where('register_id', '=', key.registerId) : q.where('register_id', 'is', null)
+  q = key.registerId
+    ? q.where('register_id', '=', key.registerId)
+    : q.where('register_id', 'is', null)
   return lock ? q.forUpdate().executeTakeFirst() : q.executeTakeFirst()
 }
 
@@ -221,7 +246,11 @@ async function defaultPrefix(
         store_id: key.storeId,
       })
     }
-    return renderPrefix(templates.register, { store: store.code, register: register.code, fy: key.fy })
+    return renderPrefix(templates.register, {
+      store: store.code,
+      register: register.code,
+      fy: key.fy,
+    })
   }
   return renderPrefix(templates.store, { store: store.code, fy: key.fy })
 }
@@ -251,7 +280,7 @@ async function lockSeries(tx: Tx, ctx: Ctx, req: SeriesRequest): Promise<SeriesR
       fy: key.fy,
       prefix,
       next_number: 1,
-      padding: paddingFor(prefix),
+      padding: paddingFor(prefix, maxNumberLength(key.docType)),
     })
     .onConflict((oc) => oc.doNothing())
     .execute()
@@ -260,14 +289,15 @@ async function lockSeries(tx: Tx, ctx: Ctx, req: SeriesRequest): Promise<SeriesR
   return created
 }
 
-/** Validates the number the series would issue next (length + GST character set). */
+/** Validates the number the series would issue next (length limit + character set). */
 function checkIssuable(docType: NumberSeriesDocType, row: SeriesRow): string {
   const number = formatDocumentNumber(row.prefix, row.next_number, row.padding)
-  if (number.length > MAX_NUMBER_LENGTH) {
+  const max = maxNumberLength(docType)
+  if (number.length > max) {
     throw new AppError(
       'NUMBER_SERIES_EXHAUSTED',
-      `The ${docType} series "${row.prefix}" has reached the 16-character GST limit; shorten its prefix`,
-      { doc_type: docType, prefix: row.prefix, next_number: row.next_number, max_length: MAX_NUMBER_LENGTH },
+      `The ${docType} series "${row.prefix}" has reached the ${max}-character limit; shorten its prefix`,
+      { doc_type: docType, prefix: row.prefix, next_number: row.next_number, max_length: max },
     )
   }
   if (!NUMBER_RE.test(number)) {
@@ -328,7 +358,7 @@ export async function peekSeries(tx: Tx, ctx: Ctx, req: SeriesRequest): Promise<
     }
   }
   const prefix = await defaultPrefix(tx, ctx, key)
-  const padding = paddingFor(prefix)
+  const padding = paddingFor(prefix, maxNumberLength(key.docType))
   return {
     series_id: null,
     prefix,

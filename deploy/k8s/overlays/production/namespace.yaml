@@ -1,0 +1,10 @@
+# Pod Security Admission "restricted": every Kadai pod runs non-root, read-only, no capabilities.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kadai
+  labels:
+    kadai.io/deploy-phase: pre-migrate
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

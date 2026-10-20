@@ -116,7 +116,11 @@ describe('core/payments', () => {
       .executeTakeFirstOrThrow()
 
   const balanceOf = (customerId: string) =>
-    sys().selectFrom('customers').select('balance_paise').where('id', '=', customerId).executeTakeFirstOrThrow()
+    sys()
+      .selectFrom('customers')
+      .select('balance_paise')
+      .where('id', '=', customerId)
+      .executeTakeFirstOrThrow()
 
   async function journalOf(tx: Tx, paymentId: string) {
     return tx
@@ -168,8 +172,16 @@ describe('core/payments', () => {
         [inv2, 500],
       ].sort(),
     )
-    expect(await invoiceOf(inv1)).toEqual({ paid_paise: 1_000, due_paise: 0, payment_status: 'paid' })
-    expect(await invoiceOf(inv2)).toEqual({ paid_paise: 500, due_paise: 1_500, payment_status: 'partial' })
+    expect(await invoiceOf(inv1)).toEqual({
+      paid_paise: 1_000,
+      due_paise: 0,
+      payment_status: 'paid',
+    })
+    expect(await invoiceOf(inv2)).toEqual({
+      paid_paise: 500,
+      due_paise: 1_500,
+      payment_status: 'partial',
+    })
     const lines = await shop.tx((tx) => journalOf(tx, p.id))
     expect(lines.map((l) => [l.subtype, l.debit_paise, l.credit_paise, l.party_id])).toEqual([
       ['cash', 1_800, 0, null],
@@ -211,9 +223,15 @@ describe('core/payments', () => {
       }),
     ).rejects.toMatchObject({ code: 'UNPROCESSABLE' })
     await expect(
-      attempt({ allocations: [{ target_type: 'purchase_bill', target_id: newId(), amount_paise: 100 }] }),
+      attempt({
+        allocations: [{ target_type: 'purchase_bill', target_id: newId(), amount_paise: 100 }],
+      }),
     ).rejects.toMatchObject({ code: 'UNPROCESSABLE' })
-    expect(await invoiceOf(inv)).toEqual({ paid_paise: 0, due_paise: 1_000, payment_status: 'unpaid' })
+    expect(await invoiceOf(inv)).toEqual({
+      paid_paise: 0,
+      due_paise: 1_000,
+      payment_status: 'unpaid',
+    })
   })
 
   it('settles walk-in invoices without a party (POS tenders)', async () => {
@@ -230,7 +248,12 @@ describe('core/payments', () => {
         allocations: [{ target_type: 'sales_invoice', target_id: inv, amount_paise: 5_900 }],
       }),
     )
-    expect(p).toMatchObject({ party_type: null, unallocated_paise: 0, number: null, register_id: shop.register.id })
+    expect(p).toMatchObject({
+      party_type: null,
+      unallocated_paise: 0,
+      number: null,
+      register_id: shop.register.id,
+    })
     expect(await invoiceOf(inv)).toMatchObject({ due_paise: 0, payment_status: 'paid' })
     const lines = await shop.tx((tx) => journalOf(tx, p.id))
     expect(lines.map((l) => [l.subtype, l.debit_paise, l.credit_paise])).toEqual([
@@ -269,7 +292,11 @@ describe('core/payments', () => {
       ['payable', 45_000, 0, s.id],
       ['bank', 0, 45_000, null],
     ])
-    const supplier = await sys().selectFrom('suppliers').select('balance_paise').where('id', '=', s.id).executeTakeFirstOrThrow()
+    const supplier = await sys()
+      .selectFrom('suppliers')
+      .select('balance_paise')
+      .where('id', '=', s.id)
+      .executeTakeFirstOrThrow()
     expect(supplier.balance_paise).toBe(-45_000)
     // Opening balance allocations cannot exceed it.
     await expect(
@@ -293,11 +320,21 @@ describe('core/payments', () => {
     const settlementId = newId()
     await sys()
       .insertInto('accounts')
-      .values({ id: settlementId, tenant_id: shop.tenant.id, code: '1201', name: 'HDFC current', type: 'asset' })
+      .values({
+        id: settlementId,
+        tenant_id: shop.tenant.id,
+        code: '1201',
+        name: 'HDFC current',
+        type: 'asset',
+      })
       .execute()
     const vpaIntent = await insertIntent({ provider: 'upi_vpa', amount: 2_500 })
     const pspIntent = await insertIntent({ provider: 'razorpay', amount: 3_000 })
-    const settledIntent = await insertIntent({ provider: 'razorpay', amount: 1_000, settlementAccountId: settlementId })
+    const settledIntent = await insertIntent({
+      provider: 'razorpay',
+      amount: 1_000,
+      settlementAccountId: settlementId,
+    })
     const pending = await insertIntent({ provider: 'razorpay', amount: 1_000, status: 'pending' })
     const pay = (intentId: string, amount: number) =>
       shop.tx((tx) =>
@@ -315,7 +352,11 @@ describe('core/payments', () => {
     const c = await pay(settledIntent, 1_000)
     expect([a.account_id, b.account_id, c.account_id]).toEqual([bankId, clearingId, settlementId])
     expect(a.reference).toBe('429876543210') // UTR of the intent
-    const linked = await sys().selectFrom('payment_intents').select('payment_id').where('id', '=', vpaIntent).executeTakeFirstOrThrow()
+    const linked = await sys()
+      .selectFrom('payment_intents')
+      .select('payment_id')
+      .where('id', '=', vpaIntent)
+      .executeTakeFirstOrThrow()
     expect(linked.payment_id).toBe(a.id)
     await expect(pay(vpaIntent, 2_500)).rejects.toMatchObject({ code: 'CONFLICT' })
     await expect(pay(pending, 1_000)).rejects.toMatchObject({ code: 'UNPROCESSABLE' })
@@ -323,7 +364,13 @@ describe('core/payments', () => {
     await expect(pay(other, 701)).rejects.toMatchObject({ code: 'UNPROCESSABLE' })
     // Without an intent a UPI payment goes to the bank (static VPA).
     const plain = await shop.tx((tx) =>
-      recordPayment(tx, shop.ctx, { direction: 'in', store_id: shop.store.id, method: 'upi', amount_paise: 100, payment_date: TODAY }),
+      recordPayment(tx, shop.ctx, {
+        direction: 'in',
+        store_id: shop.store.id,
+        method: 'upi',
+        amount_paise: 100,
+        payment_date: TODAY,
+      }),
     )
     expect(plain.account_id).toBe(bankId)
   })
@@ -400,11 +447,17 @@ describe('core/payments', () => {
     const first = await shop.tx((tx) => recordPayment(tx, shop.ctx, input))
     const again = await shop.tx((tx) => recordPayment(tx, shop.ctx, input))
     expect(again).toMatchObject({ id: first.id, replayed: true })
-    await expect(shop.tx((tx) => recordPayment(tx, shop.ctx, { ...input, amount_paise: 4_300 }))).rejects.toMatchObject({
+    await expect(
+      shop.tx((tx) => recordPayment(tx, shop.ctx, { ...input, amount_paise: 4_300 })),
+    ).rejects.toMatchObject({
       code: 'IDEMPOTENCY_MISMATCH',
       status: 409,
     })
-    const count = await sys().selectFrom('payments').select('id').where('client_ref', '=', ref).execute()
+    const count = await sys()
+      .selectFrom('payments')
+      .select('id')
+      .where('client_ref', '=', ref)
+      .execute()
     expect(count).toHaveLength(1)
   })
 
@@ -431,7 +484,11 @@ describe('core/payments', () => {
       }),
     )
     expect(p).toMatchObject({ shift_id: shiftId, register_id: shop.register.id })
-    await sys().updateTable('register_shifts').set({ status: 'closed', closed_at: new Date() }).where('id', '=', shiftId).execute()
+    await sys()
+      .updateTable('register_shifts')
+      .set({ status: 'closed', closed_at: new Date() })
+      .where('id', '=', shiftId)
+      .execute()
     await expect(
       shop.tx((tx) =>
         recordPayment(tx, shop.ctx, {
@@ -483,15 +540,31 @@ describe('core/payments', () => {
     )
     expect(await invoiceOf(inv)).toMatchObject({ due_paise: 0, payment_status: 'paid' })
     const res = await shop.tx((tx) =>
-      cancelPayment(tx, shop.ctx, { payment_id: p.id, reason: 'Wrong customer', date: '2026-10-21' }),
+      cancelPayment(tx, shop.ctx, {
+        payment_id: p.id,
+        reason: 'Wrong customer',
+        date: '2026-10-21',
+      }),
     )
     expect(res.reversal_entry_id).toEqual(expect.any(String))
-    expect(await invoiceOf(inv)).toEqual({ paid_paise: 0, due_paise: 2_500, payment_status: 'unpaid' })
+    expect(await invoiceOf(inv)).toEqual({
+      paid_paise: 0,
+      due_paise: 2_500,
+      payment_status: 'unpaid',
+    })
     expect((await balanceOf(c.id)).balance_paise).toBe(balanceBefore)
     const after = await shop.tx((tx) => getPayment(tx, shop.ctx, p.id))
-    expect(after).toMatchObject({ status: 'cancelled', cancel_reason: 'Wrong customer', number: p.number })
+    expect(after).toMatchObject({
+      status: 'cancelled',
+      cancel_reason: 'Wrong customer',
+      number: p.number,
+    })
     expect(after.allocations).toHaveLength(1) // kept for history
-    const released = await sys().selectFrom('payment_intents').select('payment_id').where('id', '=', intent).executeTakeFirstOrThrow()
+    const released = await sys()
+      .selectFrom('payment_intents')
+      .select('payment_id')
+      .where('id', '=', intent)
+      .executeTakeFirstOrThrow()
     expect(released.payment_id).toBeNull()
     const lines = await shop.tx((tx) => journalOf(tx, p.id))
     expect(lines).toHaveLength(4)
@@ -551,7 +624,11 @@ describe('core/payments', () => {
         allocations: [{ target_type: 'credit_note', target_id: cn, amount_paise: 800 }],
       }),
     )
-    const row = await sys().selectFrom('credit_notes').select('settled_paise').where('id', '=', cn).executeTakeFirstOrThrow()
+    const row = await sys()
+      .selectFrom('credit_notes')
+      .select('settled_paise')
+      .where('id', '=', cn)
+      .executeTakeFirstOrThrow()
     expect(row.settled_paise).toBe(800)
     const lines = await shop.tx((tx) => journalOf(tx, refund.id))
     expect(lines.map((l) => [l.subtype, l.debit_paise, l.credit_paise])).toEqual([
@@ -559,7 +636,11 @@ describe('core/payments', () => {
       ['cash', 0, 800],
     ])
     await shop.tx((tx) => cancelPayment(tx, shop.ctx, { payment_id: refund.id, reason: 'reissue' }))
-    const reverted = await sys().selectFrom('credit_notes').select('settled_paise').where('id', '=', cn).executeTakeFirstOrThrow()
+    const reverted = await sys()
+      .selectFrom('credit_notes')
+      .select('settled_paise')
+      .where('id', '=', cn)
+      .executeTakeFirstOrThrow()
     expect(reverted.settled_paise).toBe(0)
   })
 })

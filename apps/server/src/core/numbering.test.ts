@@ -4,7 +4,13 @@ import { withTenant } from '../db/tenant'
 import { type TestApp, buildTestApp } from '../test/helpers'
 import { type TestShop, createTestTenant } from '../test/tenants'
 import { AppError } from './errors'
-import { acceptOfflineNumber, nextNumber, paddingFor, peekSeries } from './numbering'
+import {
+  acceptOfflineNumber,
+  maxNumberLength,
+  nextNumber,
+  paddingFor,
+  peekSeries,
+} from './numbering'
 
 describe('core/numbering', () => {
   let t: TestApp
@@ -16,7 +22,8 @@ describe('core/numbering', () => {
   })
   afterAll(() => t.close())
 
-  const alloc = (req: Parameters<typeof nextNumber>[2]) => shop.tx((tx) => nextNumber(tx, shop.ctx, req))
+  const alloc = (req: Parameters<typeof nextNumber>[2]) =>
+    shop.tx((tx) => nextNumber(tx, shop.ctx, req))
 
   it('numbers register and back-office invoices from separate series with the FY of the date', async () => {
     const pos1 = await alloc({
@@ -31,7 +38,11 @@ describe('core/numbering', () => {
       registerId: shop.register.id,
       date: '2027-03-31',
     })
-    const office = await alloc({ docType: 'sales_invoice', storeId: shop.store.id, date: '2026-10-20' })
+    const office = await alloc({
+      docType: 'sales_invoice',
+      storeId: shop.store.id,
+      date: '2026-10-20',
+    })
     const nextFy = await alloc({
       docType: 'sales_invoice',
       storeId: shop.store.id,
@@ -84,7 +95,13 @@ describe('core/numbering', () => {
     const other = await createTestTenant(t)
     const results = await Promise.all(
       Array.from({ length: 25 }, () =>
-        other.tx((tx) => nextNumber(tx, other.ctx, { docType: 'expense', storeId: other.store.id, date: '2026-11-01' })),
+        other.tx((tx) =>
+          nextNumber(tx, other.ctx, {
+            docType: 'expense',
+            storeId: other.store.id,
+            date: '2026-11-01',
+          }),
+        ),
       ),
     )
     const seqs = results.map((r) => r.seq).sort((a, b) => a - b)
@@ -137,16 +154,30 @@ describe('core/numbering', () => {
     expect(paddingFor('S1/2627/')).toBe(5)
     expect(paddingFor('ABCD-XY/2627/')).toBe(3)
     expect(() => paddingFor('ABCD-XYB/2627/')).toThrow(AppError)
+    expect(paddingFor('GRNABCD/2627/', maxNumberLength('purchase_bill'))).toBe(5)
+    expect(maxNumberLength('sales_invoice')).toBe(16)
 
     const storeId = newId()
     const registerId = newId()
     await t.deps.db.systemDb
       .insertInto('stores')
-      .values({ id: storeId, tenant_id: shop.tenant.id, code: 'ABCD', name: 'Long code', state_code: '33' })
+      .values({
+        id: storeId,
+        tenant_id: shop.tenant.id,
+        code: 'ABCD',
+        name: 'Long code',
+        state_code: '33',
+      })
       .execute()
     await t.deps.db.systemDb
       .insertInto('registers')
-      .values({ id: registerId, tenant_id: shop.tenant.id, store_id: storeId, code: 'XY', name: 'XY' })
+      .values({
+        id: registerId,
+        tenant_id: shop.tenant.id,
+        store_id: storeId,
+        code: 'XY',
+        name: 'XY',
+      })
       .execute()
     const first = await alloc({ docType: 'sales_invoice', storeId, registerId, date: '2026-10-20' })
     expect(first.number).toBe('ABCD-XY/2627/001')
@@ -171,17 +202,36 @@ describe('core/numbering', () => {
     const register = newId()
     await t.deps.db.systemDb
       .insertInto('registers')
-      .values({ id: register, tenant_id: shop.tenant.id, store_id: shop.store.id, code: 'B', name: 'B' })
+      .values({
+        id: register,
+        tenant_id: shop.tenant.id,
+        store_id: shop.store.id,
+        code: 'B',
+        name: 'B',
+      })
       .execute()
-    const base = { docType: 'sales_invoice', storeId: shop.store.id, registerId: register, date: '2026-12-01' } as const
-    const ok = await shop.tx((tx) => acceptOfflineNumber(tx, shop.ctx, { ...base, number: 's1-b/2627/00001' }))
+    const base = {
+      docType: 'sales_invoice',
+      storeId: shop.store.id,
+      registerId: register,
+      date: '2026-12-01',
+    } as const
+    const ok = await shop.tx((tx) =>
+      acceptOfflineNumber(tx, shop.ctx, { ...base, number: 's1-b/2627/00001' }),
+    )
     expect(ok).toMatchObject({ number: 'S1-B/2627/00001', renumbered: false })
-    const ok2 = await shop.tx((tx) => acceptOfflineNumber(tx, shop.ctx, { ...base, number: 'S1-B/2627/00002' }))
+    const ok2 = await shop.tx((tx) =>
+      acceptOfflineNumber(tx, shop.ctx, { ...base, number: 'S1-B/2627/00002' }),
+    )
     expect(ok2.renumbered).toBe(false)
     const clash = await shop.tx((tx) =>
       acceptOfflineNumber(tx, shop.ctx, { ...base, number: 'S1-B/2627/00009' }),
     )
-    expect(clash).toMatchObject({ number: 'S1-B/2627/00003', renumbered: true, offline_number: 'S1-B/2627/00009' })
+    expect(clash).toMatchObject({
+      number: 'S1-B/2627/00003',
+      renumbered: true,
+      offline_number: 'S1-B/2627/00009',
+    })
   })
 
   it('validates store, register and input', async () => {
@@ -194,19 +244,36 @@ describe('core/numbering', () => {
     const store2 = newId()
     await t.deps.db.systemDb
       .insertInto('stores')
-      .values({ id: store2, tenant_id: shop.tenant.id, code: 'S2', name: 'Branch', state_code: '33' })
+      .values({
+        id: store2,
+        tenant_id: shop.tenant.id,
+        code: 'S2',
+        name: 'Branch',
+        state_code: '33',
+      })
       .execute()
     await expect(
-      alloc({ docType: 'sales_invoice', storeId: store2, registerId: shop.register.id, date: '2026-10-20' }),
+      alloc({
+        docType: 'sales_invoice',
+        storeId: store2,
+        registerId: shop.register.id,
+        date: '2026-10-20',
+      }),
     ).rejects.toMatchObject({ code: 'UNPROCESSABLE' })
-    await expect(alloc({ docType: 'receipt', storeId: shop.store.id, date: '20-10-2026' })).rejects.toMatchObject({
+    await expect(
+      alloc({ docType: 'receipt', storeId: shop.store.id, date: '20-10-2026' }),
+    ).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
     })
   })
 
   it('derives the financial year from tenants.fy_start_month', async () => {
     const jan = await createTestTenant(t)
-    await t.deps.db.systemDb.updateTable('tenants').set({ fy_start_month: 1 }).where('id', '=', jan.tenant.id).execute()
+    await t.deps.db.systemDb
+      .updateTable('tenants')
+      .set({ fy_start_month: 1 })
+      .where('id', '=', jan.tenant.id)
+      .execute()
     const n = await withTenant(t.deps.db.appDb, jan.ctx, (tx) =>
       nextNumber(tx, jan.ctx, { docType: 'receipt', storeId: jan.store.id, date: '2026-02-10' }),
     )

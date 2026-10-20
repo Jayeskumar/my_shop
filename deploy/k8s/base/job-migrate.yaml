@@ -1,0 +1,61 @@
+# Database migrations — run BEFORE rolling out a new image (deploy/k8s/deploy.sh does it):
+#   delete the previous Job → apply this Job → wait for completion → apply the rest.
+# New API pods stay unready until migrations are current (/health/ready), so a forgotten Job
+# blocks the rollout instead of serving an old schema. Argo CD runs it as a PreSync hook; Flux
+# recreates it on change (force annotation). Jobs are immutable, hence the delete-first rule.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kadai-migrate
+  labels:
+    app.kubernetes.io/component: migrate
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 1800
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kadai
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      serviceAccountName: kadai
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: kadai
+          args: [migrate]
+          envFrom:
+            - configMapRef:
+                name: kadai-config
+            - secretRef:
+                name: kadai-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

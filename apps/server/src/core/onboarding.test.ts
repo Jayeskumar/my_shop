@@ -55,15 +55,25 @@ describe('core/onboarding', () => {
       })
       expect(created.user.created).toBe(true)
 
-      const tenant = await db().selectFrom('tenants').selectAll().where('id', '=', tid).executeTakeFirstOrThrow()
+      const tenant = await db()
+        .selectFrom('tenants')
+        .selectAll()
+        .where('id', '=', tid)
+        .executeTakeFirstOrThrow()
       expect(tenant.pan).toBe(gstin.slice(2, 12))
       expect(readSettings(tenant.settings)).toEqual(initialSettingsFor(businessType))
 
-      const roles = await db().selectFrom('roles').select(['code', 'permissions', 'is_system']).where('tenant_id', '=', tid).execute()
+      const roles = await db()
+        .selectFrom('roles')
+        .select(['code', 'permissions', 'is_system'])
+        .where('tenant_id', '=', tid)
+        .execute()
       expect(roles.map((r) => r.code).sort()).toEqual([...SYSTEM_ROLE_CODES].sort())
       expect(roles.every((r) => r.is_system)).toBe(true)
       expect(roles.find((r) => r.code === 'owner')?.permissions).toEqual(['*'])
-      expect(roles.find((r) => r.code === 'cashier')?.permissions).toEqual([...ROLE_PRESETS.cashier.permissions])
+      expect(roles.find((r) => r.code === 'cashier')?.permissions).toEqual([
+        ...ROLE_PRESETS.cashier.permissions,
+      ])
 
       const membership = await db()
         .selectFrom('memberships')
@@ -77,22 +87,46 @@ describe('core/onboarding', () => {
         status: 'active',
         store_ids: null,
       })
-      const user = await db().selectFrom('users').selectAll().where('id', '=', created.user.id).executeTakeFirstOrThrow()
+      const user = await db()
+        .selectFrom('users')
+        .selectAll()
+        .where('id', '=', created.user.id)
+        .executeTakeFirstOrThrow()
       expect(await verifyPassword(user.password_hash!, PASSWORD)).toBe(true)
       expect(user.preferred_locale).toBe('ta')
 
-      const stores = await db().selectFrom('stores').selectAll().where('tenant_id', '=', tid).execute()
+      const stores = await db()
+        .selectFrom('stores')
+        .selectAll()
+        .where('tenant_id', '=', tid)
+        .execute()
       expect(stores).toHaveLength(1)
       expect(stores[0]).toMatchObject({ code: 'S1', state_code: '33', gstin })
-      const registers = await db().selectFrom('registers').selectAll().where('tenant_id', '=', tid).execute()
+      const registers = await db()
+        .selectFrom('registers')
+        .selectAll()
+        .where('tenant_id', '=', tid)
+        .execute()
       expect(registers.map((r) => [r.code, r.store_id])).toEqual([['A', stores[0]!.id]])
 
-      const accounts = await db().selectFrom('accounts').select(['code', 'subtype', 'type', 'is_system']).where('tenant_id', '=', tid).execute()
+      const accounts = await db()
+        .selectFrom('accounts')
+        .select(['code', 'subtype', 'type', 'is_system'])
+        .where('tenant_id', '=', tid)
+        .execute()
       expect(accounts).toHaveLength(DEFAULT_CHART.length)
       expect(accounts.every((a) => a.is_system)).toBe(true)
       const subtypes = accounts.flatMap((a) => (a.subtype ? [a.subtype] : []))
       expect(new Set(subtypes).size).toBe(subtypes.length)
-      expect(subtypes).toEqual(expect.arrayContaining(['cash', 'receivable', 'payable', 'bank_charges', 'customer_advance']))
+      expect(subtypes).toEqual(
+        expect.arrayContaining([
+          'cash',
+          'receivable',
+          'payable',
+          'bank_charges',
+          'customer_advance',
+        ]),
+      )
 
       const preset = VERTICAL_PRESETS[businessType]
       const flat = flattenCategoryPresets(preset.categories)
@@ -100,7 +134,14 @@ describe('core/onboarding', () => {
         .selectFrom('categories as c')
         .leftJoin('categories as p', 'p.id', 'c.parent_id')
         .leftJoin('tax_slab_rules as r', 'r.id', 'c.tax_slab_rule_id')
-        .select(['c.name', 'c.name_ta', 'c.hsn_code', 'c.gst_rate_bp', 'p.name as parent_name', 'r.name as rule_name'])
+        .select([
+          'c.name',
+          'c.name_ta',
+          'c.hsn_code',
+          'c.gst_rate_bp',
+          'p.name as parent_name',
+          'r.name as rule_name',
+        ])
         .where('c.tenant_id', '=', tid)
         .execute()
       expect(categories).toHaveLength(flat.length)
@@ -111,19 +152,30 @@ describe('core/onboarding', () => {
         expect(row!.name_ta).toBe(f.name_ta)
         expect(row!.gst_rate_bp).toBe(f.gst_rate_bp ?? null)
         if (f.tax_slab_rule) {
-          expect(row!.rule_name).toBe(preset.tax_slab_rules.find((r) => r.key === f.tax_slab_rule)!.name)
+          expect(row!.rule_name).toBe(
+            preset.tax_slab_rules.find((r) => r.key === f.tax_slab_rule)!.name,
+          )
         }
       }
-      const rules = await db().selectFrom('tax_slab_rules').select(['name', 'slabs']).where('tenant_id', '=', tid).execute()
+      const rules = await db()
+        .selectFrom('tax_slab_rules')
+        .select(['name', 'slabs'])
+        .where('tenant_id', '=', tid)
+        .execute()
       expect(rules).toHaveLength(preset.tax_slab_rules.length)
       for (const r of preset.tax_slab_rules) {
         expect(rules.find((x) => x.name === r.name)?.slabs).toEqual(r.slabs)
       }
 
-      const subs = await db().selectFrom('subscriptions').selectAll().where('tenant_id', '=', tid).execute()
+      const subs = await db()
+        .selectFrom('subscriptions')
+        .selectAll()
+        .where('tenant_id', '=', tid)
+        .execute()
       expect(subs).toHaveLength(1)
       expect(subs[0]).toMatchObject({ plan_code: 'growth', status: 'trialing' })
-      const days = (subs[0]!.trial_ends_at!.getTime() - subs[0]!.current_period_start.getTime()) / 86_400_000
+      const days =
+        (subs[0]!.trial_ends_at!.getTime() - subs[0]!.current_period_start.getTime()) / 86_400_000
       expect(days).toBeCloseTo(14, 5)
 
       const auditRow = await db()
@@ -131,7 +183,11 @@ describe('core/onboarding', () => {
         .select(['action', 'user_id', 'entity_id'])
         .where('tenant_id', '=', tid)
         .executeTakeFirstOrThrow()
-      expect(auditRow).toEqual({ action: 'tenant.create', user_id: created.user.id, entity_id: tid })
+      expect(auditRow).toEqual({
+        action: 'tenant.create',
+        user_id: created.user.id,
+        entity_id: tid,
+      })
     },
   )
 
@@ -147,9 +203,16 @@ describe('core/onboarding', () => {
     const onprem = await createTenant(db(), input({ mode: 'onprem', business_type: 'pharmacy' }))
     expect(onprem.subscription).toBeNull()
     expect(onprem.tenant.gst_scheme).toBe('unregistered')
-    const subs = await db().selectFrom('subscriptions').select('id').where('tenant_id', '=', onprem.tenant.id).execute()
+    const subs = await db()
+      .selectFrom('subscriptions')
+      .select('id')
+      .where('tenant_id', '=', onprem.tenant.id)
+      .execute()
     expect(subs).toHaveLength(0)
-    const composition = await createTenant(db(), input({ gst_scheme: 'composition', gstin: randomGstin('33') }))
+    const composition = await createTenant(
+      db(),
+      input({ gst_scheme: 'composition', gstin: randomGstin('33') }),
+    )
     expect(composition.tenant.gst_scheme).toBe('composition')
   })
 
@@ -163,18 +226,35 @@ describe('core/onboarding', () => {
       [{ state_code: '45' }, 'state_code'],
     ]
     for (const [overrides, path] of cases) {
-      const err = await createTenant(db(), input({ business_name: name, ...overrides })).catch((e: unknown) => e)
+      const err = await createTenant(db(), input({ business_name: name, ...overrides })).catch(
+        (e: unknown) => e,
+      )
       expect(err, path).toMatchObject({ code: 'VALIDATION_ERROR' })
       expect(JSON.stringify((err as { details: unknown }).details)).toContain(path)
     }
     await expect(
-      createTenant(db(), input({ business_name: name, owner: { full_name: 'X', phone: '12345', password: PASSWORD } })),
+      createTenant(
+        db(),
+        input({
+          business_name: name,
+          owner: { full_name: 'X', phone: '12345', password: PASSWORD },
+        }),
+      ),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
     await expect(
-      createTenant(db(), input({ business_name: name, owner: { full_name: 'X', phone: randomPhone(), password: 'password123' } })),
+      createTenant(
+        db(),
+        input({
+          business_name: name,
+          owner: { full_name: 'X', phone: randomPhone(), password: 'password123' },
+        }),
+      ),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
     await expect(
-      createTenant(db(), input({ business_name: name, owner: { full_name: 'X', phone: randomPhone() } })),
+      createTenant(
+        db(),
+        input({ business_name: name, owner: { full_name: 'X', phone: randomPhone() } }),
+      ),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
     const none = await db().selectFrom('tenants').select('id').where('name', '=', name).execute()
     expect(none).toHaveLength(0)
@@ -182,35 +262,77 @@ describe('core/onboarding', () => {
 
   it('links an existing identity by password or verified OTP, and blocks double submits', async () => {
     const phone = randomPhone()
-    const first = await createTenant(db(), input({ owner: { full_name: 'Lakshmi', phone, password: PASSWORD } }))
+    const first = await createTenant(
+      db(),
+      input({ owner: { full_name: 'Lakshmi', phone, password: PASSWORD } }),
+    )
     expect(first.user.created).toBe(true)
 
     await expect(
-      createTenant(db(), input({ owner: { full_name: 'Lakshmi', phone, password: 'Wrong-Password#1' } })),
-    ).rejects.toMatchObject({ code: 'DUPLICATE', details: { field: 'phone', reason: 'phone_registered' } })
+      createTenant(
+        db(),
+        input({ owner: { full_name: 'Lakshmi', phone, password: 'Wrong-Password#1' } }),
+      ),
+    ).rejects.toMatchObject({
+      code: 'DUPLICATE',
+      details: { field: 'phone', reason: 'phone_registered' },
+    })
 
     const second = await createTenant(
       db(),
-      input({ business_name: 'Lakshmi Textiles', business_type: 'apparel', owner: { full_name: 'L', phone, password: PASSWORD } }),
+      input({
+        business_name: 'Lakshmi Textiles',
+        business_type: 'apparel',
+        owner: { full_name: 'L', phone, password: PASSWORD },
+      }),
     )
     expect(second.user).toMatchObject({ id: first.user.id, created: false, full_name: 'Lakshmi' })
     expect(second.tenant.id).not.toBe(first.tenant.id)
 
     await expect(
-      createTenant(db(), input({ business_name: 'lakshmi textiles', owner: { full_name: 'L', phone, password: PASSWORD } })),
-    ).rejects.toMatchObject({ code: 'DUPLICATE', details: { reason: 'duplicate_signup', tenant_id: second.tenant.id } })
+      createTenant(
+        db(),
+        input({
+          business_name: 'lakshmi textiles',
+          owner: { full_name: 'L', phone, password: PASSWORD },
+        }),
+      ),
+    ).rejects.toMatchObject({
+      code: 'DUPLICATE',
+      details: { reason: 'duplicate_signup', tenant_id: second.tenant.id },
+    })
 
-    const third = await createTenant(db(), input({ phone_verified: true, owner: { full_name: 'L', phone } }))
+    const third = await createTenant(
+      db(),
+      input({ phone_verified: true, owner: { full_name: 'L', phone } }),
+    )
     expect(third.user.id).toBe(first.user.id)
-    const memberships = await db().selectFrom('memberships').select('tenant_id').where('user_id', '=', first.user.id).execute()
+    const memberships = await db()
+      .selectFrom('memberships')
+      .select('tenant_id')
+      .where('user_id', '=', first.user.id)
+      .execute()
     expect(memberships).toHaveLength(3)
   })
 
   it('rejects an email used by another account', async () => {
     const email = `owner.${newId().slice(-8)}@example.in`
-    await createTenant(db(), input({ owner: { full_name: 'A', phone: randomPhone(), password: PASSWORD, email } }))
+    await createTenant(
+      db(),
+      input({ owner: { full_name: 'A', phone: randomPhone(), password: PASSWORD, email } }),
+    )
     await expect(
-      createTenant(db(), input({ owner: { full_name: 'B', phone: randomPhone(), password: PASSWORD, email: email.toUpperCase() } })),
+      createTenant(
+        db(),
+        input({
+          owner: {
+            full_name: 'B',
+            phone: randomPhone(),
+            password: PASSWORD,
+            email: email.toUpperCase(),
+          },
+        }),
+      ),
     ).rejects.toMatchObject({ code: 'DUPLICATE', details: { field: 'email' } })
   })
 
@@ -218,9 +340,20 @@ describe('core/onboarding', () => {
     const phone = randomPhone()
     const name = `Atomic ${newId()}`
     await expect(
-      createTenant(db(), input({ business_name: name, trial: { plan_code: 'no_such_plan', days: 14 }, owner: { full_name: 'X', phone, password: PASSWORD } })),
+      createTenant(
+        db(),
+        input({
+          business_name: name,
+          trial: { plan_code: 'no_such_plan', days: 14 },
+          owner: { full_name: 'X', phone, password: PASSWORD },
+        }),
+      ),
     ).rejects.toMatchObject({ code: 'INTERNAL' })
-    expect(await db().selectFrom('tenants').select('id').where('name', '=', name).execute()).toHaveLength(0)
-    expect(await db().selectFrom('users').select('id').where('phone', '=', phone).execute()).toHaveLength(0)
+    expect(
+      await db().selectFrom('tenants').select('id').where('name', '=', name).execute(),
+    ).toHaveLength(0)
+    expect(
+      await db().selectFrom('users').select('id').where('phone', '=', phone).execute(),
+    ).toHaveLength(0)
   })
 })

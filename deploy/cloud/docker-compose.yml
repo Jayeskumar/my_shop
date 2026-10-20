@@ -1,0 +1,233 @@
+# =============================================================================
+# Kadai cloud SaaS — single-host / small deployment with Docker Compose
+#
+#   cp .env.example .env     # domain, image, secrets (see the comments in that file)
+#   docker compose up -d     # migrate (one-shot) → api ×N + worker ×M behind Caddy (HTTPS)
+#
+# Caddy obtains and renews Let's Encrypt certificates for KADAI_DOMAIN automatically (ports
+# 80/443 must reach this host). External PostgreSQL: remove "db" from COMPOSE_PROFILES and set
+# DATABASE_URL / DATABASE_SYSTEM_URL. For larger fleets use the Kubernetes manifests (deploy/k8s).
+# =============================================================================
+name: ${COMPOSE_PROJECT_NAME:-kadai-cloud}
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 20m
+    max-file: '5'
+
+# Configuration shared by migrate, api and worker.
+x-kadai-env: &kadai-env
+  KADAI_MODE: cloud
+  NODE_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: ${DATABASE_URL:-postgres://kadai_app:${KADAI_DB_APP_PASSWORD}@db:5432/kadai}
+  DATABASE_SYSTEM_URL: ${DATABASE_SYSTEM_URL:-postgres://kadai_owner:${KADAI_DB_OWNER_PASSWORD}@db:5432/kadai}
+  DATABASE_APP_ROLE: kadai_app
+  DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-20}
+  DATABASE_SYSTEM_POOL_MAX: ${DATABASE_SYSTEM_POOL_MAX:-10}
+  KADAI_MIGRATE_ON_BOOT: 'false'
+  KADAI_EMBEDDED_WORKER: 'false'
+  # A worker outage must not take the API out of the load balancer: alert on it instead.
+  KADAI_HEALTH_REQUIRE_WORKER: 'false'
+  PUBLIC_BASE_URL: https://${KADAI_DOMAIN:?set KADAI_DOMAIN in .env}
+  CORS_ORIGINS: ${CORS_ORIGINS:-}
+  TRUST_PROXY: '1'
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+  KADAI_ENCRYPTION_KEYS: ${KADAI_ENCRYPTION_KEYS:?set KADAI_ENCRYPTION_KEYS in .env}
+  METRICS_TOKEN: ${METRICS_TOKEN:?set METRICS_TOKEN in .env}
+  KADAI_DATA_DIR: /data
+  S3_BUCKET: ${S3_BUCKET:-}
+  S3_REGION: ${S3_REGION:-ap-south-1}
+  S3_ENDPOINT: ${S3_ENDPOINT:-}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+  S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
+  SMS_PROVIDER: ${SMS_PROVIDER:-log}
+  MSG91_AUTH_KEY: ${MSG91_AUTH_KEY:-}
+  MSG91_SENDER_ID: ${MSG91_SENDER_ID:-}
+  MSG91_DLT_ENTITY_ID: ${MSG91_DLT_ENTITY_ID:-}
+  MSG91_OTP_TEMPLATE_ID: ${MSG91_OTP_TEMPLATE_ID:-}
+  WHATSAPP_PROVIDER: ${WHATSAPP_PROVIDER:-log}
+  WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+  WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+  WHATSAPP_API_VERSION: ${WHATSAPP_API_VERSION:-v21.0}
+  WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:-}
+  EMAIL_PROVIDER: ${EMAIL_PROVIDER:-log}
+  SMTP_URL: ${SMTP_URL:-}
+  SMTP_FROM: ${SMTP_FROM:-Kadai <no-reply@localhost>}
+  RAZORPAY_PLATFORM_KEY_ID: ${RAZORPAY_PLATFORM_KEY_ID:-}
+  RAZORPAY_PLATFORM_KEY_SECRET: ${RAZORPAY_PLATFORM_KEY_SECRET:-}
+  RAZORPAY_PLATFORM_WEBHOOK_SECRET: ${RAZORPAY_PLATFORM_WEBHOOK_SECRET:-}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+
+services:
+  caddy:
+    image: ${KADAI_CADDY_IMAGE:-caddy:2}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      KADAI_DOMAIN: ${KADAI_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env (Let's Encrypt account)}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [edge, internal]
+    logging: *logging
+
+  migrate:
+    image: ${KADAI_IMAGE:?set KADAI_IMAGE in .env}
+    command: [migrate]
+    restart: 'no'
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
+    environment: *kadai-env
+    networks: [internal]
+    logging: *logging
+
+  api:
+    image: ${KADAI_IMAGE}
+    command: [server]
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment: *kadai-env
+    deploy:
+      replicas: ${KADAI_API_REPLICAS:-2}
+      resources:
+        limits:
+          memory: ${KADAI_API_MEMORY:-1g}
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m
+    volumes:
+      - kadai-data:/data
+    healthcheck:
+      test: ['CMD', 'node', '/app/healthcheck.mjs']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    stop_grace_period: 40s
+    networks: [internal]
+    logging: *logging
+
+  worker:
+    image: ${KADAI_IMAGE}
+    command: [worker]
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment: *kadai-env
+    deploy:
+      replicas: ${KADAI_WORKER_REPLICAS:-1}
+      resources:
+        limits:
+          memory: ${KADAI_WORKER_MEMORY:-768m}
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m
+    volumes:
+      - kadai-data:/data
+    stop_grace_period: 45s
+    networks: [internal]
+    logging: *logging
+
+  db:
+    image: ${KADAI_POSTGRES_IMAGE:-postgres:16-trixie}
+    profiles: [db]
+    restart: unless-stopped
+    shm_size: 512mb
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      POSTGRES_DB: postgres
+      POSTGRES_INITDB_ARGS: --data-checksums
+      KADAI_DB_NAME: kadai
+      KADAI_DB_OWNER: kadai_owner
+      KADAI_DB_OWNER_PASSWORD: ${KADAI_DB_OWNER_PASSWORD:-}
+      KADAI_DB_APP_USER: kadai_app
+      KADAI_DB_APP_PASSWORD: ${KADAI_DB_APP_PASSWORD:-}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-1GB}
+      - -c
+      - effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE:-3GB}
+      - -c
+      - max_connections=${PG_MAX_CONNECTIONS:-200}
+      - -c
+      - wal_compression=on
+      - -c
+      - max_wal_size=4GB
+      - -c
+      - checkpoint_timeout=15min
+      - -c
+      - log_min_duration_statement=1000
+      - -c
+      - log_lock_waits=on
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../onprem/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U postgres -d kadai -q']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    stop_grace_period: 90s
+    networks: [internal]
+    logging: *logging
+
+  redis:
+    image: ${KADAI_REDIS_IMAGE:-redis:7-alpine}
+    restart: unless-stopped
+    # Rate-limit / cache state only (no durable data): no persistence, bounded memory.
+    command:
+      [
+        redis-server,
+        --save,
+        '',
+        --appendonly,
+        'no',
+        --maxmemory,
+        256mb,
+        --maxmemory-policy,
+        allkeys-lru,
+      ]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [internal]
+    logging: *logging
+
+networks:
+  edge: {}
+  # No route to the internet is needed for db/redis; api and worker reach providers (Razorpay,
+  # MSG91, WhatsApp, S3) through the default bridge, hence not "internal: true".
+  internal: {}
+
+volumes:
+  pgdata:
+  kadai-data:
+  caddy-data:
+  caddy-config:

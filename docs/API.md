@@ -29,6 +29,16 @@ Legend: **C** create, **L** list (paginated, filterable), **G** get one, **U** p
 | `GET  /me` | user, tenant, membership (role, permissions, store_ids), entitlements, settings, stores, registers, mode |
 | `GET  /setup/status` · `POST /setup` | on-prem first-run wizard (creates the single tenant + owner); 404 in cloud |
 
+Session endpoints (signup, login, OTP login, select-tenant, refresh, PIN login, setup) return the
+`SessionResponse` and set the refresh token as the httpOnly cookie `kadai_rt`
+(`Path=/api/v1/auth; SameSite=Strict`); send `X-Kadai-Token-Delivery: body` to receive
+`refresh_token` in the body instead. Cookie refresh/logout need `X-Requested-With: kadai`.
+`password/reset`, `password/change` and `logout` answer 204. Lockouts: 5 wrong passwords → 423
+`ACCOUNT_LOCKED`, 5 wrong PINs → 423 `PIN_LOCKED` (15 minutes, `Retry-After`). Rate limits per IP:
+login/OTP-verify 10/min, OTP request 3/10 min (+ per phone), signup 10/h, PIN 60/min. `POST /setup`
+needs `setup_token` when `KADAI_SETUP_TOKEN` is set; afterwards it is 409 `SETUP_ALREADY_DONE`.
+Route catalogue: `authRoutes` in `@kadai/shared/api/auth`.
+
 ## identity (users, roles, org, settings)
 
 | Method & path | perm | Notes |

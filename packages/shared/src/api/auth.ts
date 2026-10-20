@@ -17,6 +17,8 @@ import { PermissionSchema } from '../permissions'
 import { TenantSettingsSchema } from '../settings'
 import {
   AddressSchema,
+  dataOf,
+  defineRoutes,
   zE164,
   zId,
   zOptionalGstin,
@@ -25,6 +27,16 @@ import {
   zStateCode,
   zTimestamp,
 } from './common'
+
+/**
+ * Non-browser clients (scripts, native apps) send `X-Kadai-Token-Delivery: body` on session
+ * endpoints to receive the refresh token in the JSON body instead of the httpOnly cookie.
+ * POST /auth/refresh with a body `refresh_token` always answers in the body.
+ */
+export const TOKEN_DELIVERY_HEADER = 'x-kadai-token-delivery'
+/** Cookie-authenticated refresh / logout must carry `X-Requested-With: kadai` (CSRF guard). */
+export const CSRF_HEADER = 'x-requested-with'
+export const CSRF_HEADER_VALUE = 'kadai'
 
 // ---------------------------------------------------------------------------------------------
 // Field rules
@@ -122,6 +134,13 @@ export const LoginRequestSchema = z.object({
   password: CurrentPasswordSchema,
 })
 export type LoginRequest = z.infer<typeof LoginRequestSchema>
+
+/**
+ * OTP purposes served by /auth/otp/* (the server answers VALIDATION_ERROR for 'verify_phone',
+ * which is reserved for in-app phone changes).
+ */
+export const AuthOtpPurposeSchema = OtpPurposeSchema.extract(['login', 'signup', 'reset_password'])
+export type AuthOtpPurpose = z.infer<typeof AuthOtpPurposeSchema>
 
 /** POST /auth/otp/request */
 export const OtpRequestSchema = z.object({
@@ -375,3 +394,118 @@ export const SetupRequestSchema = z
   })
   .superRefine(refineBusiness)
 export type SetupRequest = z.infer<typeof SetupRequestSchema>
+
+// ---------------------------------------------------------------------------------------------
+// Route catalogue (docs/API.md "auth"; ARCHITECTURE.md §7.3, §7.4)
+// ---------------------------------------------------------------------------------------------
+
+export const authRoutes = defineRoutes({
+  signup: {
+    method: 'POST',
+    path: '/auth/signup',
+    auth: 'public',
+    mode: 'cloud',
+    body: SignupRequestSchema,
+    response: dataOf(SessionResponseSchema),
+    status: 201,
+    summary: 'Create a business with its owner (cloud self-signup) and sign in',
+  },
+  login: {
+    method: 'POST',
+    path: '/auth/login',
+    auth: 'public',
+    body: LoginRequestSchema,
+    response: dataOf(SessionResponseSchema),
+    summary: 'Sign in with mobile number / email and password',
+  },
+  otpRequest: {
+    method: 'POST',
+    path: '/auth/otp/request',
+    auth: 'public',
+    body: OtpRequestSchema,
+    response: dataOf(OtpRequestResponseSchema),
+    summary: 'Send a one-time password by SMS',
+  },
+  otpVerify: {
+    method: 'POST',
+    path: '/auth/otp/verify',
+    auth: 'public',
+    body: OtpVerifyRequestSchema,
+    response: dataOf(OtpVerifyResponseSchema),
+    summary: 'Verify an OTP: a session (login) or an otp_token (signup / reset_password)',
+  },
+  passwordReset: {
+    method: 'POST',
+    path: '/auth/password/reset',
+    auth: 'public',
+    body: PasswordResetRequestSchema,
+    summary: 'Set a new password with an otp_token (signs out every session)',
+  },
+  passwordChange: {
+    method: 'POST',
+    path: '/auth/password/change',
+    body: PasswordChangeRequestSchema,
+    summary: 'Change the password (signs out the other sessions)',
+  },
+  selectTenant: {
+    method: 'POST',
+    path: '/auth/select-tenant',
+    body: SelectTenantRequestSchema,
+    response: dataOf(SessionResponseSchema),
+    summary: "Scope the session to one of the user's businesses",
+  },
+  refresh: {
+    method: 'POST',
+    path: '/auth/refresh',
+    auth: 'public',
+    body: RefreshRequestSchema.prefault({}),
+    response: dataOf(SessionResponseSchema),
+    summary: 'Rotate the refresh token (cookie or body) and get a new access token',
+  },
+  logout: {
+    method: 'POST',
+    path: '/auth/logout',
+    body: LogoutRequestSchema.prefault({}),
+    summary: 'Revoke this login (or every session with all: true)',
+  },
+  pinLogin: {
+    method: 'POST',
+    path: '/auth/pin-login',
+    auth: 'public',
+    body: PinLoginRequestSchema,
+    response: dataOf(SessionResponseSchema),
+    summary: 'PIN sign-in on a trusted counter device',
+  },
+  pinUsers: {
+    method: 'GET',
+    path: '/auth/pin-users',
+    auth: 'public',
+    query: PinUsersQuerySchema,
+    response: dataOf(PinUsersResponseSchema),
+    summary: 'Members who can PIN-login on a trusted device',
+  },
+  me: {
+    method: 'GET',
+    path: '/me',
+    response: dataOf(MeResponseSchema),
+    summary: 'Profile, membership, entitlements, settings, stores and registers',
+  },
+  setupStatus: {
+    method: 'GET',
+    path: '/setup/status',
+    auth: 'public',
+    mode: 'onprem',
+    response: dataOf(SetupStatusResponseSchema),
+    summary: 'On-prem first-run status (404 in cloud)',
+  },
+  setup: {
+    method: 'POST',
+    path: '/setup',
+    auth: 'public',
+    mode: 'onprem',
+    body: SetupRequestSchema,
+    response: dataOf(SessionResponseSchema),
+    status: 201,
+    summary: 'On-prem first-run wizard: creates the business and its owner',
+  },
+})

@@ -1,0 +1,56 @@
+# Production. Pin the image to a release tag (deploy.sh sets it: kustomize edit set image).
+#   deploy/k8s/deploy.sh production 1.4.0
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kadai
+
+resources:
+  - namespace.yaml
+  - ../../base
+
+components:
+  - ../../components/monitoring
+
+images:
+  - name: kadai
+    newName: ghcr.io/jayeskumar/my_shop
+    newTag: 0.1.0
+
+configMapGenerator:
+  - name: kadai-config
+    behavior: merge
+    envs:
+      - config.env
+
+replicas:
+  - name: kadai-api
+    count: 3
+  - name: kadai-worker
+    count: 2
+
+patches:
+  - target:
+      kind: Ingress
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: app.example.in
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: app.example.in
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: kadai-api
+    patch: |-
+      - op: replace
+        path: /spec/maxReplicas
+        value: 12
+  - target:
+      kind: Deployment
+      name: kadai-api
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests
+        value:
+          cpu: 500m
+          memory: 512Mi

@@ -20,7 +20,7 @@ import { type AuthMethod, newId } from '@kadai/shared'
 import type { Config } from '../config'
 import type { DB } from '../db/schema.generated'
 import { type Tx, withSystemTx } from '../db/tenant'
-import { randomToken, sha256Hex } from './crypto'
+import { randomToken, sha256Hex, timingSafeEqualStr } from './crypto'
 import { AppError, unauthenticated } from './errors'
 import { CHANNELS, notify } from './events'
 import { notifySessionsRevoked } from './session-cache'
@@ -345,4 +345,23 @@ export function hashApiKey(key: string): string {
 /** Call inside the transaction that creates/revokes/edits an API key: drops every process's key cache. */
 export function notifyApiKeysChanged(db: SystemDb): Promise<void> {
   return notify(db, CHANNELS.cache, { scope: 'api_key' })
+}
+
+// ---------------------------------------------------------------------------------------------
+// Trusted POS devices (§7.4): `POST /devices` returns the secret once; devices.device_secret_hash
+// stores its sha256 (a 256-bit random secret needs no slow hash). PIN login verifies it.
+// ---------------------------------------------------------------------------------------------
+
+export function generateDeviceSecret(): { secret: string; hash: string } {
+  const secret = randomToken(32)
+  return { secret, hash: hashDeviceSecret(secret) }
+}
+
+export function hashDeviceSecret(secret: string): string {
+  return sha256Hex(secret)
+}
+
+/** Constant-time check of a presented device secret against devices.device_secret_hash. */
+export function verifyDeviceSecret(hash: string, secret: string): boolean {
+  return timingSafeEqualStr(hash, hashDeviceSecret(secret))
 }

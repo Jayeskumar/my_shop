@@ -1,0 +1,81 @@
+# Background jobs (pg-boss): UPI status polling, notifications, alerts, renewals, cleanup.
+# Several replicas are safe: pg-boss hands each job to one worker; cron/interval jobs are
+# singletons across workers.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kadai-worker
+  labels:
+    app.kubernetes.io/component: worker
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kadai
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kadai
+        app.kubernetes.io/component: worker
+    spec:
+      serviceAccountName: kadai
+      automountServiceAccountToken: false
+      # Running jobs finish (or are retried by pg-boss) within the grace period.
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: kadai
+              app.kubernetes.io/component: worker
+      containers:
+        - name: worker
+          image: kadai
+          args: [worker]
+          envFrom:
+            - configMapRef:
+                name: kadai-config
+            - secretRef:
+                name: kadai-secrets
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=512
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 512Mi
+        - name: data
+          emptyDir:
+            sizeLimit: 1Gi

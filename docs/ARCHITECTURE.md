@@ -322,10 +322,19 @@ app.post('/products', {
 * **Tokens** — access JWT (15 min, HS256, claims `sub`, `tid`, `mid`, `sid`, `did`, `amr`),
   refresh token (opaque 256-bit, stored as sha256 in `auth_sessions`, 30 days, rotation with
   reuse detection by `family_id`: reuse revokes the whole family). Web: refresh token in an
-  httpOnly `SameSite=Strict` cookie scoped to `/api/v1/auth`; access token in memory only.
-  Non-browser clients may send `refresh_token` in the body.
-* **Tenant selection** — a user with several memberships gets a tenant-less token and calls
-  `POST /auth/select-tenant`.
+  httpOnly `SameSite=Strict` cookie `kadai_rt` scoped to `/api/v1/auth` (Secure when
+  `PUBLIC_BASE_URL` is https); access token in memory only. Non-browser clients send the header
+  `X-Kadai-Token-Delivery: body` to get `refresh_token` in the body (no cookie) and refresh with
+  a body `refresh_token` (answered in the body). Cookie-based refresh/logout require
+  `X-Requested-With: kadai`. Logout also works with only the refresh cookie (expired access token).
+* OTP requests for login / reset answer identically for unknown numbers (no SMS is sent). A reset
+  `otp_token` is single use (refused once the password changed after its OTP was verified); a
+  reset revokes every session, a change every session except the current login. Signing in
+  accepts pending (`invited`) memberships. Signup requires a signup `otp_token` whenever a real
+  SMS provider is configured.
+* **Tenant selection** — a user with exactly one active membership gets a tenant-scoped session;
+  with several, a tenant-less token and calls `POST /auth/select-tenant`, which rotates the
+  login's live session into a tenant-scoped one (same refresh family).
 * **Trusted devices & PIN** — a manager registers a counter PC (`POST /api/v1/devices`) → device
   secret stored in the browser. Cashiers then switch with a 4–6 digit PIN
   (`POST /auth/pin-login {device_id, device_secret, user_id, pin}`); 5 wrong PINs lock the
@@ -382,22 +391,32 @@ acceptOfflineNumber(tx, ctx, { docType, storeId, registerId, date, number }): Pr
 ```
 
 * Series row is created on first use for the FY with the default prefix template and locked
-  `FOR UPDATE` → gapless within a transaction.
+  `FOR UPDATE` → gapless within a transaction. Only `sales_invoice` / `bill_of_supply` use a
+  per-register series (when `registerId` is passed); every other doc type is numbered per store.
+  `peekSeries` neither locks nor creates (unused series report their defaults).
 * Default prefix templates (`{store}` = store code, `{reg}` = register code, `{fy}` = `2627`):
 
   | doc_type | template | example |
   |---|---|---|
-  | sales_invoice (POS register) | `{store}{reg}/{fy}/` | `S1A/2627/00042` |
+  | sales_invoice (POS register) | `{store}-{reg}/{fy}/` | `S1-A/2627/00042` |
   | sales_invoice (back office) | `{store}/{fy}/` | `S1/2627/00042` |
-  | bill_of_supply | `{store}{reg}B/{fy}/` | `S1AB/2627/00042` |
-  | credit_note | `CN{store}/{fy}/` | `CNS1/2627/0007` |
-  | estimate | `EST{store}/{fy}/` | |
+  | bill_of_supply (register / back office) | `{store}-{reg}B/{fy}/` / `{store}B/{fy}/` | `S1-AB/2627/00042` |
+  | credit_note | `CN{store}/{fy}/` | `CNS1/2627/00007` |
+  | estimate / sales_order | `EST{store}/{fy}/` / `SO{store}/{fy}/` | |
   | receipt / payment_voucher | `RC{store}/{fy}/` / `PV{store}/{fy}/` | |
   | purchase_order / purchase_bill / debit_note | `PO{store}/{fy}/` / `GRN{store}/{fy}/` / `DN{store}/{fy}/` | |
   | stock_adjustment / stock_transfer / expense / journal | `ADJ…` / `TR…` / `EXP…` / `JV…` | |
 
-* GST rule: invoice numbers ≤ 16 characters, only `A-Z 0-9 / -`. Padding shrinks (min 3) to
-  fit; otherwise `CONFLICT` with a message to shorten the store/register code.
+* The `-` between store and register codes (both `[A-Z0-9]`) keeps register series from
+  colliding with another store's back-office series (store `S1` + register `A` vs store `S1A`).
+* GST rule: invoice numbers ≤ 16 characters, only `A-Z 0-9 / -` — applied to documents issued
+  under GST (invoices, bills of supply, credit/debit notes, receipt/payment vouchers, stock
+  transfers); internal documents (estimates, orders, GRNs, adjustments, expenses, journals) allow
+  32. Padding (default 5) shrinks (min 3) to fit; otherwise `CONFLICT` with a message to shorten
+  the store/register code. A series whose numbers outgrow the limit fails with
+  `NUMBER_SERIES_EXHAUSTED` (409).
+* `acceptOfflineNumber` keeps the offline number only when it equals the series' next number,
+  else issues the next one (`renumbered: true`, `offline_number` returned for the audit).
 
 ### 8.2 Inventory posting — `core/inventory.ts`
 
@@ -410,15 +429,27 @@ postStock(tx, ctx, movements: Array<{
   ref_type?, ref_id?, ref_line_id?, reason?,
 }>, opts?: { allowNegative?: boolean }): Promise<PostedMovement[]>   // returns balance_after & cost used
 getAvailable(tx, ctx, { store_id, product_id, batch_id? }): Promise<number>
-pickBatchesFefo(tx, ctx, { store_id, product_id, qty_milli, today }): Promise<Array<{ batch_id, qty_milli }>>
+pickBatchesFefo(tx, ctx, { store_id, product_id, qty_milli, today, allowNegative? }): Promise<Array<{ batch_id, qty_milli, batch_no, expiry_date }>>
 ```
 
 * Locks the `stock_levels` rows (`INSERT … ON CONFLICT DO NOTHING` then `SELECT … FOR UPDATE`) in
   a deterministic order (product_id, batch_id) to avoid deadlocks.
 * Inbound movements update moving-average cost:
   `new_avg = (old_qty × old_avg + in_qty × in_cost) / (old_qty + in_qty)` (when old_qty ≤ 0 →
-  `in_cost`). Outbound movements use the current average (or the batch purchase price for
-  batch-tracked products) and return it as COGS.
+  `in_cost`). `unit_cost_paise` is required for `opening` / `purchase` / `transfer_in`; other
+  inbound movements default to the row's cost. Outbound movements use the current average and
+  return it as COGS. For batch-tracked products the `stock_levels` row is per batch, so its average
+  *is* the batch's (landed) purchase price; `batches.purchase_price_paise` (then
+  `products.purchase_price_paise`) is used for a row without cost history.
+* Each result carries `movement_id`, `unit_cost_paise`, `cost_paise` (|value|), `value_paise`
+  (signed), `balance_after_milli`, `avg_cost_after_paise`, `skipped` — in input order. Movement
+  signs are validated per type (e.g. `sale` < 0, `purchase` > 0; `adjustment`/`stock_take` ±).
+  Batch-tracked products require `batch_id`; others must not pass one.
+* `pickBatchesFefo` orders by expiry (FIFO by batch creation when `settings.inventory.fefo` is
+  off), skips expired batches when `settings.inventory.block_expired_sale` (a batch is sellable on
+  its expiry date), puts a shortfall on the last batch when negatives are allowed (else
+  `INSUFFICIENT_STOCK`), and returns one unbatched pick for non-batch products. It does not lock;
+  `postStock` re-checks under lock.
 * Negative stock: allowed when `settings.inventory.allow_negative_stock` (default true for small
   shops) or `opts.allowNegative`; otherwise 422 `INSUFFICIENT_STOCK` with product details.
 * Products with `track_inventory=false` (services) are ignored.
@@ -430,16 +461,22 @@ postJournal(tx, ctx, {
   entry_date, store_id?, source_type, source_id?, narration?,
   lines: Array<{ account: AccountRef, debit_paise?: number, credit_paise?: number,
                  party?: { type: 'customer' | 'supplier', id: string }, memo?: string }>,
-}): Promise<{ entry_id: string }>
-reverseJournal(tx, ctx, { source_type, source_id, entry_date, narration? }): Promise<{ entry_id }>
+}): Promise<{ entry_id: string | null }>
+reverseJournal(tx, ctx, { source_type, source_id, entry_date, narration? }): Promise<{ entry_id: string | null; entry_ids: string[] }>
 systemAccountId(tx, ctx, subtype: SystemAccountSubtype): Promise<string>   // cached per tx
 ```
 
-* `AccountRef` = `{ subtype: 'cash' }` or `{ id: '…' }`. Zero-amount lines are dropped; lines are
-  merged per (account, party, side); the entry must balance or it throws before hitting the DB.
+* `AccountRef` = `{ subtype: 'cash' }` or `{ id: '…' }` (same tenant, active). Zero-amount lines
+  are dropped; lines are merged per (account, party, store, side); the entry must balance or it
+  throws before hitting the DB. An entry whose lines are all zero is not written
+  (`{ entry_id: null }`). Lines may override the entry's `store_id` (stock transfers).
+* `reverseJournal` mirrors every not-yet-reversed entry of the source (`{ entry_id, entry_ids }`);
+  a source with nothing posted returns `entry_id: null`, an already reversed one is `CONFLICT`.
 * **Party balances**: for lines on `receivable` with a customer party,
   `customers.balance_paise += debit − credit`; on `payable` with a supplier party,
   `suppliers.balance_paise += credit − debit`. This is the only place party balances change.
+  A party on any other account (e.g. the customer on `customer_advance` for store credit) is an
+  annotation; a supplier on `receivable` or a customer on `payable` is rejected.
 * System chart of accounts is seeded per tenant (`@kadai/shared/accounting.ts` → `DEFAULT_CHART`):
 
   | code | subtype | name |
@@ -477,15 +514,30 @@ recordPayment(tx, ctx, {
   payment_date, party?: { type, id }, reference?, payment_intent_id?, account_id?,
   allocations: Array<{ target_type, target_id, amount_paise }>, notes?, client_ref?, number?: boolean,
 }): Promise<Payment>
-cancelPayment(tx, ctx, { payment_id, reason }): Promise<void>
+cancelPayment(tx, ctx, { payment_id, reason, date? }): Promise<{ reversal_entry_id: string | null }>
 ```
 
 * Resolves the ledger account by method (`cash`→cash, `upi`→provider settlement account or
-  bank, `card`→card_clearing, `bank_transfer`/`cheque`→bank, `store_credit`→customer_advance)
-  unless `account_id` given; posts the journal (Dr cash/bank, Cr receivable for `in` with
-  customer; Dr payable, Cr cash/bank for `out` with supplier); applies allocations to
-  `sales_invoices`/`purchase_bills` (`paid_paise`, `due_paise`, `payment_status`); keeps the
-  remainder in `unallocated_paise` (advance).
+  bank, `card`→card_clearing, `bank_transfer`/`cheque`/`other`→bank, `wallet`→upi_clearing,
+  `store_credit`→customer_advance) unless `account_id` given. A payment consuming a payment
+  intent uses the provider account's `settlement_account_id`, else `upi_clearing` for PSP
+  providers (razorpay, cashfree, phonepe, paytm, mock), else bank (`upi_vpa`). The intent must be
+  `paid`, unused, same store and amount; it is linked both ways (`payments.payment_intent_id`,
+  `payment_intents.payment_id`).
+* Posts the journal: `in` = Dr account, Cr counter; `out` = Dr counter, Cr account; counter =
+  payable(supplier) for a supplier party, else receivable(customer or walk-in). `store_credit`
+  lines on customer_advance carry the customer: `out` issues store credit (credit-note
+  settlement), `in` redeems it — never more than the customer's customer_advance balance.
+* Applies allocations (rows locked, over-allocation → 422): `in` → `sales_invoice`
+  (`paid_paise`, `due_paise`, `payment_status`), `debit_note`, `opening_balance`; `out` →
+  `purchase_bill` (same columns), `credit_note` (`settled_paise`), `expense` (on credit),
+  `opening_balance`. The remainder stays in `unallocated_paise` (advance). `number: true` takes a
+  `receipt` / `payment_voucher` number; `client_ref` makes it idempotent (same request → the same
+  payment, different → `IDEMPOTENCY_MISMATCH`).
+* `cancelPayment` reverses the journal, restores the documents, releases the intent (paid but
+  unused again), marks the payment cancelled and audits. Allocation rows of cancelled payments
+  are kept for history: sums over `payment_allocations` must join payments with
+  `status = 'completed'`.
 
 ### 8.5 Other core helpers
 
@@ -791,6 +843,7 @@ sends the public invoice link `/i/<share_token>` (+ UPI pay link when due).
 | `KADAI_SERVE_WEB` | `true` | serve `apps/web/dist` |
 | `KADAI_EMBEDDED_WORKER` | `true` onprem | run worker in API process |
 | `KADAI_LICENSE_PUBLIC_KEY` | built-in | override for testing |
+| `KADAI_SETUP_TOKEN` | — | on-prem: when set, `POST /setup` must carry it (`setup_token`) |
 | `SMS_PROVIDER` / `MSG91_*` | `log` | |
 | `WHATSAPP_PROVIDER` / `WHATSAPP_*` | `log` | |
 | `RAZORPAY_PLATFORM_*` | — | SaaS billing (cloud) |

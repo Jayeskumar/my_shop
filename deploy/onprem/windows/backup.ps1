@@ -80,10 +80,11 @@ try {
     }
   }
 
-  # Application backup list (Settings -> System). Best effort.
+  # Application backup list (Settings -> System). Best effort. Inside psql's single-quoted
+  # \set values a backslash escapes the next character, so Windows paths are doubled.
   $record = @"
 \set kind '$Kind'
-\set location '$($final.Replace("'", "''"))'
+\set location '$($final.Replace('\', '\\').Replace("'", "''"))'
 \set size $size
 \set sha '$sha'
 \set started '$started'

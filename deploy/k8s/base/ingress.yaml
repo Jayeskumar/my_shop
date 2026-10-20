@@ -1,0 +1,70 @@
+# ingress-nginx + cert-manager. Overlays replace the host (app.example.in) and the issuer.
+# Payment-intent status is streamed with server-sent events: buffering is off and read
+# timeouts are long; /metrics stays reachable but requires the METRICS_TOKEN bearer token.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kadai
+  labels:
+    app.kubernetes.io/component: api
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/force-ssl-redirect: 'true'
+    # CSV/XLSX imports up to 20 MB, plus multipart overhead.
+    nginx.ingress.kubernetes.io/proxy-body-size: 25m
+    nginx.ingress.kubernetes.io/proxy-buffering: 'off'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '300'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '300'
+    # Coarse per-client-IP flood guard; the app enforces per-user and per-route limits.
+    nginx.ingress.kubernetes.io/limit-rps: '100'
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: '5'
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [app.example.in]
+      secretName: kadai-tls
+  rules:
+    - host: app.example.in
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kadai-api
+                port:
+                  name: http
+---
+# Provider webhooks (Razorpay, WhatsApp delivery receipts):
+#   https://<host>/webhooks/payments/razorpay/<payment_provider_account_id>
+# Small bodies, no buffering needs, a separate rate limit. To restrict senders, add e.g.
+#   nginx.ingress.kubernetes.io/whitelist-source-range: <provider IP ranges>
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kadai-webhooks
+  labels:
+    app.kubernetes.io/component: api
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/force-ssl-redirect: 'true'
+    nginx.ingress.kubernetes.io/proxy-body-size: 1m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '30'
+    nginx.ingress.kubernetes.io/limit-rps: '20'
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: '10'
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [app.example.in]
+      secretName: kadai-tls
+  rules:
+    - host: app.example.in
+      http:
+        paths:
+          - path: /webhooks
+            pathType: Prefix
+            backend:
+              service:
+                name: kadai-api
+                port:
+                  name: http

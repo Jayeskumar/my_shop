@@ -12,7 +12,8 @@ $script:KadaiServiceName = 'kadai'
 $script:KadaiDbName = 'kadai'
 $script:KadaiDbOwner = 'kadai_owner'
 $script:KadaiDbAppUser = 'kadai_app'
-$script:DefaultDataRoot = Join-Path $env:ProgramData 'Kadai'
+# C:\ProgramData\Kadai on Windows (the variable is absent elsewhere, e.g. pwsh tests on Linux).
+$script:DefaultDataRoot = if ($env:ProgramData) { Join-Path $env:ProgramData 'Kadai' } else { $null }
 
 function Write-Step([string]$Message) { Write-Host "[kadai] $Message" -ForegroundColor Green }
 function Write-Warn([string]$Message) { Write-Host "[kadai] WARNING: $Message" -ForegroundColor Yellow }
@@ -25,14 +26,14 @@ function Assert-Administrator {
   }
 }
 
-function New-RandomBytes([int]$Count) {
+function New-RandomByteArray([int]$Count) {
   $bytes = New-Object byte[] $Count
   $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
   try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
   return , $bytes
 }
-function New-RandomHex([int]$Count) { return (-join ((New-RandomBytes $Count) | ForEach-Object { $_.ToString('x2') })) }
-function New-RandomBase64([int]$Count) { return [Convert]::ToBase64String((New-RandomBytes $Count)) }
+function New-RandomHex([int]$Count) { return (-join ((New-RandomByteArray $Count) | ForEach-Object { $_.ToString('x2') })) }
+function New-RandomBase64([int]$Count) { return [Convert]::ToBase64String((New-RandomByteArray $Count)) }
 
 # Reads a dotenv file into a hashtable (KEY=value, # comments, optional surrounding quotes).
 function Read-EnvFile([string]$Path) {
@@ -76,7 +77,7 @@ function Get-KadaiConfig([string]$DataRoot = $script:DefaultDataRoot) {
   return $cfg
 }
 
-# postgres://user:password@host:port/db → libpq connection pieces (password via PGPASSWORD).
+# postgres://user:password@host:port/db -> libpq connection pieces (password via PGPASSWORD).
 function ConvertFrom-PostgresUrl([string]$Url) {
   $u = [Uri]$Url
   $user, $password = $u.UserInfo.Split(':', 2)

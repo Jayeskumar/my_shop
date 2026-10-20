@@ -1,0 +1,290 @@
+# Kadai CI: lint/format/typecheck, unit tests, server integration tests on PostgreSQL 16,
+# build + e2e smoke, container image + on-prem kit end-to-end test, deployment kit checks,
+# Windows script checks and the production dependency audit.
+# Also called by release.yml before anything is published.
+name: CI
+
+on:
+  push:
+    branches: [main, 'release/**']
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CI: 'true'
+  FORCE_COLOR: '1'
+
+jobs:
+  lint:
+    name: Lint · format · typecheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - name: Applied migrations are never edited (forward-only)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          changed=$(git diff --name-only --diff-filter=MDR "origin/${BASE_REF}...HEAD" -- apps/server/migrations/)
+          if [ -n "$changed" ]; then
+            echo "::error title=Migration changed::Migrations are checksummed and forward-only; add a new file instead of editing: $changed"
+            exit 1
+          fi
+
+  unit:
+    name: Unit tests (shared · web)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: '@kadai/shared'
+        run: .github/scripts/vitest-ci.sh @kadai/shared shared
+      - name: '@kadai/web'
+        run: .github/scripts/vitest-ci.sh @kadai/web web
+      - name: Upload test reports and coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-unit
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+  server:
+    name: Server integration tests (PostgreSQL 16)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      TEST_DATABASE_URL: postgres://kadai_app:kadai_app@localhost:5432/kadai_test
+      TEST_DATABASE_SYSTEM_URL: postgres://kadai_owner:kadai_owner@localhost:5432/kadai_test
+      DATABASE_URL: postgres://kadai_app:kadai_app@localhost:5432/kadai_test
+      DATABASE_SYSTEM_URL: postgres://kadai_owner:kadai_owner@localhost:5432/kadai_test
+      DATABASE_APP_ROLE: kadai_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Create roles (owner + RLS runtime role), databases and extensions
+        run: .github/scripts/pg-setup.sh kadai_test
+      - name: Generated database types match the migrations
+        run: pnpm --filter @kadai/server db:types:check
+      - name: Integration tests
+        run: .github/scripts/vitest-ci.sh @kadai/server server
+      - name: Migration status (checksums)
+        run: pnpm --filter @kadai/server db:status
+      - name: Upload test reports and coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-server
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Bundle starts (CLI help, no database)
+        run: node apps/server/dist/cli.js help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: |
+            apps/server/dist/
+            apps/web/dist/
+          retention-days: 7
+
+  e2e:
+    name: E2E smoke (Playwright)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm --filter @kadai/web exec playwright install --with-deps chromium
+      - name: Playwright (production build + vite preview)
+        run: pnpm --filter @kadai/web exec playwright test
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+          retention-days: 14
+
+  image:
+    name: Container image + on-prem kit end-to-end
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image (not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          load: true
+          push: false
+          tags: kadai:ci
+          build-args: |
+            KADAI_VERSION=0.0.0-ci.${{ github.run_number }}
+            GIT_COMMIT=${{ github.sha }}
+          cache-from: type=gha,scope=kadai-image
+          cache-to: type=gha,mode=max,scope=kadai-image
+      - name: Image facts (version, user, pg_dump, healthcheck)
+        run: |
+          docker run --rm kadai:ci version
+          docker run --rm --entrypoint pg_dump kadai:ci --version
+          test "$(docker image inspect kadai:ci --format '{{.Config.User}}')" = "kadai:kadai"
+          docker image inspect kadai:ci --format '{{json .Config.Healthcheck}}'
+          docker image ls kadai:ci
+      - name: On-prem compose end-to-end (setup → backup → restore)
+        run: bash deploy/tests/onprem-compose.test.sh kadai:ci
+      - name: Cloud compose smoke (migrate job, api replicas, worker)
+        run: bash deploy/tests/cloud-compose.test.sh kadai:ci
+
+  deploy-kit:
+    name: Deployment kit (static checks · shell tests · backup/restore)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install validators (pinned, checksum-verified)
+        run: |
+          .github/scripts/install-deploy-tools.sh "$RUNNER_TEMP/bin"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Static checks (shellcheck, hadolint, actionlint, compose, Caddy, kustomize + kubeconform)
+        env:
+          KADAI_VALIDATE_STRICT: '1'
+        run: bash deploy/tests/validate.sh
+      - name: Shell library unit tests
+        run: bash deploy/tests/onprem-lib.test.sh
+      - name: Backup / restore integration (native mode, real PostgreSQL)
+        run: |
+          .github/scripts/pg-setup.sh
+          bash deploy/tests/backup-restore.test.sh
+
+  windows:
+    name: Windows installer scripts (PS 5.1 parse · ScriptAnalyzer · Pester)
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Windows PowerShell 5.1 can parse every script
+        shell: powershell
+        run: |
+          $failed = $false
+          Get-ChildItem deploy/onprem/windows -Filter *.ps1 | ForEach-Object {
+            $tokens = $null; $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            foreach ($e in $errors) { Write-Host "::error file=$($_.Name),line=$($e.Extent.StartLineNumber)::$($e.Message)"; $failed = $true }
+          }
+          [xml](Get-Content deploy/onprem/windows/kadai-service.xml -Raw) | Out-Null
+          if ($failed) { exit 1 }
+      - name: PSScriptAnalyzer (errors fail the build)
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -RequiredVersion 1.23.0 -Scope CurrentUser -Force
+          $all = Invoke-ScriptAnalyzer -Path deploy/onprem/windows -Recurse -Severity Warning, Error -ExcludeRule PSAvoidUsingWriteHost, PSUseShouldProcessForStateChangingFunctions, PSReviewUnusedParameter
+          $all | Format-Table -AutoSize RuleName, Severity, ScriptName, Line, Message | Out-String -Width 200
+          if (@($all | Where-Object Severity -eq 'Error').Count) { exit 1 }
+      - name: Pester
+        shell: pwsh
+        run: |
+          Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+          Import-Module Pester -MinimumVersion 5.5.0
+          $r = Invoke-Pester -Path deploy/tests/windows -Output Detailed -PassThru
+          if ($r.FailedCount -gt 0) { exit 1 }
+
+  audit:
+    name: Production dependency audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      # Fails on high/critical advisories in production dependencies (moderate/low are reported).
+      - run: pnpm audit --prod --audit-level high

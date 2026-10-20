@@ -56,7 +56,10 @@ import { AppError, conflict, forbidden, invalidField, notFound, unprocessable } 
 import { postJournal, reverseJournal, systemAccountId } from './ledger'
 import { nextNumber, tenantCalendar } from './numbering'
 
-type Ctx = Pick<RequestContext, 'tenantId' | 'userId' | 'storeIds' | 'ip' | 'userAgent' | 'requestId'>
+type Ctx = Pick<
+  RequestContext,
+  'tenantId' | 'userId' | 'storeIds' | 'ip' | 'userAgent' | 'requestId'
+>
 
 export interface PaymentParty {
   type: 'customer' | 'supplier'
@@ -149,7 +152,13 @@ const METHOD_ACCOUNT: Readonly<Record<Exclude<PaymentMethod, 'upi'>, SystemAccou
 }
 
 /** Providers that collect funds themselves and settle to the bank later. */
-const PSP_PROVIDERS: ReadonlySet<string> = new Set(['razorpay', 'cashfree', 'phonepe', 'paytm', 'mock'])
+const PSP_PROVIDERS: ReadonlySet<string> = new Set([
+  'razorpay',
+  'cashfree',
+  'phonepe',
+  'paytm',
+  'mock',
+])
 
 const PAYMENT_COLUMNS = [
   'id',
@@ -223,7 +232,10 @@ export async function getPayment(
     party_type: row.party_type as PaymentRecord['party_type'],
     method: row.method as PaymentMethod,
     status: row.status as PaymentRecord['status'],
-    allocations: allocations.map((a) => ({ ...a, target_type: a.target_type as AllocationTargetType })),
+    allocations: allocations.map((a) => ({
+      ...a,
+      target_type: a.target_type as AllocationTargetType,
+    })),
     replayed: false,
   }
 }
@@ -270,7 +282,8 @@ export async function resolvePaymentAccount(
       : 'bank'
     return { account_id: await systemAccountId(tx, ctx, subtype), subtype }
   }
-  const subtype: SystemAccountSubtype = input.method === 'upi' ? 'bank' : METHOD_ACCOUNT[input.method]
+  const subtype: SystemAccountSubtype =
+    input.method === 'upi' ? 'bank' : METHOD_ACCOUNT[input.method]
   return { account_id: await systemAccountId(tx, ctx, subtype), subtype }
 }
 
@@ -325,7 +338,12 @@ function overAllocated(
 ): AppError {
   return unprocessable(
     `Allocation of ${amount} paise exceeds the open amount of ${open} paise on the ${target.target_type}`,
-    { target_type: target.target_type, target_id: target.target_id, open_paise: open, amount_paise: amount },
+    {
+      target_type: target.target_type,
+      target_id: target.target_id,
+      open_paise: open,
+      amount_paise: amount,
+    },
   )
 }
 
@@ -457,7 +475,8 @@ async function applyAllocation(
               .forUpdate()
               .executeTakeFirst()
       if (!doc) throw notFound(a.target_type, id)
-      const live = a.target_type === 'debit_note' ? doc.status === 'completed' : doc.status === 'posted'
+      const live =
+        a.target_type === 'debit_note' ? doc.status === 'completed' : doc.status === 'posted'
       if (!live) throw unprocessable(`The ${a.target_type} is cancelled`, { target_id: id })
       if ('payment_method' in doc && doc.payment_method !== 'credit') {
         throw unprocessable('Only expenses bought on credit can be paid later', { target_id: id })
@@ -488,14 +507,19 @@ async function applyAllocation(
               .executeTakeFirst()
       if (!row) throw notFound(party.type, party.id)
       const open =
-        Math.abs(row.opening_balance_paise) - (await allocatedTo(tx, ctx, 'opening_balance', party.id))
+        Math.abs(row.opening_balance_paise) -
+        (await allocatedTo(tx, ctx, 'opening_balance', party.id))
       if (a.amount_paise > open) throw overAllocated(a, open, a.amount_paise)
       return
     }
   }
 }
 
-function sameRequest(existing: PaymentRecord, input: RecordPaymentInput, party: PaymentParty | null): boolean {
+function sameRequest(
+  existing: PaymentRecord,
+  input: RecordPaymentInput,
+  party: PaymentParty | null,
+): boolean {
   return (
     existing.direction === input.direction &&
     existing.store_id === input.store_id.toLowerCase() &&
@@ -574,7 +598,10 @@ export async function recordPayment(
       })
     }
     if (!Number.isSafeInteger(a.amount_paise) || a.amount_paise <= 0) {
-      throw invalidField(`allocations.${i}.amount_paise`, 'Amount must be a positive integer (paise)')
+      throw invalidField(
+        `allocations.${i}.amount_paise`,
+        'Amount must be a positive integer (paise)',
+      )
     }
     const targetId =
       a.target_type === 'opening_balance'
@@ -606,7 +633,11 @@ export async function recordPayment(
   if (party) {
     const table = party.type === 'customer' ? 'customers' : 'suppliers'
     // Lock the party for store-credit redemption (balance check below); just check otherwise.
-    let q = tx.selectFrom(table).select('id').where('tenant_id', '=', ctx.tenantId).where('id', '=', party.id)
+    let q = tx
+      .selectFrom(table)
+      .select('id')
+      .where('tenant_id', '=', ctx.tenantId)
+      .where('id', '=', party.id)
     if (input.method === 'store_credit') q = q.forUpdate()
     if (!(await q.executeTakeFirst())) throw notFound(party.type, party.id)
   }
@@ -786,12 +817,22 @@ export async function recordPayment(
     lines:
       input.direction === 'in'
         ? [
-            { account: { id: account.account_id }, debit_paise: input.amount_paise, party: accountParty, memo },
+            {
+              account: { id: account.account_id },
+              debit_paise: input.amount_paise,
+              party: accountParty,
+              memo,
+            },
             { account: { subtype: counter }, credit_paise: input.amount_paise, party, memo },
           ]
         : [
             { account: { subtype: counter }, debit_paise: input.amount_paise, party, memo },
-            { account: { id: account.account_id }, credit_paise: input.amount_paise, party: accountParty, memo },
+            {
+              account: { id: account.account_id },
+              credit_paise: input.amount_paise,
+              party: accountParty,
+              memo,
+            },
           ],
   })
 
@@ -831,7 +872,9 @@ export async function cancelPayment(
     })
   }
   const party: PaymentParty | null =
-    payment.party_type && payment.party_id ? { type: payment.party_type, id: payment.party_id } : null
+    payment.party_type && payment.party_id
+      ? { type: payment.party_type, id: payment.party_id }
+      : null
   const allocations = [...payment.allocations].sort((x, y) =>
     `${x.target_type}:${x.target_id}` < `${y.target_type}:${y.target_id}` ? -1 : 1,
   )

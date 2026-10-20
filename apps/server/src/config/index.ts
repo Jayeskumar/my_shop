@@ -82,6 +82,11 @@ export interface Config {
   healthRequireWorker: boolean
   /** Ed25519 public key (PEM or base64 SPKI DER) overriding the embedded license keys. */
   licensePublicKey: string | null
+  /**
+   * On-prem first-run wizard: when set, POST /setup must carry this token (shown by the
+   * installer), so another PC on the LAN cannot claim a fresh installation first.
+   */
+  setupToken: string | null
 
   rateLimit: {
     /** Requests per minute per user (or IP for anonymous requests) on /api, /public, /webhooks. */
@@ -224,6 +229,9 @@ const EnvSchema = z.object({
   KADAI_EMBEDDED_WORKER: envBool(undefined),
   KADAI_HEALTH_REQUIRE_WORKER: envBool(undefined),
   KADAI_LICENSE_PUBLIC_KEY: optionalString,
+  KADAI_SETUP_TOKEN: optionalString.pipe(
+    z.string().min(8, 'must be at least 8 characters').max(200).optional(),
+  ),
   RATE_LIMIT_GLOBAL_MAX: envInt(600, 1, 1_000_000),
 
   SMS_PROVIDER: optionalString.pipe(z.enum(['log', 'msg91']).default('log')),
@@ -432,6 +440,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     embeddedWorker: e.KADAI_EMBEDDED_WORKER ?? mode === 'onprem',
     healthRequireWorker: e.KADAI_HEALTH_REQUIRE_WORKER ?? isProduction,
     licensePublicKey: e.KADAI_LICENSE_PUBLIC_KEY ?? null,
+    setupToken: e.KADAI_SETUP_TOKEN ?? null,
     rateLimit: { globalMax: e.RATE_LIMIT_GLOBAL_MAX },
     sms: {
       provider: e.SMS_PROVIDER,

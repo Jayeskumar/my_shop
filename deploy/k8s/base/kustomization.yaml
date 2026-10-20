@@ -1,0 +1,34 @@
+# Kadai cloud SaaS on Kubernetes — base. Deploy an overlay (overlays/staging, overlays/production):
+# it sets the namespace, the image (manifests say "image: kadai"), hostnames and sizing.
+# The Secret "kadai-secrets" is NOT part of the build: create it out of band
+# (see secret.example.yaml and docs/DEPLOYMENT.md).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+labels:
+  - pairs:
+      app.kubernetes.io/name: kadai
+      app.kubernetes.io/part-of: kadai
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: false
+    includeTemplates: true
+
+resources:
+  - serviceaccount.yaml
+  - job-migrate.yaml
+  - deployment-api.yaml
+  - deployment-worker.yaml
+  - service.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - networkpolicy.yaml
+
+configMapGenerator:
+  - name: kadai-config
+    envs:
+      - config.env
+    options:
+      labels:
+        app.kubernetes.io/component: config
+        kadai.io/deploy-phase: pre-migrate

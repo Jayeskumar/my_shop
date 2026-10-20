@@ -1,0 +1,100 @@
+# Alerts on the metrics exported by the API pods (apps/server/src/core/metrics.ts).
+# Runbooks: docs/RUNBOOK.md.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kadai
+spec:
+  groups:
+    - name: kadai.availability
+      rules:
+        - alert: KadaiApiDown
+          expr: sum(up{job=~".*kadai-api.*"}) == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: No Kadai API pod is being scraped successfully
+            runbook: docs/RUNBOOK.md#database-down
+        - alert: KadaiApiReplicasUnavailable
+          expr: kube_deployment_status_replicas_available{deployment="kadai-api"} < 2
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Fewer than 2 Kadai API replicas are ready (readiness = database + migrations)
+            runbook: docs/RUNBOOK.md#migrations-failed
+        - alert: KadaiHigh5xxRate
+          expr: |
+            sum(rate(kadai_http_request_duration_seconds_count{status_code=~"5.."}[5m]))
+              / clamp_min(sum(rate(kadai_http_request_duration_seconds_count[5m])), 1e-9) > 0.02
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: More than 2% of Kadai API requests fail with 5xx
+            runbook: docs/RUNBOOK.md#high-latency-or-errors
+    - name: kadai.performance
+      rules:
+        - alert: KadaiHighLatencyP95
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le) (rate(kadai_http_request_duration_seconds_bucket{route!~"/api/v1/payments/intents/:id/stream|/metrics"}[5m]))) > 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Kadai API p95 latency above 1 s (target ≤ 100 ms for POS lookups / saves)
+            runbook: docs/RUNBOOK.md#high-latency-or-errors
+        - alert: KadaiDbPoolSaturated
+          expr: max by (pod, pool) (kadai_db_pool_connections{state="waiting"}) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Requests are waiting for a database connection ({{ $labels.pod }}, {{ $labels.pool }})
+            runbook: docs/RUNBOOK.md#high-latency-or-errors
+        - alert: KadaiEventLoopLag
+          expr: max by (pod) (kadai_nodejs_eventloop_lag_p99_seconds) > 0.25
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Node.js event-loop lag p99 above 250 ms on {{ $labels.pod }}
+            runbook: docs/RUNBOOK.md#high-latency-or-errors
+    - name: kadai.payments
+      rules:
+        - alert: KadaiPaymentIntentsFailing
+          expr: |
+            sum(rate(kadai_payment_intents_total{status=~"failed|expired"}[30m]))
+              / clamp_min(sum(rate(kadai_payment_intents_total[30m])), 1e-9) > 0.3
+            and sum(rate(kadai_payment_intents_total[30m])) > 0.01
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Over 30% of UPI payment intents end failed/expired (provider outage or polling stuck?)
+            runbook: docs/RUNBOOK.md#payments-stuck-pending
+    - name: kadai.pods
+      rules:
+        - alert: KadaiPodRestarting
+          expr: increase(kube_pod_container_status_restarts_total{namespace=~"kadai.*", container=~"api|worker"}[30m]) > 3
+          labels:
+            severity: warning
+          annotations:
+            summary: Kadai container {{ $labels.pod }}/{{ $labels.container }} restarted more than 3 times in 30 min
+        - alert: KadaiWorkerUnavailable
+          expr: kube_deployment_status_replicas_available{deployment="kadai-worker"} < 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: No Kadai worker is running (UPI polling, notifications and cron jobs are stopped)
+            runbook: docs/RUNBOOK.md#payments-stuck-pending
+        - alert: KadaiMigrationJobFailed
+          expr: kube_job_status_failed{job_name="kadai-migrate"} > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: The kadai-migrate Job failed; new API pods will stay unready
+            runbook: docs/RUNBOOK.md#migrations-failed

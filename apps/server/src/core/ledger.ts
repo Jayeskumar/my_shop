@@ -214,7 +214,8 @@ async function resolveLines(
       const info = accounts.get(accountId)
       // Unknown here also covers another tenant's account id (RLS + explicit tenant filter).
       if (!info) throw unprocessable('Account not found', { account_id: l.account.id, line: i })
-      if (!info.is_active) throw unprocessable('Account is inactive', { account_id: accountId, line: i })
+      if (!info.is_active)
+        throw unprocessable('Account is inactive', { account_id: accountId, line: i })
       subtype = info.subtype
     } else {
       subtype = l.account.subtype
@@ -337,7 +338,9 @@ async function applyPartyBalances(tx: Tx, ctx: Ctx, lines: readonly ResolvedLine
     }
   }
   // Annotation-only parties must still exist in this tenant.
-  for (const [type, ids] of Object.entries(annotated) as Array<['customer' | 'supplier', Set<string>]>) {
+  for (const [type, ids] of Object.entries(annotated) as Array<
+    ['customer' | 'supplier', Set<string>]
+  >) {
     const pending = [...ids].filter((id) => !(type === 'customer' ? customers : suppliers).has(id))
     if (pending.length === 0) continue
     const table = type === 'customer' ? 'customers' : 'suppliers'
@@ -568,7 +571,10 @@ export async function reverseJournal(
           source_id: input.source_id,
           narration:
             cleanText(input.narration, 500) ??
-            `Reversal${e.number ? ` of ${e.number}` : ''}${e.narration ? `: ${e.narration}` : ''}`.slice(0, 500),
+            `Reversal${e.number ? ` of ${e.number}` : ''}${e.narration ? `: ${e.narration}` : ''}`.slice(
+              0,
+              500,
+            ),
           number: null,
           reverses_entry_id: e.id,
         },

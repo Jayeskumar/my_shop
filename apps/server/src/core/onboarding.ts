@@ -176,7 +176,9 @@ export async function createTenantTx(tx: Tx, input: CreateTenantInput): Promise<
   const tenantId = newId()
 
   // Serialise signups for the same phone so the user lookup below cannot be raced.
-  await sql`select pg_advisory_xact_lock(hashtextextended(${`kadai_signup:${v.phone}`}, 0))`.execute(tx)
+  await sql`select pg_advisory_xact_lock(hashtextextended(${`kadai_signup:${v.phone}`}, 0))`.execute(
+    tx,
+  )
   await sql`select set_config('app.tenant_id', ${tenantId}, true)`.execute(tx)
 
   // ---- owner identity ------------------------------------------------------------------------
@@ -205,7 +207,9 @@ export async function createTenantTx(tx: Tx, input: CreateTenantInput): Promise<
     const recent = await tx
       .selectFrom('memberships as m')
       .innerJoin('tenants as t', 't.id', 'm.tenant_id')
-      .innerJoin('roles as r', (j) => j.onRef('r.tenant_id', '=', 'm.tenant_id').onRef('r.id', '=', 'm.role_id'))
+      .innerJoin('roles as r', (j) =>
+        j.onRef('r.tenant_id', '=', 'm.tenant_id').onRef('r.id', '=', 'm.role_id'),
+      )
       .select(['t.id'])
       .where('m.user_id', '=', existing.id)
       .where('r.code', '=', 'owner')
@@ -227,7 +231,11 @@ export async function createTenantTx(tx: Tx, input: CreateTenantInput): Promise<
     }
   } else {
     if (v.email) {
-      const taken = await tx.selectFrom('users').select('id').where('email', '=', v.email).executeTakeFirst()
+      const taken = await tx
+        .selectFrom('users')
+        .select('id')
+        .where('email', '=', v.email)
+        .executeTakeFirst()
       if (taken) {
         throw duplicate('This email is already used by another account', {
           field: 'email',
@@ -239,7 +247,8 @@ export async function createTenantTx(tx: Tx, input: CreateTenantInput): Promise<
     if (!password && !input.phone_verified) {
       throw invalidField('password', 'A password is required')
     }
-    if (password) assertPasswordPolicy(password, { phone: v.phone, email: v.email, name: v.ownerName })
+    if (password)
+      assertPasswordPolicy(password, { phone: v.phone, email: v.email, name: v.ownerName })
     const userId = newId()
     await tx
       .insertInto('users')
@@ -343,7 +352,13 @@ export async function createTenantTx(tx: Tx, input: CreateTenantInput): Promise<
   const registerId = newId()
   await tx
     .insertInto('registers')
-    .values({ id: registerId, tenant_id: tenantId, store_id: storeId, code: 'A', name: 'Counter A' })
+    .values({
+      id: registerId,
+      tenant_id: tenantId,
+      store_id: storeId,
+      code: 'A',
+      name: 'Counter A',
+    })
     .execute()
 
   // ---- chart of accounts -------------------------------------------------------------------
@@ -408,9 +423,14 @@ export async function createTenantTx(tx: Tx, input: CreateTenantInput): Promise<
 
   // ---- subscription (cloud trial) ---------------------------------------------------------------
   let subscription: CreatedTenant['subscription'] = null
-  const trial = input.mode === 'cloud' ? (input.trial === undefined ? SIGNUP_TRIAL : input.trial) : null
+  const trial =
+    input.mode === 'cloud' ? (input.trial === undefined ? SIGNUP_TRIAL : input.trial) : null
   if (trial) {
-    const plan = await tx.selectFrom('plans').select('code').where('code', '=', trial.plan_code).executeTakeFirst()
+    const plan = await tx
+      .selectFrom('plans')
+      .select('code')
+      .where('code', '=', trial.plan_code)
+      .executeTakeFirst()
     if (!plan) throw new AppError('INTERNAL', `Trial plan "${trial.plan_code}" does not exist`)
     const ends = new Date(now.getTime() + trial.days * 86_400_000)
     const id = newId()
@@ -451,7 +471,9 @@ export async function createTenantTx(tx: Tx, input: CreateTenantInput): Promise<
         state_code: input.state_code,
         owner_user_id: user.id,
         owner_created: user.created,
-        trial: subscription ? { plan_code: subscription.plan_code, ends_at: subscription.trial_ends_at } : null,
+        trial: subscription
+          ? { plan_code: subscription.plan_code, ends_at: subscription.trial_ends_at }
+          : null,
       },
     },
   )
@@ -477,6 +499,9 @@ export async function createTenantTx(tx: Tx, input: CreateTenantInput): Promise<
 }
 
 /** Creates a tenant with everything it needs to start billing, in one system transaction. */
-export function createTenant(systemDb: Kysely<DB>, input: CreateTenantInput): Promise<CreatedTenant> {
+export function createTenant(
+  systemDb: Kysely<DB>,
+  input: CreateTenantInput,
+): Promise<CreatedTenant> {
   return withSystemTx(systemDb, (tx) => createTenantTx(tx, input))
 }

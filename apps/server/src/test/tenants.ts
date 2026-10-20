@@ -198,7 +198,11 @@ export async function createTestTenant(
   })
   const owner: TestShopMember = {
     user: { id: created.user.id, phone: created.user.phone, full_name: created.user.full_name },
-    membership: { id: created.membership.id, role_id: created.membership.role_id, role_code: 'owner' },
+    membership: {
+      id: created.membership.id,
+      role_id: created.membership.role_id,
+      role_code: 'owner',
+    },
     password: TEST_PASSWORD,
     ...ownerSession,
     ctx: memberCtx(
@@ -225,7 +229,8 @@ export async function createTestTenant(
       roleId = created.roles[roleCode as SystemRoleCode]
       permissions = roleCode === 'owner' ? ['*'] : preset.permissions
     } else {
-      if (!roleOpts.permissions) throw new Error(`asRole(${roleCode}): unknown role, pass permissions`)
+      if (!roleOpts.permissions)
+        throw new Error(`asRole(${roleCode}): unknown role, pass permissions`)
       roleId = newId()
       permissions = roleOpts.permissions
       await deps.db.systemDb
@@ -276,7 +281,12 @@ export async function createTestTenant(
       ...s,
       ctx: memberCtx(
         tenantId,
-        { user_id: userId, membership_id: membershipId, role_code: roleCode, session_id: s.session.id },
+        {
+          user_id: userId,
+          membership_id: membershipId,
+          role_code: roleCode,
+          session_id: s.session.id,
+        },
         expandPermissions(permissions),
         storeIds,
       ),
@@ -355,7 +365,11 @@ export async function insertTestBatch(
   deps: FixtureDeps,
   tenantId: string,
   productId: string,
-  opts: { batch_no?: string; expiry_date?: string | null; purchase_price_paise?: number | null } = {},
+  opts: {
+    batch_no?: string
+    expiry_date?: string | null
+    purchase_price_paise?: number | null
+  } = {},
 ): Promise<{ id: string; batch_no: string }> {
   const id = newId()
   const batchNo = opts.batch_no ?? `B${id.slice(-6).toUpperCase()}`
@@ -402,7 +416,12 @@ export async function insertTestSupplier(
   const name = opts.name ?? `Supplier ${id.slice(-6)}`
   await deps.db.systemDb
     .insertInto('suppliers')
-    .values({ id, tenant_id: tenantId, name, opening_balance_paise: opts.opening_balance_paise ?? 0 })
+    .values({
+      id,
+      tenant_id: tenantId,
+      name,
+      opening_balance_paise: opts.opening_balance_paise ?? 0,
+    })
     .execute()
   return { id, name }
 }
