@@ -22,6 +22,7 @@ import type { DB } from '../db/schema.generated'
 import { type Tx, withSystemTx } from '../db/tenant'
 import { randomToken, sha256Hex } from './crypto'
 import { AppError, unauthenticated } from './errors'
+import { CHANNELS, notify } from './events'
 import { notifySessionsRevoked } from './session-cache'
 
 const ISSUER = 'kadai'
@@ -322,4 +323,9 @@ export function parseApiKey(key: string): { mode: ApiKeyMode; keyPrefix: string 
 
 export function hashApiKey(key: string): string {
   return sha256Hex(key.trim())
+}
+
+/** Call inside the transaction that creates/revokes/edits an API key: drops every process's key cache. */
+export function notifyApiKeysChanged(db: SystemDb): Promise<void> {
+  return notify(db, CHANNELS.cache, { scope: 'api_key' })
 }
