@@ -8,7 +8,9 @@
  * special rates (0.1%, 0.25%, 1%, 1.5%, 3%, 6%, 7.5%) and legacy 12% / 28% still used for some
  * goods and for documents dated before the change.
  */
-export const GST_RATES_BP = [0, 10, 25, 100, 150, 300, 500, 600, 750, 1200, 1800, 2800, 4000] as const
+export const GST_RATES_BP = [
+  0, 10, 25, 100, 150, 300, 500, 600, 750, 1200, 1800, 2800, 4000,
+] as const
 export type GstRateBp = (typeof GST_RATES_BP)[number]
 
 const GST_RATE_SET: ReadonlySet<number> = new Set(GST_RATES_BP)
@@ -69,17 +71,47 @@ export const INDIAN_STATES: readonly IndianState[] = [
   s('22', 'CG', 'Chhattisgarh', 'சத்தீஸ்கர்'),
   s('23', 'MP', 'Madhya Pradesh', 'மத்தியப் பிரதேசம்'),
   s('24', 'GJ', 'Gujarat', 'குஜராத்'),
-  s('25', 'DD', 'Daman and Diu (before 2020)', 'டாமன் டையூ (2020-க்கு முன்)', 'union_territory', true, true),
-  s('26', 'DN', 'Dadra and Nagar Haveli and Daman and Diu', 'தாத்ரா நகர் ஹவேலி மற்றும் டாமன் டையூ', 'union_territory', true),
+  s(
+    '25',
+    'DD',
+    'Daman and Diu (before 2020)',
+    'டாமன் டையூ (2020-க்கு முன்)',
+    'union_territory',
+    true,
+    true,
+  ),
+  s(
+    '26',
+    'DN',
+    'Dadra and Nagar Haveli and Daman and Diu',
+    'தாத்ரா நகர் ஹவேலி மற்றும் டாமன் டையூ',
+    'union_territory',
+    true,
+  ),
   s('27', 'MH', 'Maharashtra', 'மகாராஷ்டிரா'),
-  s('28', 'AP', 'Andhra Pradesh (before 2018)', 'ஆந்திரப் பிரதேசம் (2018-க்கு முன்)', 'state', false, true),
+  s(
+    '28',
+    'AP',
+    'Andhra Pradesh (before 2018)',
+    'ஆந்திரப் பிரதேசம் (2018-க்கு முன்)',
+    'state',
+    false,
+    true,
+  ),
   s('29', 'KA', 'Karnataka', 'கர்நாடகா'),
   s('30', 'GA', 'Goa', 'கோவா'),
   s('31', 'LD', 'Lakshadweep', 'இலட்சத்தீவுகள்', 'union_territory', true),
   s('32', 'KL', 'Kerala', 'கேரளா'),
   s('33', 'TN', 'Tamil Nadu', 'தமிழ்நாடு'),
   s('34', 'PY', 'Puducherry', 'புதுச்சேரி', 'union_territory'),
-  s('35', 'AN', 'Andaman and Nicobar Islands', 'அந்தமான் நிக்கோபார் தீவுகள்', 'union_territory', true),
+  s(
+    '35',
+    'AN',
+    'Andaman and Nicobar Islands',
+    'அந்தமான் நிக்கோபார் தீவுகள்',
+    'union_territory',
+    true,
+  ),
   s('36', 'TS', 'Telangana', 'தெலங்கானா'),
   s('37', 'AD', 'Andhra Pradesh', 'ஆந்திரப் பிரதேசம்'),
   s('38', 'LA', 'Ladakh', 'லடாக்', 'union_territory', true),
@@ -95,7 +127,9 @@ export const ACTIVE_STATE_CODES = INDIAN_STATES.filter((st) => !st.legacy).map((
 
 export const TAMIL_NADU_STATE_CODE = '33'
 
-const STATE_BY_CODE: ReadonlyMap<string, IndianState> = new Map(INDIAN_STATES.map((st) => [st.code, st]))
+const STATE_BY_CODE: ReadonlyMap<string, IndianState> = new Map(
+  INDIAN_STATES.map((st) => [st.code, st]),
+)
 
 export function getState(code: string): IndianState | undefined {
   return STATE_BY_CODE.get(code)
@@ -128,7 +162,8 @@ const GSTIN_REGULAR_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/
  */
 export function gstinCheckChar(first14: string): string {
   const value = first14.toUpperCase()
-  if (!/^[0-9A-Z]{14}$/.test(value)) throw new RangeError('GSTIN body must be 14 characters [0-9A-Z]')
+  if (!/^[0-9A-Z]{14}$/.test(value))
+    throw new RangeError('GSTIN body must be 14 characters [0-9A-Z]')
   let sum = 0
   for (let i = 0; i < 14; i++) {
     const v = GSTIN_CHARSET.indexOf(value.charAt(i))

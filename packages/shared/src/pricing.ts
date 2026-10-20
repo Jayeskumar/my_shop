@@ -19,13 +19,7 @@
  */
 import { z } from 'zod'
 import { GST_RATES_BP, splitGst } from './gst'
-import {
-  allocateProRata,
-  assertNonNegativeInt,
-  assertSafeInt,
-  mulDiv,
-  sumSafe,
-} from './math'
+import { allocateProRata, assertNonNegativeInt, assertSafeInt, mulDiv, sumSafe } from './math'
 import { roundToRupee } from './money'
 
 const BP = 10_000
@@ -53,11 +47,23 @@ export const TaxSlabsSchema = z
     slabs.forEach((slab, i) => {
       const prev = slabs[i - 1]
       if (slab.max_unit_value_paise === null && i !== slabs.length - 1) {
-        ctx.addIssue({ code: 'custom', path: [i, 'max_unit_value_paise'], message: 'only the last slab may be open-ended' })
+        ctx.addIssue({
+          code: 'custom',
+          path: [i, 'max_unit_value_paise'],
+          message: 'only the last slab may be open-ended',
+        })
       }
-      if (prev && prev.max_unit_value_paise !== null && slab.max_unit_value_paise !== null &&
-          slab.max_unit_value_paise <= prev.max_unit_value_paise) {
-        ctx.addIssue({ code: 'custom', path: [i, 'max_unit_value_paise'], message: 'slabs must be in ascending order' })
+      if (
+        prev &&
+        prev.max_unit_value_paise !== null &&
+        slab.max_unit_value_paise !== null &&
+        slab.max_unit_value_paise <= prev.max_unit_value_paise
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [i, 'max_unit_value_paise'],
+          message: 'slabs must be in ascending order',
+        })
       }
     })
   })
@@ -249,7 +255,11 @@ function finishLine(p: PreparedLine, opts: LineOptions): LineResult {
 
   let mrpSavings = 0
   if (line.mrp_paise != null) {
-    const mrpValue = mulDiv(line.mrp_paise, sumSafe([line.qty_milli, line.free_qty_milli ?? 0]), p.packSize * 1000)
+    const mrpValue = mulDiv(
+      line.mrp_paise,
+      sumSafe([line.qty_milli, line.free_qty_milli ?? 0]),
+      p.packSize * 1000,
+    )
     mrpSavings = Math.max(0, mrpValue - total)
   }
 
@@ -360,7 +370,8 @@ export function computeDocument(input: DocumentInput): DocumentResult {
   const cess = sum((l) => l.cess_paise)
   const tax = sumSafe([cgst, sgst, igst, cess])
   const beforeRounding = taxable + tax
-  const roundOff = input.round_off === 'nearest_rupee' ? roundToRupee(beforeRounding).round_off_paise : 0
+  const roundOff =
+    input.round_off === 'nearest_rupee' ? roundToRupee(beforeRounding).round_off_paise : 0
 
   return {
     lines,
@@ -382,7 +393,12 @@ export function computeDocument(input: DocumentInput): DocumentResult {
 
 /** Groups line amounts by GST rate (ascending). */
 export function taxBreakup(
-  lines: ReadonlyArray<Pick<LineResult, 'gst_rate_bp' | 'taxable_paise' | 'cgst_paise' | 'sgst_paise' | 'igst_paise' | 'cess_paise'>>,
+  lines: ReadonlyArray<
+    Pick<
+      LineResult,
+      'gst_rate_bp' | 'taxable_paise' | 'cgst_paise' | 'sgst_paise' | 'igst_paise' | 'cess_paise'
+    >
+  >,
 ): TaxBreakupRow[] {
   const byRate = new Map<number, TaxBreakupRow>()
   for (const l of lines) {
@@ -439,14 +455,18 @@ export interface ProrateOptions {
  * — so successive partial returns add up to exactly the original amounts when everything has
  * been returned (no paisa left over or over-refunded).
  */
-export function prorateAmounts(amounts: TaxAmounts, opts: ProrateOptions): TaxAmounts & { total_paise: number } {
+export function prorateAmounts(
+  amounts: TaxAmounts,
+  opts: ProrateOptions,
+): TaxAmounts & { total_paise: number } {
   const before = opts.already_returned_milli ?? 0
   assertNonNegativeInt(before, 'already_returned_milli')
   assertSafeInt(opts.qty_milli, 'qty_milli')
   assertSafeInt(opts.total_qty_milli, 'total_qty_milli')
   if (opts.qty_milli <= 0) throw new RangeError('qty_milli must be > 0')
   if (opts.total_qty_milli <= 0) throw new RangeError('total_qty_milli must be > 0')
-  if (before + opts.qty_milli > opts.total_qty_milli) throw new RangeError('cannot return more than the original quantity')
+  if (before + opts.qty_milli > opts.total_qty_milli)
+    throw new RangeError('cannot return more than the original quantity')
   const after = before + opts.qty_milli
   const share = (x: number): number =>
     mulDiv(x, after, opts.total_qty_milli) - mulDiv(x, before, opts.total_qty_milli)
@@ -459,7 +479,13 @@ export function prorateAmounts(amounts: TaxAmounts, opts: ProrateOptions): TaxAm
   }
   return {
     ...result,
-    total_paise: sumSafe([result.taxable_paise, result.cgst_paise, result.sgst_paise, result.igst_paise, result.cess_paise]),
+    total_paise: sumSafe([
+      result.taxable_paise,
+      result.cgst_paise,
+      result.sgst_paise,
+      result.igst_paise,
+      result.cess_paise,
+    ]),
   }
 }
 
@@ -520,11 +546,16 @@ export function computePurchaseLine(input: PurchaseLineInput): PurchaseLineResul
   assertRate(cessRate, 'cess_rate_bp', 3 * BP)
 
   const gross = mulDiv(input.unit_cost_paise, input.qty_milli, packSize * 1000)
-  const discount = Math.min(gross, sumSafe([input.discount_paise ?? 0, mulDiv(gross, input.discount_bp ?? 0, BP)]))
+  const discount = Math.min(
+    gross,
+    sumSafe([input.discount_paise ?? 0, mulDiv(gross, input.discount_bp ?? 0, BP)]),
+  )
   const taxable = gross - discount
   const gst = mulDiv(taxable, input.gst_rate_bp, BP)
   const cess = mulDiv(taxable, cessRate, BP)
-  const { cgst_paise, sgst_paise } = input.is_interstate ? { cgst_paise: 0, sgst_paise: 0 } : splitGst(gst)
+  const { cgst_paise, sgst_paise } = input.is_interstate
+    ? { cgst_paise: 0, sgst_paise: 0 }
+    : splitGst(gst)
   return {
     ...(input.key !== undefined ? { key: input.key } : {}),
     gross_paise: gross,
@@ -566,7 +597,11 @@ export function landedUnitCostPaise(input: LandedCostInput): number {
   if (input.pack_size < 1) throw new RangeError('pack_size must be >= 1')
   const units = sumSafe([input.qty_milli, input.free_qty_milli])
   if (units <= 0) throw new RangeError('qty_milli + free_qty_milli must be > 0')
-  const cost = sumSafe([input.taxable_paise, input.other_charges_alloc_paise, input.non_itc_tax_paise])
+  const cost = sumSafe([
+    input.taxable_paise,
+    input.other_charges_alloc_paise,
+    input.non_itc_tax_paise,
+  ])
   return mulDiv(cost, input.pack_size * 1000, units)
 }
 
@@ -610,8 +645,13 @@ export function computePurchaseDocument(input: PurchaseDocumentInput): PurchaseD
   const otherCharges = input.other_charges_paise ?? 0
   assertNonNegativeInt(otherCharges, 'other_charges_paise')
   const itc = input.itc_eligible ?? true
-  const base = input.lines.map((l) => computePurchaseLine({ ...l, is_interstate: input.is_interstate }))
-  const allocations = allocateProRata(otherCharges, base.map((l) => l.taxable_paise))
+  const base = input.lines.map((l) =>
+    computePurchaseLine({ ...l, is_interstate: input.is_interstate }),
+  )
+  const allocations = allocateProRata(
+    otherCharges,
+    base.map((l) => l.taxable_paise),
+  )
   const lines = base.map((l, i): PurchaseDocumentLineResult => {
     const src = input.lines[i]!
     const alloc = allocations[i] ?? 0
@@ -636,7 +676,8 @@ export function computePurchaseDocument(input: PurchaseDocumentInput): PurchaseD
   const cess = sum((l) => l.cess_paise)
   const tax = sumSafe([cgst, sgst, igst, cess])
   const beforeRounding = sumSafe([taxable, tax, otherCharges])
-  const roundOff = input.round_off === 'nearest_rupee' ? roundToRupee(beforeRounding).round_off_paise : 0
+  const roundOff =
+    input.round_off === 'nearest_rupee' ? roundToRupee(beforeRounding).round_off_paise : 0
   return {
     lines,
     gross_paise: sum((l) => l.gross_paise),

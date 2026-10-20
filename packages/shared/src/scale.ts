@@ -59,10 +59,13 @@ export const ScaleBarcodeConfigSchema = z
     /** Value units per rupee: 100 when the value is paise, 10 for 10-paise units, 1 for rupees. */
     price_divisor: z.int().min(1).max(10_000).default(100),
   })
-  .refine((c) => c.prefixes.every((p) => p.length + c.item_code_length + c.value_length + 1 === 13), {
-    message: 'prefix + item code + value + check digit must be 13 digits',
-    path: ['prefixes'],
-  })
+  .refine(
+    (c) => c.prefixes.every((p) => p.length + c.item_code_length + c.value_length + 1 === 13),
+    {
+      message: 'prefix + item code + value + check digit must be 13 digits',
+      path: ['prefixes'],
+    },
+  )
 export type ScaleBarcodeConfig = z.infer<typeof ScaleBarcodeConfigSchema>
 
 export interface ScaleBarcode {
@@ -86,7 +89,9 @@ export function normalizePlu(plu: string): string {
  */
 export function parseScaleBarcode(code: string, config: ScaleBarcodeConfig): ScaleBarcode | null {
   if (!config.enabled || !isValidEan13(code)) return null
-  const prefix = [...config.prefixes].sort((a, b) => b.length - a.length).find((p) => code.startsWith(p))
+  const prefix = [...config.prefixes]
+    .sort((a, b) => b.length - a.length)
+    .find((p) => code.startsWith(p))
   if (prefix === undefined) return null
   const plu = code.slice(prefix.length, prefix.length + config.item_code_length)
   const valueStart = prefix.length + config.item_code_length
@@ -101,8 +106,14 @@ export function parseScaleBarcode(code: string, config: ScaleBarcodeConfig): Sca
 }
 
 /** Builds a scale barcode (tests, label printing for pre-packed loose items). */
-export function makeScaleBarcode(prefix: string, plu: string, value: number, config: Pick<ScaleBarcodeConfig, 'item_code_length' | 'value_length'>): string {
-  if (!Number.isSafeInteger(value) || value < 0) throw new RangeError('value must be a non-negative integer')
+export function makeScaleBarcode(
+  prefix: string,
+  plu: string,
+  value: number,
+  config: Pick<ScaleBarcodeConfig, 'item_code_length' | 'value_length'>,
+): string {
+  if (!Number.isSafeInteger(value) || value < 0)
+    throw new RangeError('value must be a non-negative integer')
   const pluDigits = plu.padStart(config.item_code_length, '0')
   const valueDigits = String(value).padStart(config.value_length, '0')
   if (pluDigits.length !== config.item_code_length || valueDigits.length !== config.value_length) {

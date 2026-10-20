@@ -31,7 +31,11 @@ export const PERMISSION_GROUPS = {
 } as const
 export type PermissionGroup = keyof typeof PERMISSION_GROUPS
 
-const p = (group: PermissionGroup, label_en: string, label_ta: string): PermissionDef => ({ group, label_en, label_ta })
+const p = (group: PermissionGroup, label_en: string, label_ta: string): PermissionDef => ({
+  group,
+  label_en,
+  label_ta,
+})
 
 export const PERMISSIONS = {
   'pos.use': p('pos', 'Use the billing counter (POS)', 'பில்லிங் கவுண்டரைப் பயன்படுத்துதல்'),
@@ -39,36 +43,108 @@ export const PERMISSIONS = {
   'sales.read': p('sales', 'View bills', 'பில்களைப் பார்த்தல்'),
   'sales.cancel': p('sales', 'Cancel bills', 'பில்லை ரத்து செய்தல்'),
   'sales.return': p('sales', 'Accept returns (credit notes)', 'திருப்பி வாங்குதல் (கிரெடிட் நோட்)'),
-  'sales.discount_override': p('sales', 'Give discounts above the limit', 'வரம்புக்கு மேல் தள்ளுபடி தருதல்'),
-  'sales.price_override': p('sales', 'Change selling price on a bill', 'பில்லில் விற்பனை விலையை மாற்றுதல்'),
+  'sales.discount_override': p(
+    'sales',
+    'Give discounts above the limit',
+    'வரம்புக்கு மேல் தள்ளுபடி தருதல்',
+  ),
+  'sales.price_override': p(
+    'sales',
+    'Change selling price on a bill',
+    'பில்லில் விற்பனை விலையை மாற்றுதல்',
+  ),
   'sales.credit': p('sales', 'Sell on credit (khata)', 'கடனுக்கு விற்றல் (கணக்கு)'),
   'catalog.read': p('catalog', 'View products', 'பொருட்களைப் பார்த்தல்'),
-  'catalog.write': p('catalog', 'Add and edit products, prices and offers', 'பொருட்கள், விலைகள், சலுகைகளைச் சேர்த்தல் / மாற்றுதல்'),
+  'catalog.write': p(
+    'catalog',
+    'Add and edit products, prices and offers',
+    'பொருட்கள், விலைகள், சலுகைகளைச் சேர்த்தல் / மாற்றுதல்',
+  ),
   'inventory.read': p('inventory', 'View stock', 'சரக்கு இருப்பைப் பார்த்தல்'),
   'inventory.adjust': p('inventory', 'Adjust stock and batches', 'சரக்கு இருப்பைச் சரிசெய்தல்'),
-  'inventory.transfer': p('inventory', 'Transfer stock between stores', 'கிளைகளுக்கு இடையே சரக்கு மாற்றுதல்'),
-  'customers.read': p('customers', 'View customers and dues', 'வாடிக்கையாளர்கள் & நிலுவைகளைப் பார்த்தல்'),
-  'customers.write': p('customers', 'Add and edit customers', 'வாடிக்கையாளர்களைச் சேர்த்தல் / மாற்றுதல்'),
+  'inventory.transfer': p(
+    'inventory',
+    'Transfer stock between stores',
+    'கிளைகளுக்கு இடையே சரக்கு மாற்றுதல்',
+  ),
+  'customers.read': p(
+    'customers',
+    'View customers and dues',
+    'வாடிக்கையாளர்கள் & நிலுவைகளைப் பார்த்தல்',
+  ),
+  'customers.write': p(
+    'customers',
+    'Add and edit customers',
+    'வாடிக்கையாளர்களைச் சேர்த்தல் / மாற்றுதல்',
+  ),
   'suppliers.read': p('suppliers', 'View suppliers', 'சப்ளையர்களைப் பார்த்தல்'),
-  'suppliers.write': p('suppliers', 'Add and edit suppliers', 'சப்ளையர்களைச் சேர்த்தல் / மாற்றுதல்'),
+  'suppliers.write': p(
+    'suppliers',
+    'Add and edit suppliers',
+    'சப்ளையர்களைச் சேர்த்தல் / மாற்றுதல்',
+  ),
   'purchases.read': p('purchases', 'View purchases', 'கொள்முதல்களைப் பார்த்தல்'),
-  'purchases.write': p('purchases', 'Enter purchase orders and bills', 'கொள்முதல் ஆர்டர் & பில் பதிவு செய்தல்'),
-  'payments.read': p('payments', 'View payments and UPI reconciliation', 'பணப் பரிவர்த்தனைகள் & UPI சரிபார்ப்பைப் பார்த்தல்'),
-  'payments.collect': p('payments', 'Collect payments (cash, UPI, card)', 'பணம் வசூலித்தல் (ரொக்கம், UPI, கார்டு)'),
-  'payments.pay': p('payments', 'Pay suppliers and refunds', 'சப்ளையருக்கு பணம் / திருப்பித் தருதல்'),
-  'payments.configure': p('payments', 'Configure UPI / payment providers', 'UPI / பேமெண்ட் அமைப்புகள்'),
-  'accounting.read': p('accounting', 'View accounts and statements', 'கணக்குகள் & அறிக்கைகளைப் பார்த்தல்'),
+  'purchases.write': p(
+    'purchases',
+    'Enter purchase orders and bills',
+    'கொள்முதல் ஆர்டர் & பில் பதிவு செய்தல்',
+  ),
+  'payments.read': p(
+    'payments',
+    'View payments and UPI reconciliation',
+    'பணப் பரிவர்த்தனைகள் & UPI சரிபார்ப்பைப் பார்த்தல்',
+  ),
+  'payments.collect': p(
+    'payments',
+    'Collect payments (cash, UPI, card)',
+    'பணம் வசூலித்தல் (ரொக்கம், UPI, கார்டு)',
+  ),
+  'payments.pay': p(
+    'payments',
+    'Pay suppliers and refunds',
+    'சப்ளையருக்கு பணம் / திருப்பித் தருதல்',
+  ),
+  'payments.configure': p(
+    'payments',
+    'Configure UPI / payment providers',
+    'UPI / பேமெண்ட் அமைப்புகள்',
+  ),
+  'accounting.read': p(
+    'accounting',
+    'View accounts and statements',
+    'கணக்குகள் & அறிக்கைகளைப் பார்த்தல்',
+  ),
   'accounting.write': p('accounting', 'Post journal entries', 'பேரேட்டுப் பதிவுகள் செய்தல்'),
   'expenses.write': p('accounting', 'Record expenses', 'செலவுகளைப் பதிவு செய்தல்'),
   'shifts.operate': p('shifts', 'Open and close own shift', 'சொந்த ஷிஃப்டைத் திறத்தல் / மூடுதல்'),
-  'shifts.manage': p('shifts', 'Manage all shifts and cash', 'அனைத்து ஷிஃப்டுகள் & ரொக்கத்தை நிர்வகித்தல்'),
+  'shifts.manage': p(
+    'shifts',
+    'Manage all shifts and cash',
+    'அனைத்து ஷிஃப்டுகள் & ரொக்கத்தை நிர்வகித்தல்',
+  ),
   'reports.read': p('reports', 'View business reports', 'வணிக அறிக்கைகளைப் பார்த்தல்'),
-  'reports.gst': p('reports', 'View and export GST returns', 'GST ரிட்டர்ன்களைப் பார்த்தல் / ஏற்றுமதி'),
-  'notifications.send': p('notifications', 'Send SMS / WhatsApp messages', 'SMS / வாட்ஸ்அப் செய்தி அனுப்புதல்'),
-  'settings.manage': p('settings', 'Manage shop settings, stores and counters', 'கடை அமைப்புகள், கிளைகள், கவுண்டர்களை நிர்வகித்தல்'),
+  'reports.gst': p(
+    'reports',
+    'View and export GST returns',
+    'GST ரிட்டர்ன்களைப் பார்த்தல் / ஏற்றுமதி',
+  ),
+  'notifications.send': p(
+    'notifications',
+    'Send SMS / WhatsApp messages',
+    'SMS / வாட்ஸ்அப் செய்தி அனுப்புதல்',
+  ),
+  'settings.manage': p(
+    'settings',
+    'Manage shop settings, stores and counters',
+    'கடை அமைப்புகள், கிளைகள், கவுண்டர்களை நிர்வகித்தல்',
+  ),
   'users.manage': p('users', 'Manage users and roles', 'பயனர்கள் & பொறுப்புகளை நிர்வகித்தல்'),
   'audit.read': p('audit', 'View audit log', 'தணிக்கைப் பதிவைப் பார்த்தல்'),
-  'billing.manage': p('billing', 'Manage subscription and billing', 'சந்தா & கட்டணங்களை நிர்வகித்தல்'),
+  'billing.manage': p(
+    'billing',
+    'Manage subscription and billing',
+    'சந்தா & கட்டணங்களை நிர்வகித்தல்',
+  ),
   'data.export': p('data', 'Export data', 'தரவை ஏற்றுமதி செய்தல்'),
 } as const satisfies Record<string, PermissionDef>
 
@@ -130,13 +206,19 @@ export function expandPermissions(codes: Iterable<string>): Set<Permission> {
 }
 
 /** True when the holder has `needed`; with an array, any of them (route guards are any-of). */
-export function hasPermission(perms: ReadonlySet<string> | Iterable<string>, needed: Permission | readonly Permission[]): boolean {
+export function hasPermission(
+  perms: ReadonlySet<string> | Iterable<string>,
+  needed: Permission | readonly Permission[],
+): boolean {
   const set = perms instanceof Set ? (perms as ReadonlySet<string>) : new Set(perms)
   const list: readonly Permission[] = typeof needed === 'string' ? [needed] : needed
   return list.some((perm) => set.has(perm))
 }
 
-export function hasAllPermissions(perms: ReadonlySet<string> | Iterable<string>, needed: readonly Permission[]): boolean {
+export function hasAllPermissions(
+  perms: ReadonlySet<string> | Iterable<string>,
+  needed: readonly Permission[],
+): boolean {
   const set = perms instanceof Set ? (perms as ReadonlySet<string>) : new Set(perms)
   return needed.every((perm) => set.has(perm))
 }
@@ -145,7 +227,14 @@ export function hasAllPermissions(perms: ReadonlySet<string> | Iterable<string>,
 // System roles
 // ---------------------------------------------------------------------------------------------
 
-export const SYSTEM_ROLE_CODES = ['owner', 'manager', 'cashier', 'accountant', 'inventory_clerk', 'pharmacist'] as const
+export const SYSTEM_ROLE_CODES = [
+  'owner',
+  'manager',
+  'cashier',
+  'accountant',
+  'inventory_clerk',
+  'pharmacist',
+] as const
 export type SystemRoleCode = (typeof SYSTEM_ROLE_CODES)[number]
 
 export interface RolePreset {
@@ -238,8 +327,10 @@ export const ROLE_PRESETS: Readonly<Record<SystemRoleCode, RolePreset>> = {
     code: 'pharmacist',
     name_en: 'Pharmacist',
     name_ta: 'மருந்தாளர்',
-    description: 'Cashier rights plus discounts, batch/expiry adjustments and reports (Schedule H1 register)',
-    description_ta: 'காசாளர் அனுமதிகள் + தள்ளுபடி, பேட்ச்/காலாவதி சரிசெய்தல், அறிக்கைகள் (H1 பதிவேடு)',
+    description:
+      'Cashier rights plus discounts, batch/expiry adjustments and reports (Schedule H1 register)',
+    description_ta:
+      'காசாளர் அனுமதிகள் + தள்ளுபடி, பேட்ச்/காலாவதி சரிசெய்தல், அறிக்கைகள் (H1 பதிவேடு)',
     permissions: [...CASHIER, 'sales.discount_override', 'inventory.adjust', 'reports.read'],
   },
 }

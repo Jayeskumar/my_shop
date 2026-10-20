@@ -29,8 +29,14 @@ describe('numberToWords — English (Indian system)', () => {
     [10000001, 'One Crore One'],
     [123456789, 'Twelve Crore Thirty Four Lakh Fifty Six Thousand Seven Hundred Eighty Nine'],
     [1000000000, 'One Hundred Crore'],
-    [12345678901, 'One Thousand Two Hundred Thirty Four Crore Fifty Six Lakh Seventy Eight Thousand Nine Hundred One'],
-    [MAX_WORDS_NUMBER, 'Nine Thousand Nine Hundred Ninety Nine Crore Ninety Nine Lakh Ninety Nine Thousand Nine Hundred Ninety Nine'],
+    [
+      12345678901,
+      'One Thousand Two Hundred Thirty Four Crore Fifty Six Lakh Seventy Eight Thousand Nine Hundred One',
+    ],
+    [
+      MAX_WORDS_NUMBER,
+      'Nine Thousand Nine Hundred Ninety Nine Crore Ninety Nine Lakh Ninety Nine Thousand Nine Hundred Ninety Nine',
+    ],
   ])('%d → %s', (n, expected) => {
     expect(numberToWords(n, 'en')).toBe(expected)
   })
@@ -103,7 +109,10 @@ describe('numberToWords — Tamil', () => {
     [2100000, 'இருபத்து ஒரு லட்சம்'],
     [10000000, 'ஒரு கோடி'],
     [10000500, 'ஒரு கோடியே ஐநூறு'],
-    [123456789, 'பன்னிரண்டு கோடியே முப்பத்து நான்கு லட்சத்து ஐம்பத்து ஆறாயிரத்து எழுநூற்று எண்பத்து ஒன்பது'],
+    [
+      123456789,
+      'பன்னிரண்டு கோடியே முப்பத்து நான்கு லட்சத்து ஐம்பத்து ஆறாயிரத்து எழுநூற்று எண்பத்து ஒன்பது',
+    ],
     [210000000, 'இருபத்து ஒரு கோடி'],
     [10000000000, 'ஆயிரம் கோடி'],
     [10010000000, 'ஆயிரத்து ஒரு கோடி'],

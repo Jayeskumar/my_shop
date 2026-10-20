@@ -24,10 +24,39 @@ const LAKH = 100_000
 // ---------------------------------------------------------------------------------------------
 
 const EN_ONES = [
-  '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
-  'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen',
+  '',
+  'One',
+  'Two',
+  'Three',
+  'Four',
+  'Five',
+  'Six',
+  'Seven',
+  'Eight',
+  'Nine',
+  'Ten',
+  'Eleven',
+  'Twelve',
+  'Thirteen',
+  'Fourteen',
+  'Fifteen',
+  'Sixteen',
+  'Seventeen',
+  'Eighteen',
+  'Nineteen',
 ]
-const EN_TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
+const EN_TENS = [
+  '',
+  '',
+  'Twenty',
+  'Thirty',
+  'Forty',
+  'Fifty',
+  'Sixty',
+  'Seventy',
+  'Eighty',
+  'Ninety',
+]
 
 function en99(n: number): string {
   if (n < 20) return EN_ONES[n]!
@@ -60,17 +89,77 @@ function enIndian(n: number): string {
 // Tamil
 // ---------------------------------------------------------------------------------------------
 
-const TA_UNITS = ['', 'ஒன்று', 'இரண்டு', 'மூன்று', 'நான்கு', 'ஐந்து', 'ஆறு', 'ஏழு', 'எட்டு', 'ஒன்பது']
-const TA_TEENS = [
-  'பத்து', 'பதினொன்று', 'பன்னிரண்டு', 'பதிமூன்று', 'பதினான்கு',
-  'பதினைந்து', 'பதினாறு', 'பதினேழு', 'பதினெட்டு', 'பத்தொன்பது',
+const TA_UNITS = [
+  '',
+  'ஒன்று',
+  'இரண்டு',
+  'மூன்று',
+  'நான்கு',
+  'ஐந்து',
+  'ஆறு',
+  'ஏழு',
+  'எட்டு',
+  'ஒன்பது',
 ]
-const TA_TENS = ['', '', 'இருபது', 'முப்பது', 'நாற்பது', 'ஐம்பது', 'அறுபது', 'எழுபது', 'எண்பது', 'தொண்ணூறு']
-const TA_TENS_COMBINING = ['', '', 'இருபத்து', 'முப்பத்து', 'நாற்பத்து', 'ஐம்பத்து', 'அறுபத்து', 'எழுபத்து', 'எண்பத்து', 'தொண்ணூற்று']
-const TA_HUNDREDS = ['', 'நூறு', 'இருநூறு', 'முந்நூறு', 'நானூறு', 'ஐநூறு', 'அறுநூறு', 'எழுநூறு', 'எண்ணூறு', 'தொள்ளாயிரம்']
+const TA_TEENS = [
+  'பத்து',
+  'பதினொன்று',
+  'பன்னிரண்டு',
+  'பதிமூன்று',
+  'பதினான்கு',
+  'பதினைந்து',
+  'பதினாறு',
+  'பதினேழு',
+  'பதினெட்டு',
+  'பத்தொன்பது',
+]
+const TA_TENS = [
+  '',
+  '',
+  'இருபது',
+  'முப்பது',
+  'நாற்பது',
+  'ஐம்பது',
+  'அறுபது',
+  'எழுபது',
+  'எண்பது',
+  'தொண்ணூறு',
+]
+const TA_TENS_COMBINING = [
+  '',
+  '',
+  'இருபத்து',
+  'முப்பத்து',
+  'நாற்பத்து',
+  'ஐம்பத்து',
+  'அறுபத்து',
+  'எழுபத்து',
+  'எண்பத்து',
+  'தொண்ணூற்று',
+]
+const TA_HUNDREDS = [
+  '',
+  'நூறு',
+  'இருநூறு',
+  'முந்நூறு',
+  'நானூறு',
+  'ஐநூறு',
+  'அறுநூறு',
+  'எழுநூறு',
+  'எண்ணூறு',
+  'தொள்ளாயிரம்',
+]
 const TA_HUNDREDS_COMBINING = [
-  '', 'நூற்று', 'இருநூற்று', 'முந்நூற்று', 'நானூற்று', 'ஐநூற்று',
-  'அறுநூற்று', 'எழுநூற்று', 'எண்ணூற்று', 'தொள்ளாயிரத்து',
+  '',
+  'நூற்று',
+  'இருநூற்று',
+  'முந்நூற்று',
+  'நானூற்று',
+  'ஐநூற்று',
+  'அறுநூற்று',
+  'எழுநூற்று',
+  'எண்ணூற்று',
+  'தொள்ளாயிரத்து',
 ]
 
 const TA_ONE = 'ஒன்று'
@@ -133,7 +222,9 @@ function taIndian(n: number): string {
 
 function assertWordsNumber(n: number, name: string): void {
   if (!Number.isSafeInteger(n) || n < 0 || n > MAX_WORDS_NUMBER) {
-    throw new RangeError(`${name} must be an integer between 0 and ${MAX_WORDS_NUMBER}, got ${String(n)}`)
+    throw new RangeError(
+      `${name} must be an integer between 0 and ${MAX_WORDS_NUMBER}, got ${String(n)}`,
+    )
   }
 }
 
@@ -150,7 +241,8 @@ export function numberToWords(n: number, locale: WordsLocale = 'en'): string {
  * @throws RangeError for negative, fractional or too large amounts.
  */
 export function amountInWords(paise: number, locale: WordsLocale = 'en'): string {
-  if (!Number.isSafeInteger(paise) || paise < 0) throw new RangeError('paise must be a non-negative integer')
+  if (!Number.isSafeInteger(paise) || paise < 0)
+    throw new RangeError('paise must be a non-negative integer')
   const p = paise % 100
   const rupees = (paise - p) / 100
   assertWordsNumber(rupees, 'rupees')

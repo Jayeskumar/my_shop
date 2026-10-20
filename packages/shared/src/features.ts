@@ -55,7 +55,10 @@ export const FEATURE_LABELS: Readonly<Record<Feature, { en: string; ta: string }
   khata: { en: 'Credit book (khata)', ta: 'கடன் கணக்கு' },
   purchases: { en: 'Purchases', ta: 'கொள்முதல்' },
   gst_reports: { en: 'GST returns (GSTR-1, 3B)', ta: 'GST ரிட்டர்ன்கள் (GSTR-1, 3B)' },
-  upi_dynamic: { en: 'Dynamic UPI QR with auto-confirmation', ta: 'தானியங்கி உறுதிப்படுத்தலுடன் டைனமிக் UPI QR' },
+  upi_dynamic: {
+    en: 'Dynamic UPI QR with auto-confirmation',
+    ta: 'தானியங்கி உறுதிப்படுத்தலுடன் டைனமிக் UPI QR',
+  },
   promotions: { en: 'Offers & schemes', ta: 'சலுகைகள் & திட்டங்கள்' },
   loyalty: { en: 'Loyalty points', ta: 'விசுவாசப் புள்ளிகள்' },
   batches_expiry: { en: 'Batches & expiry', ta: 'பேட்ச் & காலாவதி' },
@@ -75,7 +78,16 @@ export const FEATURE_LABELS: Readonly<Record<Feature, { en: string; ta: string }
   priority_support: { en: 'Priority support', ta: 'முன்னுரிமை ஆதரவு' },
 }
 
-export const LIMIT_METRICS = ['stores', 'users', 'registers', 'products', 'invoices_per_month'] as const
+/** Alias of {@link FEATURE_LABELS}. */
+export const featureLabels = FEATURE_LABELS
+
+export const LIMIT_METRICS = [
+  'stores',
+  'users',
+  'registers',
+  'products',
+  'invoices_per_month',
+] as const
 export type LimitMetric = (typeof LIMIT_METRICS)[number]
 
 /** null = unlimited. */
@@ -110,7 +122,10 @@ export const EntitlementsSchema = z.object({
 })
 export type Entitlements = z.infer<typeof EntitlementsSchema>
 
-export function hasFeature(entitlements: Pick<Entitlements, 'features'>, feature: Feature): boolean {
+export function hasFeature(
+  entitlements: Pick<Entitlements, 'features'>,
+  feature: Feature,
+): boolean {
   return entitlements.features.includes(feature)
 }
 
@@ -125,13 +140,41 @@ export function isWithinLimit(limits: PlanLimits, metric: LimitMetric, current: 
 export const PLAN_CODES = ['free', 'growth', 'pro', 'enterprise'] as const
 export type PlanCode = (typeof PLAN_CODES)[number]
 
-const FREE: readonly Feature[] = ['pos', 'catalog', 'inventory', 'customers', 'suppliers', 'upi_static', 'reports_basic', 'gst_invoice', 'khata']
+const FREE: readonly Feature[] = [
+  'pos',
+  'catalog',
+  'inventory',
+  'customers',
+  'suppliers',
+  'upi_static',
+  'reports_basic',
+  'gst_invoice',
+  'khata',
+]
 const GROWTH: readonly Feature[] = [
-  ...FREE, 'purchases', 'gst_reports', 'upi_dynamic', 'promotions', 'loyalty', 'batches_expiry', 'variants',
-  'notifications', 'shifts', 'accounting', 'offline_pos', 'barcode_labels',
+  ...FREE,
+  'purchases',
+  'gst_reports',
+  'upi_dynamic',
+  'promotions',
+  'loyalty',
+  'batches_expiry',
+  'variants',
+  'notifications',
+  'shifts',
+  'accounting',
+  'offline_pos',
+  'barcode_labels',
 ]
 const PRO: readonly Feature[] = [
-  ...GROWTH, 'multi_store', 'stock_transfers', 'advanced_reports', 'custom_roles', 'audit_log', 'api_access', 'store_pricing',
+  ...GROWTH,
+  'multi_store',
+  'stock_transfers',
+  'advanced_reports',
+  'custom_roles',
+  'audit_log',
+  'api_access',
+  'store_pricing',
 ]
 
 export const DEFAULT_PLAN_FEATURES: Readonly<Record<PlanCode, readonly Feature[]>> = {
@@ -145,7 +188,13 @@ export const DEFAULT_PLAN_LIMITS: Readonly<Record<PlanCode, PlanLimits>> = {
   free: { stores: 1, users: 2, registers: 1, products: 1000, invoices_per_month: 300 },
   growth: { stores: 1, users: 5, registers: 3, products: null, invoices_per_month: null },
   pro: { stores: 5, users: 25, registers: 15, products: null, invoices_per_month: null },
-  enterprise: { stores: null, users: null, registers: null, products: null, invoices_per_month: null },
+  enterprise: {
+    stores: null,
+    users: null,
+    registers: null,
+    products: null,
+    invoices_per_month: null,
+  },
 }
 
 /** On-prem licenses default to the Pro plan features (PRODUCT.md). */

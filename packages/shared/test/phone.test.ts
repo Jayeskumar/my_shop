@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { formatPhoneDisplay, isE164, isValidIndianMobile, maskPhone, normalizeIndianPhone, toWhatsAppNumber } from '../src/phone'
+import {
+  formatPhoneDisplay,
+  isE164,
+  isValidIndianMobile,
+  maskPhone,
+  normalizeIndianPhone,
+  toWhatsAppNumber,
+} from '../src/phone'
 
 describe('normalizeIndianPhone', () => {
   it.each([

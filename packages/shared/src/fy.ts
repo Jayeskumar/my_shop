@@ -135,7 +135,8 @@ export function startOfDayInstant(dateStr: string, timeZone: string = DEFAULT_TI
   const { y, m, d } = parseDate(dateStr)
   const localMidnightAsUtc = Date.UTC(y, m - 1, d)
   // Two passes handle zones whose offset differs between the guess and the result (DST).
-  let instant = localMidnightAsUtc - timezoneOffsetMinutes(new Date(localMidnightAsUtc), timeZone) * 60_000
+  let instant =
+    localMidnightAsUtc - timezoneOffsetMinutes(new Date(localMidnightAsUtc), timeZone) * 60_000
   instant = localMidnightAsUtc - timezoneOffsetMinutes(new Date(instant), timeZone) * 60_000
   return new Date(instant)
 }
@@ -144,8 +145,15 @@ export function startOfDayInstant(dateStr: string, timeZone: string = DEFAULT_TI
  * Half-open instant range [start, end) covering business dates from..to inclusive, for
  * timestamptz filters: `created_at >= start AND created_at < end`.
  */
-export function instantRangeForDates(from: string, to: string, timeZone: string = DEFAULT_TIMEZONE): { start: Date; end: Date } {
-  return { start: startOfDayInstant(from, timeZone), end: startOfDayInstant(addDays(to, 1), timeZone) }
+export function instantRangeForDates(
+  from: string,
+  to: string,
+  timeZone: string = DEFAULT_TIMEZONE,
+): { start: Date; end: Date } {
+  return {
+    start: startOfDayInstant(from, timeZone),
+    end: startOfDayInstant(addDays(to, 1), timeZone),
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -276,7 +284,10 @@ export function periodOf(dateStr: string): string {
 /** First and last date of a month: '2026-02' → { from: '2026-02-01', to: '2026-02-28' }. */
 export function periodRange(period: string): DateRange {
   const { y, m } = parsePeriod(period)
-  return { from: `${pad4(y)}-${pad2(m)}-01`, to: `${pad4(y)}-${pad2(m)}-${pad2(daysInMonth(y, m))}` }
+  return {
+    from: `${pad4(y)}-${pad2(m)}-01`,
+    to: `${pad4(y)}-${pad2(m)}-${pad2(daysInMonth(y, m))}`,
+  }
 }
 
 export function addPeriods(period: string, months: number): string {

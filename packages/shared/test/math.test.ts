@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { allocateProRata, clamp, mulDiv, roundDiv, roundDivBig, sumSafe, toSafeNumber } from '../src/math'
+import {
+  allocateProRata,
+  clamp,
+  mulDiv,
+  roundDiv,
+  roundDivBig,
+  sumSafe,
+  toSafeNumber,
+} from '../src/math'
 import { createRng } from './helpers/prng'
 
 describe('roundDiv (half away from zero)', () => {
@@ -89,7 +97,8 @@ describe('mulDiv', () => {
       const b = rng.int(0, 1e9)
       const d = rng.int(1, 1e6)
       const expected = roundDivBig(BigInt(a) * BigInt(b), BigInt(d))
-      if (expected <= BigInt(Number.MAX_SAFE_INTEGER)) expect(mulDiv(a, b, d)).toBe(Number(expected))
+      if (expected <= BigInt(Number.MAX_SAFE_INTEGER))
+        expect(mulDiv(a, b, d)).toBe(Number(expected))
     }
   })
 })

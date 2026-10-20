@@ -27,8 +27,17 @@ describe('GST rates', () => {
     expect(GST_RATES_BP).toEqual([0, 10, 25, 100, 150, 300, 500, 600, 750, 1200, 1800, 2800, 4000])
   })
   it.each([
-    [0, true], [500, true], [1800, true], [4000, true], [1200, true], [10, true],
-    [1000, false], [-500, false], [500.5, false], ['500', false], [null, false],
+    [0, true],
+    [500, true],
+    [1800, true],
+    [4000, true],
+    [1200, true],
+    [10, true],
+    [1000, false],
+    [-500, false],
+    [500.5, false],
+    ['500', false],
+    [null, false],
   ])('isValidGstRate(%j) = %s', (bp, expected) => {
     expect(isValidGstRate(bp)).toBe(expected)
   })
@@ -49,8 +58,16 @@ describe('states', () => {
     expect(new Set(INDIAN_STATES.map((s) => s.alpha)).size).toBe(INDIAN_STATES.length)
   })
   it('knows Tamil Nadu and Puducherry', () => {
-    expect(getState('33')).toMatchObject({ name_en: 'Tamil Nadu', name_ta: 'தமிழ்நாடு', alpha: 'TN' })
-    expect(getState('34')).toMatchObject({ name_en: 'Puducherry', name_ta: 'புதுச்சேரி', kind: 'union_territory' })
+    expect(getState('33')).toMatchObject({
+      name_en: 'Tamil Nadu',
+      name_ta: 'தமிழ்நாடு',
+      alpha: 'TN',
+    })
+    expect(getState('34')).toMatchObject({
+      name_en: 'Puducherry',
+      name_ta: 'புதுச்சேரி',
+      kind: 'union_territory',
+    })
   })
   it('excludes legacy codes from active codes', () => {
     expect(ACTIVE_STATE_CODES).not.toContain('25')
@@ -140,8 +157,16 @@ describe('PAN / HSN', () => {
     expect(isValidPan(pan)).toBe(expected)
   })
   it.each([
-    ['1006', true], ['100630', true], ['10063010', true], ['998599', true],
-    ['100', false], ['10063', false], ['1006301', false], ['100A', false], ['', false], [1006, false],
+    ['1006', true],
+    ['100630', true],
+    ['10063010', true],
+    ['998599', true],
+    ['100', false],
+    ['10063', false],
+    ['1006301', false],
+    ['100A', false],
+    ['', false],
+    [1006, false],
   ])('isValidHsn(%j) = %s', (hsn, expected) => {
     expect(isValidHsn(hsn)).toBe(expected)
   })
@@ -153,7 +178,12 @@ describe('inter-state and split', () => {
     expect(isInterstate('33', '34')).toBe(true)
   })
   it.each([
-    [0, 0, 0], [1, 1, 0], [2, 1, 1], [3, 2, 1], [1801, 901, 900], [-3, -1, -2],
+    [0, 0, 0],
+    [1, 1, 0],
+    [2, 1, 1],
+    [3, 2, 1],
+    [1801, 901, 900],
+    [-3, -1, -2],
   ])('splitGst(%d) = cgst %d + sgst %d', (gst, cgst, sgst) => {
     expect(splitGst(gst)).toEqual({ cgst_paise: cgst, sgst_paise: sgst })
   })

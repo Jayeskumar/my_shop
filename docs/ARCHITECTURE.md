@@ -153,6 +153,8 @@ Cross-module registries are pre-wired: `apps/server/src/modules/index.ts`,
 * **JSON naming** — `snake_case` for every API field (request and response) and DB column.
   TypeScript variables stay camelCase; data objects keep snake_case keys. No mapping layers.
 * **Phones** — stored E.164 (`+919876543210`); `normalizeIndianPhone()` accepts 10-digit input.
+* **Addresses** — `address` jsonb `{line1, line2, city, district, state_code, pincode}` (`AddressSchema`
+  in `@kadai/shared/api/common`; `state_code` is the 2-digit GST state code).
 * **Enums** — lower_snake strings checked in SQL and mirrored as `z.enum` in shared.
 * **Soft delete** — master data uses `is_active=false`; financial documents are never deleted,
   only cancelled (with a reversal) — drafts may be deleted.
@@ -282,7 +284,12 @@ app.post('/products', {
   Codes: `VALIDATION_ERROR`(400) `UNAUTHENTICATED`(401) `FEATURE_NOT_IN_PLAN`/`PLAN_LIMIT_REACHED`(402)
   `FORBIDDEN`(403) `NOT_FOUND`(404) `CONFLICT`/`DUPLICATE`(409) `UNPROCESSABLE`/`INSUFFICIENT_STOCK`/
   `CREDIT_LIMIT_EXCEEDED`/`RX_REQUIRED`/`EXPIRED_BATCH`(422) `RATE_LIMITED`(429) `INTERNAL`(500)
-  `PROVIDER_ERROR`(502). `message` is English; the web maps `code` → localized text.
+  `PROVIDER_ERROR`(502). Auth/flow codes: `OTP_INVALID`/`OTP_EXPIRED`(400) `INVALID_CREDENTIALS`/
+  `SESSION_REVOKED`(401) `TENANT_SUSPENDED`/`DEVICE_NOT_TRUSTED`/`LICENSE_INVALID`(403)
+  `IDEMPOTENCY_MISMATCH`/`IDEMPOTENCY_IN_PROGRESS`/`STALE_WRITE`/`SETUP_ALREADY_DONE`/
+  `NUMBER_SERIES_EXHAUSTED`(409) `ACCOUNT_LOCKED`/`PIN_LOCKED`(423) — the full catalogue with
+  statuses and ta/en texts is `@kadai/shared/errors.ts`. `message` is English; the web maps `code` →
+  localized text.
 * **Idempotency** — every POST that creates a financial document or payment accepts
   `Idempotency-Key` (or a body `client_ref`). Same key + same body → same response; same key +
   different body → 409 `IDEMPOTENCY_MISMATCH`. Implemented in `core/idempotency.ts`.
@@ -292,6 +299,13 @@ app.post('/products', {
   `?sort=-created_at`. CSV exports: `?format=csv` on report endpoints.
 * All request/response schemas are Zod in `@kadai/shared/api/<module>` so the web client gets
   identical types (`z.infer`).
+* **Route catalogues** — each contract file exports `<module>Routes = defineRoutes({...})`
+  (`api/common.ts`): one entry per endpoint with `method`, `path` (relative to the scope prefix
+  `/api/v1`, `/public/v1` or `/webhooks`), `permission`, `feature`, `mode`, `idempotent`, and the
+  `params`/`query`/`body`/`response` schemas. The server registers each route from its definition
+  (schemas + permission/feature/mode guards applied automatically) and the web calls it through a
+  typed client (`routeUrl()`, `RouteBody<R>`, `RouteResponse<R>`), so paths and payloads cannot
+  drift. docs/API.md is the human-readable index of the same catalogue.
 
 ### 7.4 Authentication
 
@@ -447,6 +461,7 @@ systemAccountId(tx, ctx, subtype: SystemAccountSubtype): Promise<string>   // ca
   | 5200 | inventory_adjustment | Stock adjustment / shrinkage |
   | 5210 | inventory_writeoff | Expired / damaged stock written off |
   | 5300–5390 | (expense) | Rent, Electricity, Salaries, Transport, Repairs, Telephone & internet, Bank & PSP charges, Packing, Miscellaneous |
+  | 5360 | bank_charges | Bank & PSP charges (also the posting account for PSP fees, e.g. `payment_intents.fee_paise`) |
   | 5400 | discount_allowed | Discount allowed |
 
 ### 8.4 Payments — `core/payments.ts`
@@ -576,7 +591,8 @@ interface PaymentProvider {
 
 * **`upi_vpa` (default, zero-cost)** — the shop's own UPI ID (`pa`). We generate an NPCI UPI
   intent `upi://pay?pa=<vpa>&pn=<payee>&am=<₹ 2dp>&cu=INR&tn=<note>&tr=<reference_code>&mc=<mcc>`
-  (`buildUpiUri()` in shared; values percent-encoded). The POS renders it as a QR (with amount)
+  (`buildUpiUri()` in shared; values percent-encoded, except `@` in `pa`, kept literal for UPI-app
+  compatibility). The POS renders it as a QR (with amount)
   — works offline too. There is no bank callback, so the cashier confirms receipt (soundbox /
   phone) with optional UTR; `confirmation='manual'`, audited.
 * **`razorpay`** — dynamic single-use, fixed-amount UPI QR (`POST /v1/payments/qr_codes`,
@@ -633,7 +649,9 @@ their oldest due invoices.
 * **Held bills** (`status='held'`) survive refreshes and can be recalled on any register of the
   store.
 * **Scale barcodes** — EAN-13 with configurable prefixes (default `21–29`): `PP IIIII VVVVV C`
-  (`parseScaleBarcode()` in shared) with value = weight (g) or price (paise ×10) per settings.
+  (`parseScaleBarcode()` in shared) with value = weight or price per `settings.pos.scale_barcode`
+  (`weight_unit_divisor` value units per kg, default 1000 = grams; `price_divisor` value units per
+  rupee, default 100 = paise).
 * **Customer display** — second window `/pos/display` gets cart + UPI QR via `BroadcastChannel`.
 * **Printing** — browser printing with dedicated CSS for 58 mm / 80 mm thermal and A4 GST
   invoice (bilingual). Tamil shaping is handled by the browser (no raw ESC/POS for Tamil).

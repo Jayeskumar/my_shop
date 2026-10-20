@@ -41,7 +41,10 @@ export function isE164(value: unknown): value is string {
  * Display form: '+919876543210' → '98765 43210' (or '+91 98765 43210' with the country code).
  * Other valid inputs are normalised first; anything else is returned unchanged.
  */
-export function formatPhoneDisplay(phone: string, options: { withCountryCode?: boolean } = {}): string {
+export function formatPhoneDisplay(
+  phone: string,
+  options: { withCountryCode?: boolean } = {},
+): string {
   const normalized = INDIAN_E164_RE.test(phone) ? phone : (normalizeIndianPhone(phone) ?? phone)
   const m = INDIAN_E164_RE.exec(normalized)
   if (!m) return phone
@@ -58,7 +61,8 @@ export function toWhatsAppNumber(phone: string): string | null {
 /** Masked for receipts/logs: '+919876543210' → '98XXX XX210'. */
 export function maskPhone(phone: string): string {
   const normalized = normalizeIndianPhone(phone)
-  if (!normalized) return phone.length > 4 ? `${'X'.repeat(phone.length - 3)}${phone.slice(-3)}` : 'XXXX'
+  if (!normalized)
+    return phone.length > 4 ? `${'X'.repeat(phone.length - 3)}${phone.slice(-3)}` : 'XXXX'
   const d = normalized.slice(3)
   return `${d.slice(0, 2)}XXX XX${d.slice(7)}`
 }

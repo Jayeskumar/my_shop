@@ -105,7 +105,10 @@ export const BillFlatRulesSchema = z.object({
 
 export const ComboPriceRulesSchema = z
   .object({
-    items: z.array(z.object({ product_id: zUuid, qty_milli: z.int().min(1) })).min(2).max(20),
+    items: z
+      .array(z.object({ product_id: zUuid, qty_milli: z.int().min(1) }))
+      .min(2)
+      .max(20),
     /** Price of one complete combo (inclusive/exclusive like the items' prices). */
     combo_price_paise: z.int().min(0),
     max_applications: zPositiveInt.optional(),
@@ -228,7 +231,8 @@ export interface PromotionResult {
   applied: AppliedPromotion[]
 }
 
-const toMs = (v: string | Date | null): number | null => (v === null ? null : v instanceof Date ? v.getTime() : Date.parse(v))
+const toMs = (v: string | Date | null): number | null =>
+  v === null ? null : v instanceof Date ? v.getTime() : Date.parse(v)
 
 /** Whether a promotion applies at a store and instant (active flag, store, date window, weekday). */
 export function isPromotionActive(promo: PromotionLike, ctx: PromotionContext): boolean {
@@ -239,15 +243,22 @@ export function isPromotionActive(promo: PromotionLike, ctx: PromotionContext): 
   const end = toMs(promo.ends_at)
   if (start !== null && now < start) return false
   if (end !== null && now >= end) return false
-  if (promo.days_of_week && !promo.days_of_week.includes(dayOfWeekIn(ctx.now, ctx.timezone ?? DEFAULT_TIMEZONE))) {
+  if (
+    promo.days_of_week &&
+    !promo.days_of_week.includes(dayOfWeekIn(ctx.now, ctx.timezone ?? DEFAULT_TIMEZONE))
+  ) {
     return false
   }
   return true
 }
 
 /** Deterministic evaluation order: priority desc, then id asc. */
-export function sortPromotions<T extends { priority: number; id: string }>(promotions: readonly T[]): T[] {
-  return [...promotions].sort((a, b) => b.priority - a.priority || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+export function sortPromotions<T extends { priority: number; id: string }>(
+  promotions: readonly T[],
+): T[] {
+  return [...promotions].sort(
+    (a, b) => b.priority - a.priority || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+  )
 }
 
 interface PricedLine {
@@ -260,7 +271,13 @@ interface PricedLine {
 
 function matches(
   line: PromotionCartLine,
-  t: { all_items: boolean; product_ids: string[]; category_ids: string[]; brand_ids: string[]; exclude_product_ids?: string[] },
+  t: {
+    all_items: boolean
+    product_ids: string[]
+    category_ids: string[]
+    brand_ids: string[]
+    exclude_product_ids?: string[]
+  },
 ): boolean {
   if (t.exclude_product_ids?.includes(line.product_id)) return false
   if (t.all_items) return true
@@ -282,7 +299,10 @@ function unitsDiscount(p: PricedLine, units: number, bp: number): number {
   return mulDiv(amountForQty(p.line.unit_price_paise, units * 1000, p.pack), bp, BP)
 }
 
-function buyXGetYProposals(rules: BuyXGetYRules, lines: readonly PricedLine[]): Map<string, number> {
+function buyXGetYProposals(
+  rules: BuyXGetYRules,
+  lines: readonly PricedLine[],
+): Map<string, number> {
   const out = new Map<string, number>()
   const getTarget = {
     all_items: false,
@@ -296,7 +316,11 @@ function buyXGetYProposals(rules: BuyXGetYRules, lines: readonly PricedLine[]): 
   let rewardLines: PricedLine[]
   if (separateReward) {
     rewardLines = lines.filter((p) => matches(p.line, getTarget))
-    const buyUnits = sumSafe(lines.filter((p) => matches(p.line, rules) && !matches(p.line, getTarget)).map((p) => p.units))
+    const buyUnits = sumSafe(
+      lines
+        .filter((p) => matches(p.line, rules) && !matches(p.line, getTarget))
+        .map((p) => p.units),
+    )
     let groups = Math.floor(buyUnits / rules.buy_qty)
     if (rules.max_applications !== undefined) groups = Math.min(groups, rules.max_applications)
     freeUnits = Math.min(groups * rules.get_qty, sumSafe(rewardLines.map((p) => p.units)))
@@ -319,9 +343,12 @@ function buyXGetYProposals(rules: BuyXGetYRules, lines: readonly PricedLine[]): 
 
 function comboProposals(rules: ComboPriceRules, lines: readonly PricedLine[]): Map<string, number> {
   const out = new Map<string, number>()
-  const linesFor = (productId: string): PricedLine[] => lines.filter((p) => p.line.product_id === productId)
+  const linesFor = (productId: string): PricedLine[] =>
+    lines.filter((p) => p.line.product_id === productId)
   let combos = Math.min(
-    ...rules.items.map((item) => Math.floor(sumSafe(linesFor(item.product_id).map((p) => p.line.qty_milli)) / item.qty_milli)),
+    ...rules.items.map((item) =>
+      Math.floor(sumSafe(linesFor(item.product_id).map((p) => p.line.qty_milli)) / item.qty_milli),
+    ),
   )
   if (rules.max_applications !== undefined) combos = Math.min(combos, rules.max_applications)
   if (!(combos > 0)) return out
@@ -340,7 +367,10 @@ function comboProposals(rules: ComboPriceRules, lines: readonly PricedLine[]): M
   const regular = sumSafe(consumed.map((c) => c.value))
   const discount = Math.max(0, regular - rules.combo_price_paise * combos)
   if (discount === 0) return out
-  const parts = allocateProRata(discount, consumed.map((c) => c.value))
+  const parts = allocateProRata(
+    discount,
+    consumed.map((c) => c.value),
+  )
   consumed.forEach((c, i) => out.set(c.key, (out.get(c.key) ?? 0) + (parts[i] ?? 0)))
   return out
 }
@@ -391,7 +421,9 @@ function billProposal(promo: PromotionLike, remaining: number): number {
 }
 
 /** Picks the best non-stackable proposal (first wins ties) followed by all stackable ones. */
-function selectProposals(proposals: Array<{ promo: PromotionLike; amount: number }>): Array<{ promo: PromotionLike; amount: number }> {
+function selectProposals(
+  proposals: Array<{ promo: PromotionLike; amount: number }>,
+): Array<{ promo: PromotionLike; amount: number }> {
   let best: { promo: PromotionLike; amount: number } | undefined
   const stackable: Array<{ promo: PromotionLike; amount: number }> = []
   for (const p of proposals) {
@@ -402,7 +434,12 @@ function selectProposals(proposals: Array<{ promo: PromotionLike; amount: number
   return best ? [best, ...stackable] : stackable
 }
 
-const ITEM_KINDS: ReadonlySet<PromotionKind> = new Set(['item_percent', 'item_flat', 'buy_x_get_y', 'combo_price'])
+const ITEM_KINDS: ReadonlySet<PromotionKind> = new Set([
+  'item_percent',
+  'item_flat',
+  'buy_x_get_y',
+  'combo_price',
+])
 
 /**
  * Applies promotions to a cart. Pure and deterministic; never discounts below zero.
@@ -474,7 +511,11 @@ export function applyPromotions(
 
   const applied: AppliedPromotion[] = active
     .filter((promo) => (appliedTotals.get(promo.id) ?? 0) > 0)
-    .map((promo) => ({ promotion_id: promo.id, name: promo.name, discount_paise: appliedTotals.get(promo.id) ?? 0 }))
+    .map((promo) => ({
+      promotion_id: promo.id,
+      name: promo.name,
+      discount_paise: appliedTotals.get(promo.id) ?? 0,
+    }))
 
   return { line_discounts, bill_discount_paise: remainingBill - billLeft, applied }
 }

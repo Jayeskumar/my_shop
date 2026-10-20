@@ -7,3 +7,4 @@ test-results
 data
 *.sql
 apps/server/src/db/schema.generated.ts
+docs

@@ -77,7 +77,8 @@ export function buildUpiUri(params: UpiUriParams): string {
   const note = params.note?.trim()
   if (note) query.push(`tn=${encodeValue(truncateGraphemes(note, UPI_NOTE_MAX_LENGTH))}`)
   if (params.reference != null) {
-    if (!UPI_REFERENCE_RE.test(params.reference)) throw new RangeError('reference must be 1-35 letters or digits')
+    if (!UPI_REFERENCE_RE.test(params.reference))
+      throw new RangeError('reference must be 1-35 letters or digits')
     query.push(`tr=${params.reference}`)
   }
   if (params.mcc != null) {
@@ -111,7 +112,9 @@ export function parseUpiUri(uri: string): ParsedUpiUri | null {
     const rawValue = eq === -1 ? '' : pair.slice(eq + 1)
     try {
       // '+' as space for form-encoded generators; our own URIs encode '+' as %2B.
-      params[decodeURIComponent(rawKey).toLowerCase()] = decodeURIComponent(rawValue.replace(/\+/g, ' '))
+      params[decodeURIComponent(rawKey).toLowerCase()] = decodeURIComponent(
+        rawValue.replace(/\+/g, ' '),
+      )
     } catch {
       return null
     }
@@ -144,7 +147,8 @@ interface CryptoLike {
 
 function getCrypto(): CryptoLike {
   const c = (globalThis as { crypto?: CryptoLike }).crypto
-  if (!c || typeof c.getRandomValues !== 'function') throw new Error('Web Crypto (crypto.getRandomValues) is not available')
+  if (!c || typeof c.getRandomValues !== 'function')
+    throw new Error('Web Crypto (crypto.getRandomValues) is not available')
   return c
 }
 
@@ -154,7 +158,8 @@ function getCrypto(): CryptoLike {
  * sampling (no modulo bias). 10 random characters ≈ 51.7 bits.
  */
 export function generateReferenceCode(prefix = 'KD'): string {
-  if (!/^[A-Z0-9]{0,8}$/.test(prefix)) throw new RangeError('prefix must be 0-8 uppercase letters or digits')
+  if (!/^[A-Z0-9]{0,8}$/.test(prefix))
+    throw new RangeError('prefix must be 0-8 uppercase letters or digits')
   const needed = REFERENCE_CODE_LENGTH - prefix.length
   const crypto = getCrypto()
   let out = prefix

@@ -19,10 +19,33 @@ import {
 describe('UNITS catalogue', () => {
   it('contains every required unit with its GST UQC', () => {
     const expected: Record<string, string> = {
-      PCS: 'NOS', KG: 'KGS', G: 'GMS', QTL: 'QTL', L: 'LTR', ML: 'MLT', M: 'MTR', CM: 'CMS',
-      SQFT: 'SQF', BOX: 'BOX', PACK: 'PAC', DOZ: 'DOZ', PAIR: 'PRS', SET: 'SET', STRIP: 'OTH',
-      TAB: 'TBS', CAP: 'OTH', BTL: 'BTL', CAN: 'CAN', BAG: 'BAG', ROLL: 'ROL', BUNDLE: 'BDL',
-      PKT: 'PAC', NOS: 'NOS', TUBE: 'TUB', VIAL: 'OTH', SACHET: 'OTH',
+      PCS: 'NOS',
+      KG: 'KGS',
+      G: 'GMS',
+      QTL: 'QTL',
+      L: 'LTR',
+      ML: 'MLT',
+      M: 'MTR',
+      CM: 'CMS',
+      SQFT: 'SQF',
+      BOX: 'BOX',
+      PACK: 'PAC',
+      DOZ: 'DOZ',
+      PAIR: 'PRS',
+      SET: 'SET',
+      STRIP: 'OTH',
+      TAB: 'TBS',
+      CAP: 'OTH',
+      BTL: 'BTL',
+      CAN: 'CAN',
+      BAG: 'BAG',
+      ROLL: 'ROL',
+      BUNDLE: 'BDL',
+      PKT: 'PAC',
+      NOS: 'NOS',
+      TUBE: 'TUB',
+      VIAL: 'OTH',
+      SACHET: 'OTH',
     }
     expect(Object.fromEntries(UNITS.map((u) => [u.code, u.uqc]))).toEqual(expected)
     expect(new Set(UNIT_CODES).size).toBe(UNITS.length)
@@ -36,7 +59,14 @@ describe('UNITS catalogue', () => {
   })
   it('flags measured units as decimal', () => {
     expect(UNITS.filter((u) => u.decimal_allowed).map((u) => u.code)).toEqual([
-      'KG', 'G', 'QTL', 'L', 'ML', 'M', 'CM', 'SQFT',
+      'KG',
+      'G',
+      'QTL',
+      'L',
+      'ML',
+      'M',
+      'CM',
+      'SQFT',
     ])
     expect(isDecimalUnit('kg')).toBe(true)
     expect(isDecimalUnit('PCS')).toBe(false)

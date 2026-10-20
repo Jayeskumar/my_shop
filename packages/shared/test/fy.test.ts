@@ -34,14 +34,26 @@ import {
 
 describe('isDateStr', () => {
   it.each([
-    ['2026-10-20', true], ['2024-02-29', true], ['2000-02-29', true], ['2026-12-31', true],
-    ['2026-02-29', false], ['1900-02-29', false], ['2026-13-01', false], ['2026-00-10', false],
-    ['2026-04-31', false], ['2026-4-1', false], ['20261020', false], ['2026-10-20T00:00', false], [20261020, false],
+    ['2026-10-20', true],
+    ['2024-02-29', true],
+    ['2000-02-29', true],
+    ['2026-12-31', true],
+    ['2026-02-29', false],
+    ['1900-02-29', false],
+    ['2026-13-01', false],
+    ['2026-00-10', false],
+    ['2026-04-31', false],
+    ['2026-4-1', false],
+    ['20261020', false],
+    ['2026-10-20T00:00', false],
+    [20261020, false],
   ])('isDateStr(%j) = %s', (v, expected) => {
     expect(isDateStr(v)).toBe(expected)
   })
   it('daysInMonth', () => {
-    expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => daysInMonth(2028, m))).toEqual([31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31])
+    expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => daysInMonth(2028, m))).toEqual([
+      31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+    ])
   })
 })
 
@@ -72,8 +84,12 @@ describe('timezone conversion', () => {
     expect(startOfDayInstant('2026-10-20').toISOString()).toBe('2026-10-19T18:30:00.000Z')
     expect(startOfDayInstant('2026-10-20', 'UTC').toISOString()).toBe('2026-10-20T00:00:00.000Z')
     // DST zone: New York 2026-03-08 starts at 05:00Z (EST), 2026-03-09 at 04:00Z (EDT)
-    expect(startOfDayInstant('2026-03-08', 'America/New_York').toISOString()).toBe('2026-03-08T05:00:00.000Z')
-    expect(startOfDayInstant('2026-03-09', 'America/New_York').toISOString()).toBe('2026-03-09T04:00:00.000Z')
+    expect(startOfDayInstant('2026-03-08', 'America/New_York').toISOString()).toBe(
+      '2026-03-08T05:00:00.000Z',
+    )
+    expect(startOfDayInstant('2026-03-09', 'America/New_York').toISOString()).toBe(
+      '2026-03-09T04:00:00.000Z',
+    )
     const r = instantRangeForDates('2026-10-01', '2026-10-31')
     expect(r.start.toISOString()).toBe('2026-09-30T18:30:00.000Z')
     expect(r.end.toISOString()).toBe('2026-10-31T18:30:00.000Z')
@@ -164,8 +180,18 @@ describe('financial year', () => {
   })
   it('periodsOfFy', () => {
     expect(periodsOfFy('2026-27')).toEqual([
-      '2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09',
-      '2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03',
+      '2026-04',
+      '2026-05',
+      '2026-06',
+      '2026-07',
+      '2026-08',
+      '2026-09',
+      '2026-10',
+      '2026-11',
+      '2026-12',
+      '2027-01',
+      '2027-02',
+      '2027-03',
     ])
   })
 })

@@ -32,7 +32,17 @@ const u = (
   symbol_en: string,
   symbol_en_plural: string,
   symbol_ta: string,
-): UnitDef => ({ code, name_en, name_ta, uqc, decimal_allowed, family, symbol_en, symbol_en_plural, symbol_ta })
+): UnitDef => ({
+  code,
+  name_en,
+  name_ta,
+  uqc,
+  decimal_allowed,
+  family,
+  symbol_en,
+  symbol_en_plural,
+  symbol_ta,
+})
 
 /** Supported unit catalogue (`products.unit` stores the code). */
 export const UNITS: readonly UnitDef[] = [
@@ -102,12 +112,17 @@ const QTY_RE = /^(\d+)?(?:\.(\d*))?$/
  */
 export function parseQty(input: string, unit: string, options: ParseQtyOptions = {}): number {
   const qty = tryParseQty(input, unit, options)
-  if (qty === null) throw new RangeError(`invalid quantity ${JSON.stringify(input)} for unit ${unit}`)
+  if (qty === null)
+    throw new RangeError(`invalid quantity ${JSON.stringify(input)} for unit ${unit}`)
   return qty
 }
 
 /** Like {@link parseQty} but returns null instead of throwing. */
-export function tryParseQty(input: string, unit: string, options: ParseQtyOptions = {}): number | null {
+export function tryParseQty(
+  input: string,
+  unit: string,
+  options: ParseQtyOptions = {},
+): number | null {
   if (typeof input !== 'string') return null
   const m = QTY_RE.exec(input.trim())
   if (!m) return null

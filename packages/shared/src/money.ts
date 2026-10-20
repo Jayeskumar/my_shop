@@ -27,7 +27,10 @@ export function parseRupees(input: string | number, options: ParseRupeesOptions 
 }
 
 /** Like {@link parseRupees} but returns null instead of throwing. */
-export function tryParseRupees(input: string | number, options: ParseRupeesOptions = {}): number | null {
+export function tryParseRupees(
+  input: string | number,
+  options: ParseRupeesOptions = {},
+): number | null {
   let s: string
   if (typeof input === 'number') {
     if (!Number.isFinite(input)) return null
@@ -62,7 +65,11 @@ export function tryParseRupees(input: string | number, options: ParseRupeesOptio
   const fracPart = m[2] ?? ''
   if (intPart === '' && fracPart === '') return null
   if (fracPart.length > 2) return null
-  if (intPart.includes(',') && !INDIAN_GROUPING_RE.test(intPart) && !WESTERN_GROUPING_RE.test(intPart)) {
+  if (
+    intPart.includes(',') &&
+    !INDIAN_GROUPING_RE.test(intPart) &&
+    !WESTERN_GROUPING_RE.test(intPart)
+  ) {
     return null
   }
   if (negative && !options.allowNegative) return null
