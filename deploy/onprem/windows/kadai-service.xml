@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Kadai Server - Windows service definition for WinSW v2 (https://github.com/winsw/winsw).
+  install.ps1 copies WinSW-x64.exe as kadai-service.exe next to this file, replaces the
+  {{PLACEHOLDERS}} and runs "kadai-service.exe install". The service then runs as
+  NT AUTHORITY\LocalService (set by install.ps1), not as an administrator.
+
+  Manage:  services.msc -> "Kadai Server", or kadai-service.exe status|start|stop|restart
+  Logs:    {{LOG_DIR}}  (kadai-service.out.log / .err.log, rolled by size)
+-->
+<service>
+  <id>kadai</id>
+  <name>Kadai Server</name>
+  <description>Kadai billing, stock, GST and UPI server for this shop (http://localhost:{{PORT}})</description>
+
+  <executable>{{NODE_EXE}}</executable>
+  <arguments>--env-file="{{ENV_FILE}}" --enable-source-maps "{{APP_DIR}}\dist\server.js"</arguments>
+  <workingdirectory>{{APP_DIR}}</workingdirectory>
+  <!-- pg_dump.exe for the scheduled in-app backups -->
+  <env name="PATH" value="{{PG_BIN}};%PATH%"/>
+
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+  <depend>{{PG_SERVICE}}</depend>
+
+  <!-- Ctrl+C lets Node.js drain requests and stop the embedded worker gracefully. -->
+  <stoptimeout>40 sec</stoptimeout>
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="30 sec"/>
+  <onfailure action="restart" delay="60 sec"/>
+  <resetfailure>1 hour</resetfailure>
+
+  <logpath>{{LOG_DIR}}</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+</service>

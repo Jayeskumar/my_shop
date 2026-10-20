@@ -1,0 +1,51 @@
+# Kadai Server (native Linux installation). Installed by install-linux.sh, which replaces the
+# @PLACEHOLDERS@. Configuration: @ENV_FILE@ (KADAI_MODE=onprem, database URLs, secrets).
+[Unit]
+Description=Kadai Server (கடை) - billing, stock, GST and UPI
+Documentation=https://github.com/Jayeskumar/my_shop/blob/main/docs/DEPLOYMENT.md
+After=network-online.target @PG_UNIT@
+Wants=network-online.target @PG_UNIT@
+
+[Service]
+Type=simple
+User=kadai
+Group=kadai
+WorkingDirectory=@PREFIX@/app
+EnvironmentFile=@ENV_FILE@
+Environment=PATH=@PATH@
+ExecStart=@PREFIX@/node/bin/node --enable-source-maps @PREFIX@/app/dist/server.js
+# Graceful shutdown: stop accepting requests, drain, stop the embedded worker (≤ 25 s).
+KillSignal=SIGTERM
+TimeoutStartSec=600
+TimeoutStopSec=45
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=300
+StartLimitBurst=10
+LimitNOFILE=65536
+UMask=0027
+
+# Hardening: the service may write only to its data folder.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+ReadWritePaths=@DATA_DIR@
+
+[Install]
+WantedBy=multi-user.target

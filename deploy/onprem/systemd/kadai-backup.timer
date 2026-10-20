@@ -1,0 +1,12 @@
+# Daily Kadai backup after closing time (22:45 local). Persistent=true catches up after the PC
+# was switched off at that time.
+[Unit]
+Description=Daily Kadai database backup
+
+[Timer]
+OnCalendar=*-*-* 22:45:00
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

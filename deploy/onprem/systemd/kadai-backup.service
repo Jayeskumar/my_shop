@@ -1,0 +1,13 @@
+# Host-level database backup of Kadai (optional; install-linux.sh --backup-timer).
+# The application also makes its own scheduled backups into the data folder.
+[Unit]
+Description=Kadai database backup
+After=@PG_UNIT@ docker.service
+
+[Service]
+Type=oneshot
+Environment=KADAI_HOME=@SCRIPTS_DIR@
+ExecStart=@SCRIPTS_DIR@/backup.sh --kind scheduled
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

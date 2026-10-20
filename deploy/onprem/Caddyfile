@@ -1,0 +1,33 @@
+# Optional HTTPS on the shop LAN for Kadai on-prem (docker compose --profile tls up -d).
+#
+# Browsers allow the installable POS app (service worker, offline mode) only on HTTPS or on
+# localhost, so counter PCs other than the server need HTTPS. Caddy issues certificates from
+# its own local certificate authority; install that root certificate once on every counter PC
+# (docs/DEPLOYMENT.md, "On-prem HTTPS"):
+#   docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./kadai-root-ca.crt
+{
+	local_certs
+	skip_install_trust
+	admin off
+}
+
+{$KADAI_TLS_SITES} {
+	tls internal
+
+	@compress not path */stream
+	encode @compress zstd gzip
+
+	request_body {
+		max_size 25MB
+	}
+
+	reverse_proxy kadai:8080 {
+		health_uri /health/live
+		health_interval 30s
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

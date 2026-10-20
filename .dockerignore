@@ -1,0 +1,44 @@
+# Build context for deploy/docker/Dockerfile (context = repository root).
+# Keep it small and free of secrets: dependencies are installed inside the image from the lockfile.
+
+# VCS, CI and editor state
+.git
+.github
+.gitignore
+.editorconfig
+.vscode
+.idea
+*.swp
+.DS_Store
+
+# Dependencies and build output (rebuilt inside the image)
+**/node_modules
+**/dist
+**/dev-dist
+**/coverage
+**/.vite
+**/.turbo
+**/*.tsbuildinfo
+**/playwright-report
+**/test-results
+
+# Local configuration, data and secrets
+.env
+.env.*
+**/.env
+**/.env.*
+data
+apps/server/data
+**/*.pem
+**/*.key
+**/*.dump
+**/secrets.env
+apps/server/scripts/dev-keys
+
+# Not needed to build the image
+docs
+deploy/k8s
+deploy/cloud
+deploy/onprem
+Makefile
+*.log
