@@ -52,7 +52,7 @@ export function BusinessTypePicker({ value, onChange, invalid, ...aria }: Busine
   const ta = i18n.language !== 'en'
   return (
     <RadioGroupPrimitive.Root
-      value={value}
+      value={value ?? ''}
       onValueChange={(v) => onChange(v as BusinessType)}
       className={cn(
         'grid grid-cols-1 gap-3 min-[420px]:grid-cols-2',

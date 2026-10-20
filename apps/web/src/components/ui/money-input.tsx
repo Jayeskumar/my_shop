@@ -88,13 +88,11 @@ export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(function
 
   const handleFocus = (event: FocusEvent<HTMLInputElement>): void => {
     focused.current = true
-    if (!invalid) setText(moneyEditingText(lastEmitted.current))
     onFocus?.(event)
-    // Select all so the cashier can just type the new amount.
-    const target = event.currentTarget
-    requestAnimationFrame(() => {
-      if (document.activeElement === target) target.select()
-    })
+    // Select all (synchronously — a deferred select would swallow the first keystrokes of a fast
+    // typist or a barcode/keyboard wedge) so the cashier can just type the new amount. The text
+    // keeps its grouping while editing; parsing ignores the commas.
+    event.currentTarget.select()
   }
 
   const handleBlur = (event: FocusEvent<HTMLInputElement>): void => {

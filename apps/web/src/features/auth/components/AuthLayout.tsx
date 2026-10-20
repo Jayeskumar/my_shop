@@ -49,7 +49,9 @@ export function AuthLayout({ title, subtitle, children, footer, wide }: AuthLayo
         </div>
         <div className="relative flex flex-col gap-8">
           <div className="flex flex-col gap-4">
-            <h2 className="text-[1.75rem] font-bold leading-snug [:lang(en)_&]:text-3xl xl:text-[2rem] xl:[:lang(en)_&]:text-4xl">{t('brand.headline')}</h2>
+            <h2 className="text-[1.75rem] font-bold leading-snug [:lang(en)_&]:text-3xl xl:text-[2rem] xl:[:lang(en)_&]:text-4xl">
+              {t('brand.headline')}
+            </h2>
             <p className="max-w-md text-base text-primary-100">{t('brand.subline')}</p>
           </div>
           <ul className="grid gap-4">

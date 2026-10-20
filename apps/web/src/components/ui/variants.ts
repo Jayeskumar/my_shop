@@ -46,7 +46,8 @@ export const fieldVariants = cva(
     'focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/25',
     'disabled:cursor-not-allowed disabled:bg-surface-2 disabled:opacity-70',
     'aria-[invalid=true]:border-danger aria-[invalid=true]:focus-visible:ring-danger/25',
-    'read-only:bg-surface-2',
+    // `:read-only` also matches buttons (Select/Combobox triggers): only style real inputs.
+    '[&:is(input,textarea)]:read-only:bg-surface-2',
   ],
   {
     variants: {

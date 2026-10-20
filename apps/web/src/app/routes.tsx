@@ -29,6 +29,7 @@ import { routes as system } from '@/features/system/routes'
 import { GuestOnly, RequireSession, RequireTenant, RouteAccess } from './guards'
 import { AppLayout, FullscreenLayout, PublicLayout } from './layout/AppLayout'
 import { NotFoundPage, RouteErrorPage } from './pages/StatusPages'
+import { PageSpinner } from '@/components/ui'
 import { RootLayout } from './RootLayout'
 import type { FeatureRoutes, KadaiRoute } from './route-types'
 
@@ -61,6 +62,8 @@ export function buildRoutes(): RouteObject[] {
     {
       element: <RootLayout />,
       errorElement: <RouteErrorPage />,
+      // Shown while the first lazy route module loads.
+      hydrateFallbackElement: <PageSpinner className="min-h-dvh" />,
       children: [
         { element: <PublicLayout />, children: collect('public') },
         { element: <GuestOnly />, children: collect('guest') },

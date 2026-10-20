@@ -31,7 +31,7 @@ export const testUser: SessionUser = {
   full_name: 'Murugan K',
   phone: '+919876543210',
   email: 'murugan@example.com',
-  preferred_locale: 'ta',
+  preferred_locale: 'en',
   is_platform_admin: false,
 }
 
@@ -81,7 +81,14 @@ export function makeMe(
       state_code: '33',
       phone: '+919876543210',
       email: null,
-      address: { city: 'Madurai', state_code: '33' },
+      address: {
+        line1: '12 East Masi Street',
+        line2: undefined,
+        city: 'Madurai',
+        district: 'Madurai',
+        state_code: '33',
+        pincode: '625001',
+      },
       logo_file_id: null,
       default_locale: 'ta',
       timezone: 'Asia/Kolkata',

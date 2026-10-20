@@ -166,7 +166,7 @@ export function Select<V extends string = string>({
   const { t } = useTranslation()
   return (
     <SelectPrimitive.Root
-      value={value ?? undefined}
+      value={value ?? ''}
       onValueChange={(v) => onValueChange(v as V)}
       disabled={disabled}
       name={name}

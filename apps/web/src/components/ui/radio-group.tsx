@@ -71,7 +71,7 @@ export function RadioGroup<V extends string = string>({
   const base = useId()
   return (
     <RadioGroupPrimitive.Root
-      value={value ?? undefined}
+      value={value ?? ''}
       onValueChange={(v) => onValueChange(v as V)}
       name={name}
       disabled={disabled}

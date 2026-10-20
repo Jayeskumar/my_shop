@@ -164,11 +164,11 @@ export class KadaiOfflineDb extends Dexie {
     this.version(1).stores({
       products:
         '[tenant_id+id], tenant_id, [tenant_id+sku], [tenant_id+scale_plu], [tenant_id+category_id], *search_tokens',
-      barcodes: '[tenant_id+barcode], [tenant_id+product_id]',
-      batches: '[tenant_id+id], [tenant_id+product_id], expiry_date',
+      barcodes: '[tenant_id+barcode], tenant_id, [tenant_id+product_id]',
+      batches: '[tenant_id+id], tenant_id, [tenant_id+product_id], expiry_date',
       promotions: '[tenant_id+id], tenant_id',
       tax_slab_rules: '[tenant_id+id], tenant_id',
-      store_prices: '[tenant_id+store_id+product_id], [tenant_id+store_id]',
+      store_prices: '[tenant_id+store_id+product_id], tenant_id, [tenant_id+store_id]',
       outbox: '++seq, &client_ref, [tenant_id+status], [tenant_id+register_id], created_at',
       held_carts: '&id, [tenant_id+store_id], updated_at',
       meta: '&key',
@@ -264,20 +264,11 @@ export const catalogCache = {
   async clearTenant(tenantId: string): Promise<void> {
     await offlineDb.transaction('rw', catalogTables(), async () => {
       await offlineDb.products.where('tenant_id').equals(tenantId).delete()
-      await offlineDb.barcodes
-        .where('[tenant_id+barcode]')
-        .between([tenantId, Dexie.minKey], [tenantId, Dexie.maxKey])
-        .delete()
-      await offlineDb.batches
-        .where('[tenant_id+id]')
-        .between([tenantId, Dexie.minKey], [tenantId, Dexie.maxKey])
-        .delete()
+      await offlineDb.barcodes.where('tenant_id').equals(tenantId).delete()
+      await offlineDb.batches.where('tenant_id').equals(tenantId).delete()
       await offlineDb.promotions.where('tenant_id').equals(tenantId).delete()
       await offlineDb.tax_slab_rules.where('tenant_id').equals(tenantId).delete()
-      await offlineDb.store_prices
-        .where('[tenant_id+store_id+product_id]')
-        .between([tenantId, Dexie.minKey, Dexie.minKey], [tenantId, Dexie.maxKey, Dexie.maxKey])
-        .delete()
+      await offlineDb.store_prices.where('tenant_id').equals(tenantId).delete()
       await offlineDb.meta
         .where('key')
         .startsWith(`catalog.`)

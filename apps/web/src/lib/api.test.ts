@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { SessionResponseSchema } from '@kadai/shared/api/auth'
 import { defineRoutes, dataOf } from '@kadai/shared/api/common'
 import { z } from 'zod'
-import { makeSession } from '@/test/fixtures'
+import { makeMe, makeSession } from '@/test/fixtures'
 import { apiPath, errorResponse, server } from '@/test/msw'
 import {
   ApiError,
@@ -276,5 +276,40 @@ describe('SSE parser', () => {
 describe('fixtures', () => {
   it('session fixture satisfies the shared contract', () => {
     expect(SessionResponseSchema.safeParse(makeSession()).success).toBe(true)
+  })
+})
+
+describe('cross-tab session sync', () => {
+  it('adopts a session broadcast by another tab and follows its sign-out', async () => {
+    // The auth store follows the other tab's business by loading /me.
+    server.use(http.get(apiPath('/me'), () => HttpResponse.json({ data: makeMe() })))
+    const events: string[] = []
+    onAuthEvent((e) => events.push(e.type === 'session' ? `session:${e.source}` : e.type))
+    const otherTab = new BroadcastChannel('kadai-auth')
+    otherTab.postMessage({
+      type: 'session',
+      session: makeSession({ access_token: 'from-other-tab' }),
+    })
+    await vi.waitFor(() => expect(getAccessToken()).toBe('from-other-tab'))
+    otherTab.postMessage({ type: 'logout' })
+    await vi.waitFor(() => expect(getAccessToken()).toBeNull())
+    expect(events).toEqual(['session:broadcast', 'unauthenticated'])
+    otherTab.close()
+  })
+
+  it('tells other tabs about a refreshed session', async () => {
+    setSession(makeSession({ access_token: 'old' }), { broadcast: false })
+    server.use(
+      http.post(apiPath('/auth/refresh'), () =>
+        HttpResponse.json({ data: makeSession({ access_token: 'rotated' }) }),
+      ),
+    )
+    const otherTab = new BroadcastChannel('kadai-auth')
+    const received: unknown[] = []
+    otherTab.onmessage = (e: MessageEvent) => received.push(e.data)
+    await refreshSession()
+    await vi.waitFor(() => expect(received).toHaveLength(1))
+    expect(received[0]).toMatchObject({ type: 'session', session: { access_token: 'rotated' } })
+    otherTab.close()
   })
 })

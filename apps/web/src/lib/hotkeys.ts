@@ -92,8 +92,10 @@ export function matchesCombo(event: KeyboardEvent, combo: ParsedCombo, mac = isM
   if (event.ctrlKey !== wantCtrl) return false
   if (event.metaKey !== wantMeta) return false
   if (event.altKey !== combo.alt) return false
-  // Shift is only compared for non-character keys and explicit shift combos.
-  if (combo.shift !== event.shiftKey && (combo.shift || combo.key.length > 1)) return false
+  // Shift must match exactly, except for symbol keys written without it ('?', '+', '/'):
+  // those characters need Shift on some layouts, so 'ctrl+/' or '?' still match.
+  const symbol = combo.key.length === 1 && !/[a-z0-9]/.test(combo.key)
+  if (combo.shift !== event.shiftKey && !(symbol && !combo.shift)) return false
   return eventKey(event) === combo.key
 }
 
