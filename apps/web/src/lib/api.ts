@@ -21,7 +21,7 @@ import type {
   RouteResponse,
 } from '@kadai/shared/api/common'
 import { routeUrl } from '@kadai/shared/api/common'
-import { isErrorCode, type ErrorCode, type ValidationIssue } from '@kadai/shared/errors'
+import type { ErrorCode, ValidationIssue } from '@kadai/shared/errors'
 import { reportNetworkFailure, reportNetworkSuccess } from './online'
 
 export const API_BASE = '/api/v1'
@@ -850,5 +850,3 @@ export function _resetApiStateForTests(): void {
     channel = null
   }
 }
-
-export { isErrorCode }
