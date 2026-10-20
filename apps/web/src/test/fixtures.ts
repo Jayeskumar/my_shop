@@ -100,6 +100,7 @@ export function makeMe(
       id: IDS.membership,
       role_code: 'owner',
       role_name: 'Owner',
+      role_name_ta: 'உரிமையாளர்',
       permissions: options.permissions ?? [...PERMISSION_CODES],
       store_ids: null,
     },

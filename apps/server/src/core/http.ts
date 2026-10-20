@@ -329,7 +329,9 @@ export function route<R extends RouteDef>(
   // A contract body that may be omitted (e.g. POST /auth/refresh, /auth/logout) therefore treats
   // a body-less request (curl, sendBeacon, no Content-Type) exactly like `{}`.
   const omittableBody =
-    def.body !== undefined && def.body.safeParse(undefined).success && def.body.safeParse({}).success
+    def.body !== undefined &&
+    def.body.safeParse(undefined).success &&
+    def.body.safeParse({}).success
   app.route({
     method: def.method,
     url: def.path,

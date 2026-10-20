@@ -115,3 +115,8 @@ export { i18next as i18n }
 export function translate(key: TranslationKey, options?: Record<string, unknown>): string {
   return (i18next.t as unknown as (k: string, o?: Record<string, unknown>) => string)(key, options)
 }
+
+/** Bilingual master data: the Tamil name in the Tamil UI when there is one, else the English one. */
+export function localizedName(name: string, nameTa: string | null | undefined): string {
+  return getLanguage() === 'ta' && nameTa ? nameTa : name
+}

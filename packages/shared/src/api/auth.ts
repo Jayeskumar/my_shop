@@ -229,6 +229,8 @@ export const PinUserSchema = z.object({
   full_name: z.string(),
   role_code: z.string(),
   role_name: z.string(),
+  /** Tamil role name (roles.name_ta); show it in the Tamil UI when present. */
+  role_name_ta: z.string().nullable().default(null),
 })
 export const PinUsersResponseSchema = z.array(PinUserSchema)
 export type PinUser = z.infer<typeof PinUserSchema>
@@ -318,6 +320,8 @@ export const MeMembershipSchema = z.object({
   id: zId,
   role_code: z.string(),
   role_name: z.string(),
+  /** Tamil role name (roles.name_ta); show it in the Tamil UI when present. */
+  role_name_ta: z.string().nullable().default(null),
   /** Effective permissions (wildcards and implications already expanded). */
   permissions: z.array(PermissionSchema),
   /** null = all stores. */

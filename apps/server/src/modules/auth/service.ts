@@ -597,7 +597,13 @@ export async function pinUsers(deps: Deps, device: TrustedDevice): Promise<PinUs
       .innerJoin('roles as r', (j) =>
         j.onRef('r.tenant_id', '=', 'm.tenant_id').onRef('r.id', '=', 'm.role_id'),
       )
-      .select(['u.id as user_id', 'u.full_name', 'r.code as role_code', 'r.name as role_name'])
+      .select([
+        'u.id as user_id',
+        'u.full_name',
+        'r.code as role_code',
+        'r.name as role_name',
+        'r.name_ta as role_name_ta',
+      ])
       .where('m.tenant_id', '=', device.tenantId)
       .where('m.status', '=', 'active')
       .where('u.status', '=', 'active')

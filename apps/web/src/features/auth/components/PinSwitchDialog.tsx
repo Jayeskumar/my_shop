@@ -11,6 +11,7 @@ import { Avatar, Button, Dialog, EmptyState, Skeleton, notify } from '@/componen
 import { isApiError } from '@/lib/api'
 import { getDeviceCredentials, pinLogin, type AuthStatus } from '@/lib/auth'
 import { describeError } from '@/lib/errors'
+import { localizedName } from '@/lib/i18n'
 import { usePinUsers } from '../api'
 import { PinPad } from './PinPad'
 
@@ -76,7 +77,9 @@ export function PinSwitchDialog({ open, onOpenChange, onSwitched }: PinSwitchDia
       ) : selected ? (
         <div className="flex flex-col items-center gap-4 pb-4">
           <Avatar name={selected.full_name} size="lg" />
-          <p className="text-sm text-muted-foreground">{selected.role_name}</p>
+          <p className="text-sm text-muted-foreground">
+            {localizedName(selected.role_name, selected.role_name_ta)}
+          </p>
           <PinPad
             value={pin}
             onChange={(v) => {
@@ -143,7 +146,9 @@ export function PinSwitchDialog({ open, onOpenChange, onSwitched }: PinSwitchDia
               >
                 <Avatar name={u.full_name} size="lg" />
                 <span className="line-clamp-1 text-sm font-semibold">{u.full_name}</span>
-                <span className="line-clamp-1 text-xs text-muted-foreground">{u.role_name}</span>
+                <span className="line-clamp-1 text-xs text-muted-foreground">
+                  {localizedName(u.role_name, u.role_name_ta)}
+                </span>
               </button>
             </li>
           ))}

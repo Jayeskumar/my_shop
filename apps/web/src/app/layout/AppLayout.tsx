@@ -28,6 +28,7 @@ import { BrandMark } from './BrandMark'
 import { LanguageToggle } from './LanguageToggle'
 import { NavList, NavRail } from './NavList'
 import { OnlineIndicator } from './OnlineIndicator'
+import { InShellContext } from './shell-context'
 import { StoreSwitcher } from './StoreSwitcher'
 import { UserMenu } from './UserMenu'
 
@@ -230,7 +231,9 @@ export function AppLayout() {
         >
           <div className="mx-auto w-full max-w-[1600px]">
             <ErrorBoundary resetKeys={[location.pathname]}>
-              <Outlet />
+              <InShellContext.Provider value={true}>
+                <Outlet />
+              </InShellContext.Provider>
             </ErrorBoundary>
           </div>
         </main>

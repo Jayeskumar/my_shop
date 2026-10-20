@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router'
 import { Button, EmptyState, PageHeader } from '@/components/ui'
 import { translate } from '@/lib/i18n'
+import { useInShell } from '../layout/shell-context'
 import { useCurrentHandle } from '../route-handles'
 
 /**
@@ -14,8 +15,10 @@ export default function ModulePlaceholder() {
   const handle = useCurrentHandle()
   const { pathname } = useLocation()
   const title = handle ? translate(handle.title) : ''
+  // Fullscreen (POS) and public routes have no shell padding of their own.
+  const inShell = useInShell()
   return (
-    <div>
+    <div className={inShell ? undefined : 'mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 lg:px-8'}>
       <PageHeader
         title={title}
         breadcrumbs={

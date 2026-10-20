@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Avatar, Dialog } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
 import { formatPhone } from '@/lib/format'
-import { getLanguage } from '@/lib/i18n'
+import { localizedName } from '@/lib/i18n'
 
 export function ProfileDialog({
   open,
@@ -16,15 +16,14 @@ export function ProfileDialog({
   const me = useAuth((s) => s.me)
   const user = me?.user ?? session?.user
   if (!user) return null
-  const business = me
-    ? getLanguage() === 'ta' && me.tenant.name_ta
-      ? me.tenant.name_ta
-      : me.tenant.name
-    : null
+  const business = me ? localizedName(me.tenant.name, me.tenant.name_ta) : null
   const rows: [string, string | null][] = [
     [t('profile.phone'), user.phone ? formatPhone(user.phone, true) : null],
     [t('profile.email'), user.email],
-    [t('profile.role'), me?.membership.role_name ?? null],
+    [
+      t('profile.role'),
+      me ? localizedName(me.membership.role_name, me.membership.role_name_ta) : null,
+    ],
     [t('profile.business'), business],
   ]
   return (

@@ -38,7 +38,7 @@ export async function loadMe(
       .innerJoin('roles as r', (j) =>
         j.onRef('r.tenant_id', '=', 'm.tenant_id').onRef('r.id', '=', 'm.role_id'),
       )
-      .select(['r.code', 'r.name'])
+      .select(['r.code', 'r.name', 'r.name_ta'])
       .where('m.tenant_id', '=', t)
       .where('m.id', '=', ctx.membershipId)
       .executeTakeFirst(),
@@ -111,6 +111,7 @@ export async function loadMe(
       id: ctx.membershipId,
       role_code: role.code,
       role_name: role.name,
+      role_name_ta: role.name_ta,
       permissions: [...ctx.permissions].sort(),
       store_ids: ctx.storeIds ? [...ctx.storeIds] : null,
     },

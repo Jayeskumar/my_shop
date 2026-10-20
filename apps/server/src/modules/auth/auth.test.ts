@@ -106,7 +106,7 @@ describe('auth module (cloud)', () => {
       gst_scheme: 'unregistered',
       status: 'active',
     })
-    expect(profile.membership.role_code).toBe('owner')
+    expect(profile.membership).toMatchObject({ role_code: 'owner', role_name_ta: 'உரிமையாளர்' })
     expect(profile.membership.permissions).toEqual(
       expect.arrayContaining(['billing.manage', 'sales.create']),
     )
@@ -203,7 +203,13 @@ describe('auth module (cloud)', () => {
     const signup = await post('/auth/signup', body)
     expect(signup.statusCode).toBe(201)
     const bare = (url: string, headers: Record<string, string>, cookies: Record<string, string>) =>
-      t.app.inject({ method: 'POST', url: `/api/v1${url}`, headers, cookies, remoteAddress: nextIp() })
+      t.app.inject({
+        method: 'POST',
+        url: `/api/v1${url}`,
+        headers,
+        cookies,
+        remoteAddress: nextIp(),
+      })
 
     const r = await bare('/auth/refresh', CSRF, { kadai_rt: refreshCookie(signup)!.value })
     expect(r.statusCode).toBe(200)
@@ -554,6 +560,7 @@ describe('auth module (cloud)', () => {
           full_name: cashier.user.full_name,
           role_code: 'cashier',
           role_name: 'Cashier',
+          role_name_ta: 'காசாளர்',
         },
       ])
       expect(listed.some((u) => u.user_id === otherStore.user.id)).toBe(false)

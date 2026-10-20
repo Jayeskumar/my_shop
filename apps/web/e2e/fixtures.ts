@@ -53,6 +53,7 @@ export const me = {
     id: '0192f0a0-0000-7000-8000-000000000201',
     role_code: 'cashier',
     role_name: 'Cashier',
+    role_name_ta: 'காசாளர்',
     permissions: ['pos.use', 'sales.create', 'sales.read', 'catalog.read', 'customers.read'],
     store_ids: null,
   },

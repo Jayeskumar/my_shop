@@ -31,7 +31,7 @@ import { ChangePasswordDialog } from '@/features/auth/components/ChangePasswordD
 import { PinSwitchDialog } from '@/features/auth/components/PinSwitchDialog'
 import { ProfileDialog } from '@/features/auth/components/ProfileDialog'
 import { getDeviceCredentials, logout, useAuth } from '@/lib/auth'
-import { getLanguage } from '@/lib/i18n'
+import { localizedName } from '@/lib/i18n'
 import { setThemePreference, useThemePreference, type ThemePreference } from '@/lib/theme'
 
 export function UserMenu() {
@@ -45,11 +45,7 @@ export function UserMenu() {
   if (!user) return null
   const memberships = session?.memberships ?? []
   const hasDevice = getDeviceCredentials() !== null && Boolean(me)
-  const business = me
-    ? getLanguage() === 'ta' && me.tenant.name_ta
-      ? me.tenant.name_ta
-      : me.tenant.name
-    : null
+  const business = me ? localizedName(me.tenant.name, me.tenant.name_ta) : null
 
   const signOut = async (all: boolean): Promise<void> => {
     await logout({ all })
@@ -69,7 +65,7 @@ export function UserMenu() {
             <span className="truncate text-sm font-semibold">{user.full_name}</span>
             {me ? (
               <span className="truncate text-xs text-muted-foreground">
-                {me.membership.role_name}
+                {localizedName(me.membership.role_name, me.membership.role_name_ta)}
               </span>
             ) : null}
           </span>
