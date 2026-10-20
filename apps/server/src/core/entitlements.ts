@@ -105,6 +105,8 @@ export interface EntitlementsServiceOptions {
   ttlMs?: number
   /** Business "today" for license validity (tests). */
   today?: () => string
+  /** system_settings key holding the installed license (default 'license'; tests use their own). */
+  licenseSettingsKey?: string
 }
 
 interface PlanRow {
@@ -187,7 +189,7 @@ export class EntitlementsService {
 
   private async loadLicense(): Promise<ResolvedEntitlements> {
     const db = this.opts.systemDb
-    const doc = await loadStoredLicense(db)
+    const doc = await loadStoredLicense(db, this.opts.licenseSettingsKey)
     const free = async (status: LicenseStatus, readOnly: boolean, license?: LicensePayload): Promise<ResolvedEntitlements> => {
       const plan = (await this.plan('free')) ?? this.planFallback('free')
       return {

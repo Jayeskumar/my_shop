@@ -53,3 +53,12 @@ declare module 'i18next' {
     returnNull: false
   }
 }
+
+type Leaves<T, P extends string = ''> = {
+  [K in keyof T & string]: T[K] extends string ? `${P}${K}` : Leaves<T[K], `${P}${K}.`>
+}[keyof T & string]
+
+/** Any translation key with its namespace, e.g. 'nav:titles.products' or 'catalog:product.name'. */
+export type TranslationKey = {
+  [NS in keyof Resources]: `${NS}:${Leaves<Resources[NS]>}`
+}[keyof Resources]

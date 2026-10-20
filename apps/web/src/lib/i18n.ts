@@ -11,6 +11,7 @@
 import i18next, { type i18n as I18n } from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { configureValidationLocale } from './validation'
+import type { TranslationKey } from './i18n-resources'
 import { storage } from './storage'
 
 export const LANGUAGES = ['ta', 'en'] as const
@@ -102,3 +103,12 @@ export async function setLanguage(lng: Language, options: { persist?: boolean } 
 }
 
 export { i18next as i18n }
+
+/**
+ * Translates a namespaced key held in data (route handles, nav items). Keys are checked at the
+ * definition site through the `TranslationKey` type; the single cast here bridges i18next's
+ * per-namespace `t` typing.
+ */
+export function translate(key: TranslationKey, options?: Record<string, unknown>): string {
+  return (i18next.t as unknown as (k: string, o?: Record<string, unknown>) => string)(key, options)
+}

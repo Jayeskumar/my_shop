@@ -70,6 +70,13 @@ export class EventBus {
     return this.client !== null
   }
 
+  /** Server process id of the LISTEN connection (diagnostics, tests). */
+  get backendPid(): number | null {
+    // node-postgres sets `processID` from BackendKeyData; it is not in @types/pg.
+    const pid = (this.client as unknown as { processID?: number } | null)?.processID
+    return typeof pid === 'number' ? pid : null
+  }
+
   /** Connects and LISTENs (idempotent). Resolves once listening; retries in the background on failure. */
   start(): Promise<void> {
     this.stopped = false

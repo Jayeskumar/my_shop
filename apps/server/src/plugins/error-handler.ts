@@ -41,7 +41,7 @@ function isPgError(err: unknown): err is PgError {
   return (
     err instanceof Error &&
     typeof (err as { code?: unknown }).code === 'string' &&
-    /^[0-9A-Z]{5}$/.test((err as { code: string }).code) &&
+    /^[0-9A-Z]{5}$/.test((err as unknown as { code: string }).code) &&
     'severity' in err
   )
 }

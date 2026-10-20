@@ -170,20 +170,19 @@ export async function getInstallationId(systemDb: Kysely<DB>): Promise<string> {
 }
 
 /** The stored license document (unverified), or null. */
-export async function loadStoredLicense(systemDb: Kysely<DB>): Promise<unknown> {
-  const row = await systemDb
-    .selectFrom('system_settings')
-    .select('value')
-    .where('key', '=', LICENSE_SETTINGS_KEY)
-    .executeTakeFirst()
+export async function loadStoredLicense(systemDb: Kysely<DB>, key: string = LICENSE_SETTINGS_KEY): Promise<unknown> {
+  const row = await systemDb.selectFrom('system_settings').select('value').where('key', '=', key).executeTakeFirst()
   return row?.value ?? null
 }
 
-/** Stores a license document (callers verify first). */
-export async function storeLicense(systemDb: Kysely<DB>, doc: SignedLicense): Promise<void> {
+/**
+ * Stores a license document (callers verify first, and call EntitlementsService.invalidate() /
+ * notifyEntitlementsChanged() afterwards).
+ */
+export async function storeLicense(systemDb: Kysely<DB>, doc: SignedLicense, key: string = LICENSE_SETTINGS_KEY): Promise<void> {
   await systemDb
     .insertInto('system_settings')
-    .values({ key: LICENSE_SETTINGS_KEY, value: jsonb(doc) })
+    .values({ key, value: jsonb(doc) })
     .onConflict((oc) => oc.column('key').doUpdateSet({ value: jsonb(doc), updated_at: sql`now()` }))
     .execute()
 }

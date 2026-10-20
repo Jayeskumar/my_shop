@@ -27,6 +27,7 @@ import type { KadaiDeps } from '../core/runtime'
 import { hashApiKey, parseApiKey, verifyAccessToken } from '../core/tokens'
 import { withTenant } from '../db/tenant'
 import type { AuthInfo, AuthRequirement } from './fastify-types'
+import { API_DOCS_PREFIX } from './swagger'
 
 interface ApiKeyAccess {
   id: string
@@ -47,6 +48,8 @@ function requirementOf(req: FastifyRequest): AuthRequirement {
   const cfg = req.routeOptions.config
   if (cfg.public) return 'none'
   if (cfg.auth) return cfg.auth
+  // Swagger UI routes are registered by @fastify/swagger-ui (no route config).
+  if (req.url.startsWith(`${API_DOCS_PREFIX}/`) || req.url === API_DOCS_PREFIX) return 'none'
   return req.url.startsWith('/api/') ? 'tenant' : 'none'
 }
 

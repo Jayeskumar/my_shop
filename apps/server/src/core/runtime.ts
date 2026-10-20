@@ -51,6 +51,8 @@ export interface CreateDepsOptions {
   fileStorage?: FileStorage
   /** Collect Node default metrics (off in tests to keep registries light). */
   defaultMetrics?: boolean
+  /** system_settings key of the on-prem license (default 'license'). */
+  licenseSettingsKey?: string
 }
 
 export function createDeps(config: Config, opts: CreateDepsOptions = {}): KadaiDeps {
@@ -82,7 +84,7 @@ export function createDeps(config: Config, opts: CreateDepsOptions = {}): KadaiD
     otpSender,
     rbac: new RbacService(db.appDb),
     sessions: new SessionCache(db.systemDb),
-    entitlements: new EntitlementsService({ config, systemDb: db.systemDb }),
+    entitlements: new EntitlementsService({ config, systemDb: db.systemDb, licenseSettingsKey: opts.licenseSettingsKey }),
     metrics,
   }
   // Cross-process cache invalidation (NOTIFY kadai_cache).

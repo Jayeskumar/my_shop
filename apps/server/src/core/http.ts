@@ -70,12 +70,12 @@ export function assertStoreAccess(ctx: Pick<RequestContext, 'storeIds'>, storeId
 }
 
 /**
- * Store scoping guard: `requireStoreAccess((req) => req.query.store_id)`. A missing store id
+ * Store scoping guard: `requireStoreAccess((req) => (req.query as { store_id?: string }).store_id)`. A missing store id
  * passes (list endpoints then filter by `ctx.storeIds` themselves).
  */
-export function requireStoreAccess<R extends FastifyRequest>(getStoreId: (req: R) => string | null | undefined): preHandlerAsyncHookHandler {
+export function requireStoreAccess(getStoreId: (req: FastifyRequest) => string | null | undefined): preHandlerAsyncHookHandler {
   return async (req) => {
-    const storeId = getStoreId(req as R)
+    const storeId = getStoreId(req)
     if (storeId) assertStoreAccess(req.ctx, storeId)
   }
 }
