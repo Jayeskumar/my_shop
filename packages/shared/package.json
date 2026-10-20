@@ -1,0 +1,26 @@
+{
+  "name": "@kadai/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Isomorphic domain logic (money, GST, pricing, units, UPI, …) and API contracts shared by the Kadai server and web app",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./api/*": "./src/api/*.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "uuid": "^11.1.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "~5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

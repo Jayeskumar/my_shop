@@ -1,0 +1,12 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm 10 runs dependency lifecycle scripts only for packages approved here.
+#  - esbuild (used by vite, tsx, tsup, vitest) needs its postinstall to place the native binary.
+#  - @node-rs/argon2 ships prebuilt binaries through optional dependencies: no script needed.
+#  - msw's postinstall only copies mockServiceWorker.js into a configured public dir; tests
+#    use msw/node, so it is intentionally skipped.
+allowBuilds:
+  esbuild: true
+  msw: false
