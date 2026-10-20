@@ -22,6 +22,7 @@ import type { DB } from '../db/schema.generated'
 import { type Tx, withSystemTx } from '../db/tenant'
 import { randomToken, sha256Hex } from './crypto'
 import { AppError, unauthenticated } from './errors'
+import { notifySessionsRevoked } from './session-cache'
 
 const ISSUER = 'kadai'
 const AUDIENCE = 'kadai-api'
@@ -231,20 +232,34 @@ async function revokeFamilyTx(tx: SystemDb, familyId: string, reason: string): P
     .set({ revoked_at: new Date(), revoked_reason: reason })
     .where('family_id', '=', familyId)
     .where('revoked_at', 'is', null)
-    .returning('id')
+    .returning(['id', 'user_id'])
     .execute()
+  await broadcast(tx, rows)
   return rows.map((r) => r.id)
+}
+
+/**
+ * Tells every process to drop cached session checks of the affected users (sent inside the
+ * revoking transaction when there is one). User-wide, because access tokens of earlier (rotated)
+ * sessions in the same family are only valid while the family is alive.
+ */
+async function broadcast(db: SystemDb, rows: ReadonlyArray<{ user_id: string }>): Promise<void> {
+  for (const userId of new Set(rows.map((r) => r.user_id))) {
+    await notifySessionsRevoked(db, { user_id: userId })
+  }
 }
 
 /** Revokes one session (logout). Returns false when it was already revoked / unknown. */
 export async function revokeSession(systemDb: SystemDb, sessionId: string, reason = 'logout'): Promise<boolean> {
-  const res = await systemDb
+  const rows = await systemDb
     .updateTable('auth_sessions')
     .set({ revoked_at: new Date(), revoked_reason: reason })
     .where('id', '=', sessionId)
     .where('revoked_at', 'is', null)
-    .executeTakeFirst()
-  return Number(res.numUpdatedRows) > 0
+    .returning(['id', 'user_id'])
+    .execute()
+  await broadcast(systemDb, rows)
+  return rows.length > 0
 }
 
 /** Revokes a whole refresh family (e.g. the login a session belongs to). */
@@ -268,7 +283,8 @@ export async function revokeSessions(
     .where('revoked_at', 'is', null)
   if (opts.exceptSessionId) q = q.where('id', '<>', opts.exceptSessionId)
   if (opts.tenantId) q = q.where('tenant_id', '=', opts.tenantId)
-  const rows = await q.returning('id').execute()
+  const rows = await q.returning(['id', 'user_id']).execute()
+  await broadcast(systemDb, rows)
   return rows.map((r) => r.id)
 }
 

@@ -30,10 +30,12 @@ function parseSimpleArray<T>(value: string, item: (s: string) => T): Array<T | n
   return inner.split(',').map((s) => (s === 'NULL' ? null : item(s.replace(/^"|"$/g, ''))))
 }
 
-pg.types.setTypeParser(INT8_OID, parseInt8)
-pg.types.setTypeParser(INT8_ARRAY_OID, (v: string) => parseSimpleArray(v, parseInt8))
-pg.types.setTypeParser(DATE_OID, (v: string) => v)
-pg.types.setTypeParser(DATE_ARRAY_OID, (v: string) => parseSimpleArray(v, (s) => s))
+// pg's TypeId enum only lists scalar OIDs; array OIDs are valid at runtime.
+const setParser = pg.types.setTypeParser as (oid: number, parse: (value: string) => unknown) => void
+setParser(INT8_OID, parseInt8)
+setParser(INT8_ARRAY_OID, (v) => parseSimpleArray(v, parseInt8))
+setParser(DATE_OID, (v) => v)
+setParser(DATE_ARRAY_OID, (v) => parseSimpleArray(v, (s) => s))
 
 export interface PoolOptions {
   connectionString: string

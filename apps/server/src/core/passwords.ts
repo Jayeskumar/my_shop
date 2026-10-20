@@ -3,13 +3,17 @@
  * (OWASP baseline). PINs are short, so their real protection is the 5-attempt lockout; hashing
  * them with argon2id still makes an offline database leak expensive to brute-force.
  */
-import { Algorithm, hash, verify } from '@node-rs/argon2'
+import { type Algorithm, hash, verify } from '@node-rs/argon2'
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@kadai/shared/api/auth'
 import type { ValidationIssue } from '@kadai/shared'
 import { validationError } from './errors'
 
+// `Algorithm` is an ambient const enum (not importable as a value with verbatimModuleSyntax):
+// 2 = Algorithm.Argon2id.
+const ARGON2ID = 2 as Algorithm
+
 export const ARGON2_PARAMS = {
-  algorithm: Algorithm.Argon2id,
+  algorithm: ARGON2ID,
   memoryCost: 19_456,
   timeCost: 2,
   parallelism: 1,

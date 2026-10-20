@@ -202,8 +202,10 @@ export function resolveSelection(me: MeResponse, saved: StoreSelection | null): 
 // ---------------------------------------------------------------------------------------------
 
 function applyMe(me: MeResponse, options: { offline?: boolean } = {}): void {
-  const saved = storage.get<StoreSelection | null>(selectionKey(me.tenant.id), null, (v) =>
-    v === null ? true : isSelection(v),
+  const saved = storage.get<StoreSelection | null>(
+    selectionKey(me.tenant.id),
+    null,
+    (v): v is StoreSelection | null => v === null || isSelection(v),
   )
   const selection = resolveSelection(me, saved)
   const deployment: DeploymentInfo = { ...state.deployment, mode: me.mode }
@@ -492,8 +494,10 @@ function isDeviceCredentials(v: unknown): v is DeviceCredentials {
 }
 
 export function getDeviceCredentials(): DeviceCredentials | null {
-  return storage.get<DeviceCredentials | null>(DEVICE_KEY, null, (v) =>
-    v === null ? true : isDeviceCredentials(v),
+  return storage.get<DeviceCredentials | null>(
+    DEVICE_KEY,
+    null,
+    (v): v is DeviceCredentials | null => v === null || isDeviceCredentials(v),
   )
 }
 

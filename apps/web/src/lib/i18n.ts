@@ -70,6 +70,7 @@ export function initI18n(language?: Language): I18n {
       returnNull: false,
       initAsync: false,
       react: { useSuspense: false },
+      showSupportNotice: false,
     })
     i18next.on('languageChanged', (next) => {
       if (isLanguage(next)) {
