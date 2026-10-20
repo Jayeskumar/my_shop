@@ -1,0 +1,16 @@
+{
+  // Browser application source. Tests have tsconfig.test.json; Node-side config files
+  // (vite.config.ts, vitest.config.ts, scripts) have tsconfig.node.json.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client", "vite-plugin-pwa/client", "vite-plugin-pwa/react"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.json"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**"]
+}

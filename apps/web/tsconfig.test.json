@@ -1,0 +1,15 @@
+{
+  // Component/unit tests (Vitest + Testing Library + MSW node server).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": [
+      "vite/client",
+      "vite-plugin-pwa/client",
+      "vite-plugin-pwa/react",
+      "node",
+      "@testing-library/jest-dom/vitest"
+    ]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.json"],
+  "exclude": []
+}
