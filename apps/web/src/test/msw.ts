@@ -22,8 +22,12 @@ export function errorResponse(
 
 export const defaultHandlers = [
   http.get(`${ORIGIN}/health/live`, () => HttpResponse.json({ status: 'ok' })),
-  // Cloud: the on-prem setup endpoint does not exist.
-  http.get(apiPath('/setup/status'), () => errorResponse(404, 'NOT_FOUND')),
+  // Cloud deployment probe (no first-run setup).
+  http.get(apiPath('/setup/status'), () =>
+    HttpResponse.json({
+      data: { setup_required: false, mode: 'cloud', version: '0.1.0', token_required: false },
+    }),
+  ),
   // Signed out: no refresh cookie.
   http.post(apiPath('/auth/refresh'), () => errorResponse(401, 'UNAUTHENTICATED')),
   http.post(apiPath('/auth/logout'), () => new HttpResponse(null, { status: 204 })),

@@ -26,6 +26,17 @@ describe('security headers, CORS, metrics', () => {
     expect(res.headers['strict-transport-security']).toBeUndefined()
   })
 
+  it('marks API answers (including errors) as no-store', async () => {
+    const ok = await t.app.inject({ method: 'GET', url: '/public/v1/__test/ping' })
+    expect(ok.statusCode).toBe(200)
+    expect(ok.headers['cache-control']).toBe('no-store')
+    const err = await t.app.inject({ method: 'GET', url: '/api/v1/__test/whoami' })
+    expect(err.statusCode).toBe(401)
+    expect(err.headers['cache-control']).toBe('no-store')
+    const live = await t.app.inject({ method: 'GET', url: '/health/live' })
+    expect(live.headers['cache-control']).not.toBe('no-store')
+  })
+
   it('answers CORS preflights for allowed origins only', async () => {
     const ok = await t.app.inject({
       method: 'OPTIONS',

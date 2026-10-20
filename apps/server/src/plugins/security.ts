@@ -23,6 +23,7 @@ export interface SecurityHandles {
 }
 
 const RATE_LIMITED_PREFIXES = ['/api/', '/public/', '/webhooks/']
+const NO_STORE_PREFIXES = ['/api/', '/public/', '/webhooks/']
 
 function rateLimitKey(req: FastifyRequest): string {
   const auth = req.auth
@@ -90,6 +91,15 @@ export async function registerSecurity(
       'content-disposition',
     ],
     maxAge: 600,
+  })
+
+  // API answers carry tenant data and tokens: never let browsers or shared proxies store them
+  // (RFC 9111). Routes that want caching set their own Cache-Control. The PWA's runtime cache
+  // (Cache API) is unaffected.
+  app.addHook('onSend', async (req, reply, payload) => {
+    if (!reply.hasHeader('cache-control') && NO_STORE_PREFIXES.some((p) => req.url.startsWith(p)))
+      reply.header('cache-control', 'no-store')
+    return payload
   })
 
   await app.register(cookie, {

@@ -4,7 +4,8 @@
  * settings, stores, registers, mode), the deployment info, and the current store/register.
  *
  *  - bootstrap(): on app start, exchanges the refresh cookie for a session and loads /me, while
- *    probing GET /setup/status to learn the deployment mode (404 = cloud).
+ *    probing GET /setup/status to learn the deployment mode (servers before v0.1 answered 404
+ *    in cloud; that is still read as cloud).
  *  - Offline boot: when the server cannot be reached at start-up but this device has a snapshot
  *    of the last /me, the app opens in `offline` mode (POS keeps billing into the outbox); the
  *    session is re-validated as soon as the server is reachable again.
@@ -353,7 +354,7 @@ export function bootstrap(): Promise<void> {
   return bootPromise
 }
 
-/** GET /setup/status: 200 → on-prem (maybe needing setup), 404 → cloud. */
+/** GET /setup/status: `{mode, setup_required, …}` in both modes (a 404 is also read as cloud). */
 export async function probeDeployment(): Promise<DeploymentInfo> {
   try {
     const body = await api.get<{ data: unknown }>('/setup/status', {

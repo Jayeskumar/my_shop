@@ -27,7 +27,8 @@ Legend: **C** create, **L** list (paginated, filterable), **G** get one, **U** p
 | `POST /auth/pin-login` | `{device_id, device_secret, user_id, pin}` → session bound to device/register |
 | `GET  /auth/pin-users?device_id=&device_secret=` | users who can PIN-login on a trusted device (names only) |
 | `GET  /me` | user, tenant, membership (role, permissions, store_ids), entitlements, settings, stores, registers, mode |
-| `GET  /setup/status` · `POST /setup` | on-prem first-run wizard (creates the single tenant + owner); 404 in cloud |
+| `GET  /setup/status` | public deployment probe, both modes: `{setup_required, mode, version, token_required}` (cloud: `setup_required: false`) |
+| `POST /setup` | on-prem first-run wizard (creates the single tenant + owner); 404 in cloud |
 
 Session endpoints (signup, login, OTP login, select-tenant, refresh, PIN login, setup) return the
 `SessionResponse` and set the refresh token as the httpOnly cookie `kadai_rt`

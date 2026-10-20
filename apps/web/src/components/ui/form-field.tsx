@@ -13,6 +13,7 @@
 import { useId, type ReactNode } from 'react'
 import { get, useFormContext, type FieldError } from 'react-hook-form'
 import { cn } from '@/lib/cn'
+import { useHeldWhilePointerDown } from '@/lib/use-pointer-hold'
 import { localizeValidationMessage } from '@/lib/validation'
 import { useTranslation } from 'react-i18next'
 import { FormFieldContext } from './form-field-context'
@@ -60,7 +61,8 @@ export function FormField({
   const fieldError: FieldError | undefined =
     name && form ? (get(form.formState.errors, name) as FieldError | undefined) : undefined
   const rawMessage = error ?? fieldError?.message ?? (fieldError ? 'Invalid' : undefined)
-  const message = localizeValidationMessage(rawMessage ?? undefined)
+  // A blur-validation error must not shift the layout under a click in progress.
+  const message = useHeldWhilePointerDown(localizeValidationMessage(rawMessage ?? undefined))
 
   const hintId = hint ? `${controlId}-hint` : undefined
   const errorId = message ? `${controlId}-error` : undefined

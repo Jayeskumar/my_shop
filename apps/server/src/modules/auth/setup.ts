@@ -1,6 +1,7 @@
 /**
  * On-prem first-run wizard (ARCHITECTURE.md §2): GET /setup/status · POST /setup create the single
- * tenant and its owner through onboarding. Setup is done once system_settings holds the
+ * tenant and its owner through onboarding. GET /setup/status is also the public deployment probe
+ * in cloud (always `setup_required: false`, no database access); POST /setup is on-prem only. Setup is done once system_settings holds the
  * 'onprem_setup' marker — or, defensively, once any tenant exists (an on-prem database has
  * exactly one). With KADAI_SETUP_TOKEN set, POST /setup must carry that token.
  */
@@ -31,9 +32,12 @@ async function isSetupDone(db: Kysely<DB> | Tx): Promise<boolean> {
 
 export async function setupStatus(
   systemDb: Kysely<DB>,
-  config: Pick<Config, 'setupToken'>,
+  config: Pick<Config, 'setupToken' | 'mode'>,
   version: string,
 ): Promise<SetupStatusResponse> {
+  if (config.mode === 'cloud') {
+    return { setup_required: false, mode: 'cloud', version, token_required: false }
+  }
   return {
     setup_required: !(await isSetupDone(systemDb)),
     mode: 'onprem',

@@ -105,7 +105,12 @@ export async function mockApi(page: Page, { signedIn }: { signedIn: boolean }): 
     const path = new URL(route.request().url()).pathname.replace('/api/v1', '')
     const error = (status: number, code: string) =>
       route.fulfill({ status, json: { error: { code, message: code } } })
-    if (path === '/setup/status') return error(404, 'NOT_FOUND')
+    if (path === '/setup/status')
+      return route.fulfill({
+        json: {
+          data: { setup_required: false, mode: 'cloud', version: '0.1.0', token_required: false },
+        },
+      })
     if (path === '/auth/refresh')
       return signedIn ? route.fulfill({ json: { data: session } }) : error(401, 'UNAUTHENTICATED')
     if (path === '/auth/login') return route.fulfill({ json: { data: session } })

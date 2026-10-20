@@ -263,7 +263,7 @@ const routes: KadaiPlugin = async (app) => {
     data: await req.tx((tx) => loadMe(deps, tx, req.ctx)),
   }))
 
-  // On-prem only (route() skips them in cloud → 404).
+  // Deployment probe (both modes); POST /setup is on-prem only (route() skips it in cloud → 404).
   route(app, authRoutes.setupStatus, async () => ({
     data: await setupStatus(deps.db.systemDb, deps.config, deps.version),
   }))

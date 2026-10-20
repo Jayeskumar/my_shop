@@ -198,6 +198,25 @@ describe('auth module (cloud)', () => {
     expect((await post('/auth/refresh', {})).statusCode).toBe(401)
   })
 
+  it('accepts body-less refresh and logout requests (no Content-Type, like curl -X POST)', async () => {
+    const body = signupBody()
+    const signup = await post('/auth/signup', body)
+    expect(signup.statusCode).toBe(201)
+    const bare = (url: string, headers: Record<string, string>, cookies: Record<string, string>) =>
+      t.app.inject({ method: 'POST', url: `/api/v1${url}`, headers, cookies, remoteAddress: nextIp() })
+
+    const r = await bare('/auth/refresh', CSRF, { kadai_rt: refreshCookie(signup)!.value })
+    expect(r.statusCode).toBe(200)
+    expect(session(r).tenant_id).toBe(session(signup).tenant_id)
+    expect(r.headers['cache-control']).toBe('no-store')
+
+    const out = await bare('/auth/logout', CSRF, { kadai_rt: refreshCookie(r)!.value })
+    expect(out.statusCode).toBe(204)
+    const dead = await bare('/auth/refresh', CSRF, { kadai_rt: refreshCookie(r)!.value })
+    expect(dead.statusCode).toBe(401)
+    expect(errorOf(dead).code).toBe('SESSION_REVOKED')
+  })
+
   it('lets a user with several businesses select one', async () => {
     const phone = local10(randomPhone())
     const first = session(
@@ -626,8 +645,15 @@ describe('auth module (cloud)', () => {
     })
   })
 
-  it('hides the on-prem setup routes in cloud mode', async () => {
-    expect((await get('/setup/status')).statusCode).toBe(404)
+  it('answers the deployment probe in cloud mode and hides the on-prem setup wizard', async () => {
+    const status = await get('/setup/status')
+    expect(status.statusCode).toBe(200)
+    expect(status.json<{ data: unknown }>().data).toEqual({
+      setup_required: false,
+      mode: 'cloud',
+      version: t.deps.version,
+      token_required: false,
+    })
     expect((await post('/setup', signupBody())).statusCode).toBe(404)
   })
 })

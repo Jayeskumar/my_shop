@@ -52,7 +52,7 @@ export const authApi = {
     const res = await api.post<Envelope<SessionResponse>>('/auth/signup', body, { auth: false })
     return res.data
   },
-  /** On-prem only; rejects with NOT_FOUND (404) in cloud mode. */
+  /** Deployment probe: cloud answers `{mode: 'cloud', setup_required: false}` (older servers 404). */
   async setupStatus(): Promise<SetupStatusResponse> {
     const res = await api.get<Envelope<unknown>>('/setup/status', { auth: false })
     return SetupStatusResponseSchema.parse(res.data)

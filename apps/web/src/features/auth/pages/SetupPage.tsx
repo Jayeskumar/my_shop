@@ -88,6 +88,9 @@ export default function SetupPage() {
     )
   }
 
+  // Cloud has no first-run wizard (businesses sign up instead).
+  if (status.data?.mode === 'cloud') return <Navigate to="/login" replace />
+
   if (!status.data?.setup_required) {
     return (
       <AuthLayout title={t('setup.title')}>

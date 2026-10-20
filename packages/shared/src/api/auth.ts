@@ -374,7 +374,10 @@ export type MeResponse = z.infer<typeof MeResponseSchema>
 // On-prem first-run setup
 // ---------------------------------------------------------------------------------------------
 
-/** GET /setup/status (onprem; 404 in cloud). */
+/**
+ * GET /setup/status — public deployment probe answered in both modes (the web reads `mode` before
+ * sign-in). Cloud always reports `setup_required: false`; POST /setup exists on-prem only.
+ */
 export const SetupStatusResponseSchema = z.object({
   setup_required: z.boolean(),
   mode: DeploymentModeSchema,
@@ -494,9 +497,8 @@ export const authRoutes = defineRoutes({
     method: 'GET',
     path: '/setup/status',
     auth: 'public',
-    mode: 'onprem',
     response: dataOf(SetupStatusResponseSchema),
-    summary: 'On-prem first-run status (404 in cloud)',
+    summary: 'Deployment mode and on-prem first-run status (cloud: setup_required false)',
   },
   setup: {
     method: 'POST',

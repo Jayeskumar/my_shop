@@ -34,12 +34,19 @@ describe('fixtures', () => {
 })
 
 describe('bootstrap', () => {
-  it('ends signed out when there is no refresh cookie, and learns cloud mode from the 404 setup probe', async () => {
+  it('ends signed out when there is no refresh cookie, and learns cloud mode from the setup probe', async () => {
     await bootstrap()
     const s = authStore.getState()
     expect(s.status).toBe('unauthenticated')
     expect(s.deployment.mode).toBe('cloud')
+    expect(s.deployment.version).toBe('0.1.0')
     expect(storage.get('deployment', null)).toMatchObject({ mode: 'cloud' })
+  })
+
+  it('still reads a 404 setup probe (older servers) as cloud', async () => {
+    server.use(http.get(apiPath('/setup/status'), () => errorResponse(404, 'NOT_FOUND')))
+    await bootstrap()
+    expect(authStore.getState().deployment.mode).toBe('cloud')
   })
 
   it('detects an on-prem server that still needs setup', async () => {
