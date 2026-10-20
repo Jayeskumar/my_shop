@@ -362,3 +362,103 @@ export const NotificationStatusSchema = z.enum([
   'cancelled',
 ])
 export type NotificationStatus = z.infer<typeof NotificationStatusSchema>
+
+// ---- vendor control plane (0010) ---------------------------------------------------------------
+export const PlatformStaffRoleSchema = z.enum([
+  'owner',
+  'admin',
+  'sales',
+  'support',
+  'finance',
+  'partner',
+])
+export type PlatformStaffRole = z.infer<typeof PlatformStaffRoleSchema>
+
+export const PartnerTierSchema = z.enum(['silver', 'gold', 'platinum'])
+export type PartnerTier = z.infer<typeof PartnerTierSchema>
+
+export const PartnerStatusSchema = z.enum(['active', 'suspended'])
+export type PartnerStatus = z.infer<typeof PartnerStatusSchema>
+
+export const LicenseProductKindSchema = z.enum([
+  'edition',
+  'subscription',
+  'amc',
+  'addon',
+  'cloud_plan',
+  'service',
+])
+export type LicenseProductKind = z.infer<typeof LicenseProductKindSchema>
+
+/** Which deployment a product/offer is sold for. */
+export const DeploymentChannelSchema = z.enum(['onprem', 'cloud', 'both'])
+export type DeploymentChannel = z.infer<typeof DeploymentChannelSchema>
+
+export const LicenseTypeSchema = z.enum(['perpetual', 'subscription', 'trial', 'nfr'])
+export type LicenseType = z.infer<typeof LicenseTypeSchema>
+
+export const VendorLicenseStatusSchema = z.enum(['active', 'suspended', 'revoked'])
+export type VendorLicenseStatus = z.infer<typeof VendorLicenseStatusSchema>
+
+export const ActivationMethodSchema = z.enum(['online', 'offline'])
+export type ActivationMethod = z.infer<typeof ActivationMethodSchema>
+
+export const ActivationStatusSchema = z.enum(['active', 'deactivated', 'blocked'])
+export type ActivationStatus = z.infer<typeof ActivationStatusSchema>
+
+export const LicenseEventKindSchema = z.enum([
+  'issued',
+  'activated',
+  'offline_activated',
+  'check_in',
+  'deactivated',
+  'transferred',
+  'renewed',
+  'upgraded',
+  'addon_added',
+  'suspended',
+  'resumed',
+  'revoked',
+  'clone_suspected',
+  'license_downloaded',
+  'update_installed',
+])
+export type LicenseEventKind = z.infer<typeof LicenseEventKindSchema>
+
+export const ReleaseChannelSchema = z.enum(['stable', 'beta'])
+export type ReleaseChannel = z.infer<typeof ReleaseChannelSchema>
+
+export const OfferKindSchema = z.enum(['percent', 'flat', 'free_months', 'price_override'])
+export type OfferKind = z.infer<typeof OfferKindSchema>
+
+export const VendorOrderKindSchema = z.enum([
+  'new_license',
+  'renewal',
+  'upgrade',
+  'addon',
+  'cloud_plan',
+  'service',
+])
+export type VendorOrderKind = z.infer<typeof VendorOrderKindSchema>
+
+export const VendorOrderStatusSchema = z.enum([
+  'draft',
+  'pending_payment',
+  'paid',
+  'fulfilled',
+  'cancelled',
+  'refunded',
+])
+export type VendorOrderStatus = z.infer<typeof VendorOrderStatusSchema>
+
+export const VendorPaymentProviderSchema = z.enum(['razorpay', 'manual', 'partner_credit'])
+export type VendorPaymentProvider = z.infer<typeof VendorPaymentProviderSchema>
+
+export const CommissionStatusSchema = z.enum(['accrued', 'approved', 'paid', 'void'])
+export type CommissionStatus = z.infer<typeof CommissionStatusSchema>
+
+export const AnnouncementSeveritySchema = z.enum(['info', 'offer', 'warning', 'critical'])
+export type AnnouncementSeverity = z.infer<typeof AnnouncementSeveritySchema>
+
+export const CloudBackupStatusSchema = z.enum(['pending', 'stored', 'deleted'])
+export type CloudBackupStatus = z.infer<typeof CloudBackupStatusSchema>

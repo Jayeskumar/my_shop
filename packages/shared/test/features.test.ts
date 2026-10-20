@@ -7,6 +7,7 @@ import {
   FEATURE_LABELS,
   LIMIT_LABELS,
   LIMIT_METRICS,
+  ADDON_FEATURES,
   PLAN_CODES,
   featureLabels,
   hasFeature,
@@ -17,7 +18,10 @@ import { readMigrations } from './helpers/sql'
 
 function sqlPlans(): Map<string, { features: string[]; limits: Record<string, number | null> }> {
   const sql = readMigrations()
-  const insert = sql.slice(sql.indexOf('INSERT INTO plans'))
+  // Only the INSERT INTO plans statements (0001 cloud plans, 0010 on-prem editions).
+  const insert = [...sql.matchAll(/INSERT INTO plans \([\s\S]*?\);[ \t]*\n/g)]
+    .map((m) => m[0])
+    .join('\n')
   const out = new Map<string, { features: string[]; limits: Record<string, number | null> }>()
   for (const m of insert.matchAll(/\('([a-z_]+)',[\s\S]*?'(\{[^']*\})',\s*ARRAY\[([^\]]*)\]/g)) {
     out.set(m[1]!, {
@@ -30,11 +34,15 @@ function sqlPlans(): Map<string, { features: string[]; limits: Record<string, nu
 
 describe('features', () => {
   const plans = sqlPlans()
-  it('parses the four seeded plans', () => {
+  it('parses every seeded plan (cloud + on-prem editions)', () => {
     expect([...plans.keys()]).toEqual([...PLAN_CODES])
   })
-  it('FEATURES is exactly the set of feature codes used by the seeded plans', () => {
+  it('FEATURES is exactly the plan feature codes plus the add-on features', () => {
     const used = new Set([...plans.values()].flatMap((p) => p.features))
+    for (const addon of ADDON_FEATURES) {
+      expect(used.has(addon), `${addon} must stay an add-on`).toBe(false)
+      used.add(addon)
+    }
     expect([...FEATURES].sort()).toEqual([...used].sort())
   })
   it.each(PLAN_CODES)('plan %s features and limits match the migration', (code) => {

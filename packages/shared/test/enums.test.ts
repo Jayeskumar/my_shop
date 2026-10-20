@@ -69,6 +69,27 @@ const MAPPING: Record<string, z.ZodEnum> = {
   'notification_templates.locale': E.LocaleSchema,
   'notifications.channel': E.NotificationChannelSchema,
   'notifications.status': E.NotificationStatusSchema,
+  // vendor control plane (0010)
+  'platform_staff.role': E.PlatformStaffRoleSchema,
+  'partners.tier': E.PartnerTierSchema,
+  'partners.status': E.PartnerStatusSchema,
+  'vendor_customers.business_type': E.BusinessTypeSchema,
+  'license_products.kind': E.LicenseProductKindSchema,
+  'license_products.channel': E.DeploymentChannelSchema,
+  'licenses.license_type': E.LicenseTypeSchema,
+  'licenses.status': E.VendorLicenseStatusSchema,
+  'license_activations.method': E.ActivationMethodSchema,
+  'license_activations.status': E.ActivationStatusSchema,
+  'license_events.kind': E.LicenseEventKindSchema,
+  'releases.channel': E.ReleaseChannelSchema,
+  'offers.kind': E.OfferKindSchema,
+  'offers.channel': E.DeploymentChannelSchema,
+  'vendor_orders.kind': E.VendorOrderKindSchema,
+  'vendor_orders.status': E.VendorOrderStatusSchema,
+  'vendor_orders.payment_provider': E.VendorPaymentProviderSchema,
+  'partner_commissions.status': E.CommissionStatusSchema,
+  'announcements.severity': E.AnnouncementSeveritySchema,
+  'cloud_backups.status': E.CloudBackupStatusSchema,
 }
 
 describe('enums mirror SQL CHECK constraints', () => {

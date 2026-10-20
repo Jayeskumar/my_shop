@@ -1,6 +1,8 @@
 /**
- * Plan features & limits (ARCHITECTURE.md §7.6). Feature codes are exactly those used by the
- * plans seeded in migration 0001; entitlements come from the plan (cloud) or the license (onprem).
+ * Plan features & limits (ARCHITECTURE.md §7.6, §21). Feature codes are exactly those used by the
+ * plans seeded in migrations 0001 (cloud plans) and 0010 (on-prem editions) plus the add-on
+ * features sold separately (ADDON_FEATURES); entitlements come from the plan (cloud) or the
+ * license (onprem).
  */
 import { z } from 'zod'
 
@@ -34,8 +36,14 @@ export const FEATURES = [
   'api_access',
   'store_pricing',
   'priority_support',
+  // add-ons (license_products in 0010), not part of any plan
+  'connect',
+  'cloud_backup',
 ] as const
 export type Feature = (typeof FEATURES)[number]
+
+/** Features sold only as add-ons (Kadai Connect remote dashboard, encrypted cloud backup). */
+export const ADDON_FEATURES = ['connect', 'cloud_backup'] as const satisfies readonly Feature[]
 
 export const FeatureSchema = z.enum(FEATURES)
 
@@ -76,6 +84,8 @@ export const FEATURE_LABELS: Readonly<Record<Feature, { en: string; ta: string }
   api_access: { en: 'API access', ta: 'API அணுகல்' },
   store_pricing: { en: 'Branch-wise pricing', ta: 'கிளை வாரியான விலை' },
   priority_support: { en: 'Priority support', ta: 'முன்னுரிமை ஆதரவு' },
+  connect: { en: 'Kadai Connect (remote owner dashboard)', ta: 'கடை கனெக்ட் (தொலைதூர டாஷ்போர்டு)' },
+  cloud_backup: { en: 'Encrypted cloud backup', ta: 'மறைகுறியாக்கப்பட்ட கிளவுட் காப்புப்பிரதி' },
 }
 
 /** Alias of {@link FEATURE_LABELS}. */
@@ -137,8 +147,18 @@ export function isWithinLimit(limits: PlanLimits, metric: LimitMetric, current: 
 
 // Default plans, mirroring the seed in migration 0001 (the database stays the source of truth
 // for prices; these drive the on-prem license default and the pricing page fallback).
-export const PLAN_CODES = ['free', 'growth', 'pro', 'enterprise'] as const
+export const CLOUD_PLAN_CODES = ['free', 'growth', 'pro', 'enterprise'] as const
+/** Kadai Server editions (migration 0010); referenced by on-prem licenses' plan_code. */
+export const ONPREM_PLAN_CODES = [
+  'onprem_starter',
+  'onprem_standard',
+  'onprem_pro',
+  'onprem_enterprise',
+] as const
+export const PLAN_CODES = [...CLOUD_PLAN_CODES, ...ONPREM_PLAN_CODES] as const
 export type PlanCode = (typeof PLAN_CODES)[number]
+export type CloudPlanCode = (typeof CLOUD_PLAN_CODES)[number]
+export type OnPremPlanCode = (typeof ONPREM_PLAN_CODES)[number]
 
 const FREE: readonly Feature[] = [
   'pos',
@@ -177,11 +197,26 @@ const PRO: readonly Feature[] = [
   'store_pricing',
 ]
 
+const ONPREM_STARTER: readonly Feature[] = [
+  ...FREE,
+  'purchases',
+  'gst_reports',
+  'batches_expiry',
+  'variants',
+  'barcode_labels',
+  'shifts',
+  'offline_pos',
+]
+
 export const DEFAULT_PLAN_FEATURES: Readonly<Record<PlanCode, readonly Feature[]>> = {
   free: FREE,
   growth: GROWTH,
   pro: PRO,
   enterprise: [...PRO, 'priority_support'],
+  onprem_starter: ONPREM_STARTER,
+  onprem_standard: GROWTH,
+  onprem_pro: PRO,
+  onprem_enterprise: [...PRO, 'priority_support'],
 }
 
 export const DEFAULT_PLAN_LIMITS: Readonly<Record<PlanCode, PlanLimits>> = {
@@ -195,7 +230,17 @@ export const DEFAULT_PLAN_LIMITS: Readonly<Record<PlanCode, PlanLimits>> = {
     products: null,
     invoices_per_month: null,
   },
+  onprem_starter: { stores: 1, users: 3, registers: 1, products: null, invoices_per_month: null },
+  onprem_standard: { stores: 1, users: 10, registers: 3, products: null, invoices_per_month: null },
+  onprem_pro: { stores: 3, users: 30, registers: 10, products: null, invoices_per_month: null },
+  onprem_enterprise: {
+    stores: null,
+    users: null,
+    registers: null,
+    products: null,
+    invoices_per_month: null,
+  },
 }
 
-/** On-prem licenses default to the Pro plan features (PRODUCT.md). */
-export const DEFAULT_LICENSE_PLAN: PlanCode = 'pro'
+/** On-prem licenses without a plan_code (pre-0010 documents) get the Pro edition (PRODUCT.md). */
+export const DEFAULT_LICENSE_PLAN: PlanCode = 'onprem_pro'

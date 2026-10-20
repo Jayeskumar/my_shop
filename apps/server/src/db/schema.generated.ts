@@ -43,6 +43,26 @@ export interface Accounts {
   updated_at: Generated<Timestamp>;
 }
 
+export interface Announcements {
+  audience: Generated<Json>;
+  body_en: string;
+  body_ta: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  cta_label_en: string | null;
+  cta_label_ta: string | null;
+  cta_url: string | null;
+  ends_at: Timestamp | null;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  offer_id: string | null;
+  severity: Generated<string>;
+  starts_at: Generated<Timestamp>;
+  title_en: string;
+  title_ta: string | null;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface ApiKeys {
   created_at: Generated<Timestamp>;
   created_by: string | null;
@@ -143,6 +163,17 @@ export interface Categories {
   tax_slab_rule_id: string | null;
   tenant_id: string;
   updated_at: Generated<Timestamp>;
+}
+
+export interface CloudBackups {
+  activation_id: string;
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp | null;
+  id: Generated<string>;
+  object_key: string;
+  sha256: string;
+  size_bytes: Int8;
+  status: Generated<string>;
 }
 
 export interface CreditNoteLines {
@@ -399,6 +430,14 @@ export interface Imports {
   updated_at: Generated<Timestamp>;
 }
 
+export interface InstallationSnapshots {
+  activation_id: string;
+  app_version: string | null;
+  generated_at: Timestamp;
+  received_at: Generated<Timestamp>;
+  snapshot: Json;
+}
+
 export interface JournalEntries {
   created_at: Generated<Timestamp>;
   created_by: string | null;
@@ -426,6 +465,91 @@ export interface JournalLines {
   party_type: string | null;
   store_id: string | null;
   tenant_id: string;
+}
+
+export interface LicenseActivations {
+  activated_at: Generated<Timestamp>;
+  app_version: string | null;
+  business_name: string | null;
+  cloud_backup_enabled: Generated<boolean>;
+  connect_enabled: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+  deactivated_at: Timestamp | null;
+  deactivation_reason: string | null;
+  fingerprint_hash: string;
+  id: Generated<string>;
+  installation_id: string;
+  installation_public_key: string;
+  last_check_in_at: Timestamp | null;
+  last_check_in_ip: string | null;
+  last_stats: Generated<Json>;
+  last_version: string | null;
+  license_id: string;
+  machine_name: string | null;
+  method: Generated<string>;
+  os: string | null;
+  status: Generated<string>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface LicenseEvents {
+  activation_id: string | null;
+  actor_user_id: string | null;
+  created_at: Generated<Timestamp>;
+  details: Generated<Json>;
+  id: Generated<Int8>;
+  ip: string | null;
+  kind: string;
+  license_id: string | null;
+}
+
+export interface LicenseProducts {
+  channel: string;
+  code: string;
+  created_at: Generated<Timestamp>;
+  description: string | null;
+  description_ta: string | null;
+  features: Generated<string[]>;
+  gst_rate_bp: Generated<number>;
+  hsn_sac: Generated<string>;
+  included_amc_months: Generated<number>;
+  is_active: Generated<boolean>;
+  kind: string;
+  limits: Generated<Json>;
+  name: string;
+  name_ta: string | null;
+  plan_code: string | null;
+  price_paise: Int8;
+  renewal_price_paise: Int8 | null;
+  sort_order: Generated<number>;
+  term_months: number | null;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface Licenses {
+  addons: Generated<Json>;
+  created_at: Generated<Timestamp>;
+  customer_id: string;
+  features: string[] | null;
+  grace_days: Generated<number>;
+  id: Generated<string>;
+  issued_by: string | null;
+  key_hash: string;
+  key_prefix: string;
+  license_type: string;
+  limits: Generated<Json>;
+  max_activations: Generated<number>;
+  notes: string | null;
+  partner_id: string | null;
+  plan_code: string;
+  product_code: string;
+  status: Generated<string>;
+  support_until: string | null;
+  suspended_reason: string | null;
+  updated_at: Generated<Timestamp>;
+  updates_until: string | null;
+  valid_from: string;
+  valid_until: string | null;
 }
 
 export interface LoyaltyLedger {
@@ -508,6 +632,42 @@ export interface NumberSeries {
   updated_at: Generated<Timestamp>;
 }
 
+export interface OfferRedemptions {
+  created_at: Generated<Timestamp>;
+  customer_id: string | null;
+  discount_paise: Int8;
+  id: Generated<string>;
+  offer_id: string;
+  order_id: string;
+  tenant_id: string | null;
+}
+
+export interface Offers {
+  applies_to: Generated<string[]>;
+  audience: Generated<Json>;
+  banner: Json | null;
+  channel: Generated<string>;
+  code: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  description: string | null;
+  description_ta: string | null;
+  ends_at: Timestamp | null;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  kind: string;
+  max_discount_paise: Int8 | null;
+  max_redemptions: number | null;
+  name: string;
+  name_ta: string | null;
+  partner_id: string | null;
+  per_customer_limit: Generated<number>;
+  stackable: Generated<boolean>;
+  starts_at: Timestamp | null;
+  updated_at: Generated<Timestamp>;
+  value: Int8;
+}
+
 export interface OtpCodes {
   attempts: Generated<number>;
   code_hash: string;
@@ -519,6 +679,39 @@ export interface OtpCodes {
   max_attempts: Generated<number>;
   phone: string;
   purpose: string;
+}
+
+export interface PartnerCommissions {
+  amount_paise: Int8;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  order_id: string;
+  paid_at: Timestamp | null;
+  paid_ref: string | null;
+  partner_id: string;
+  status: Generated<string>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface Partners {
+  address: Generated<Json>;
+  code: string;
+  commission_bp: Generated<number>;
+  contact_name: string | null;
+  created_at: Generated<Timestamp>;
+  discount_bp: Generated<number>;
+  district: string | null;
+  email: string | null;
+  gstin: string | null;
+  id: Generated<string>;
+  name: string;
+  notes: string | null;
+  payout_details: Generated<Json>;
+  phone: string | null;
+  state_code: string | null;
+  status: Generated<string>;
+  tier: Generated<string>;
+  updated_at: Generated<Timestamp>;
 }
 
 export interface PaymentAllocations {
@@ -682,6 +875,16 @@ export interface PlatformInvoices {
   tenant_id: string;
   total_paise: Int8;
   updated_at: Generated<Timestamp>;
+}
+
+export interface PlatformStaff {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  is_active: Generated<boolean>;
+  partner_id: string | null;
+  role: string;
+  updated_at: Generated<Timestamp>;
+  user_id: string;
 }
 
 export interface ProductBarcodes {
@@ -904,6 +1107,22 @@ export interface RegisterShifts {
   summary: Json | null;
   tenant_id: string;
   updated_at: Generated<Timestamp>;
+}
+
+export interface Releases {
+  artifacts: Generated<Json>;
+  channel: Generated<string>;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  mandatory: Generated<boolean>;
+  min_upgrade_from: string | null;
+  notes_en: string;
+  notes_ta: string | null;
+  released_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+  version: string;
 }
 
 export interface Roles {
@@ -1263,8 +1482,64 @@ export interface Users {
   updated_at: Generated<Timestamp>;
 }
 
+export interface VendorCustomers {
+  address: Generated<Json>;
+  business_name: string;
+  business_name_ta: string | null;
+  business_type: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  district: string | null;
+  email: string | null;
+  gstin: string | null;
+  id: Generated<string>;
+  name: string;
+  notes: string | null;
+  partner_id: string | null;
+  phone: string;
+  referral_code: string | null;
+  referred_by_customer_id: string | null;
+  state_code: Generated<string>;
+  tags: Generated<string[]>;
+  tenant_id: string | null;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface VendorOrders {
+  buyer_gstin: string | null;
+  cgst_paise: Generated<Int8>;
+  coupon_code: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  customer_id: string | null;
+  discount_paise: Generated<Int8>;
+  fulfilled_at: Timestamp | null;
+  id: Generated<string>;
+  igst_paise: Generated<Int8>;
+  kind: string;
+  license_id: string | null;
+  lines: Json;
+  notes: string | null;
+  number: string | null;
+  offer_ids: Generated<string[]>;
+  paid_at: Timestamp | null;
+  partner_id: string | null;
+  payment_provider: string | null;
+  payment_ref: string | null;
+  place_of_supply: string;
+  sgst_paise: Generated<Int8>;
+  short_url: string | null;
+  status: Generated<string>;
+  subtotal_paise: Int8;
+  taxable_paise: Int8;
+  tenant_id: string | null;
+  total_paise: Int8;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface DB {
   accounts: Accounts;
+  announcements: Announcements;
   api_keys: ApiKeys;
   audit_logs: AuditLogs;
   auth_sessions: AuthSessions;
@@ -1272,6 +1547,7 @@ export interface DB {
   batches: Batches;
   brands: Brands;
   categories: Categories;
+  cloud_backups: CloudBackups;
   credit_note_lines: CreditNoteLines;
   credit_notes: CreditNotes;
   customers: Customers;
@@ -1283,14 +1559,23 @@ export interface DB {
   files: Files;
   idempotency_keys: IdempotencyKeys;
   imports: Imports;
+  installation_snapshots: InstallationSnapshots;
   journal_entries: JournalEntries;
   journal_lines: JournalLines;
+  license_activations: LicenseActivations;
+  license_events: LicenseEvents;
+  license_products: LicenseProducts;
+  licenses: Licenses;
   loyalty_ledger: LoyaltyLedger;
   memberships: Memberships;
   notification_templates: NotificationTemplates;
   notifications: Notifications;
   number_series: NumberSeries;
+  offer_redemptions: OfferRedemptions;
+  offers: Offers;
   otp_codes: OtpCodes;
+  partner_commissions: PartnerCommissions;
+  partners: Partners;
   payment_allocations: PaymentAllocations;
   payment_intents: PaymentIntents;
   payment_provider_accounts: PaymentProviderAccounts;
@@ -1299,6 +1584,7 @@ export interface DB {
   plans: Plans;
   platform_audit_logs: PlatformAuditLogs;
   platform_invoices: PlatformInvoices;
+  platform_staff: PlatformStaff;
   product_barcodes: ProductBarcodes;
   products: Products;
   promotions: Promotions;
@@ -1308,6 +1594,7 @@ export interface DB {
   purchase_orders: PurchaseOrders;
   register_shifts: RegisterShifts;
   registers: Registers;
+  releases: Releases;
   roles: Roles;
   sales_invoice_lines: SalesInvoiceLines;
   sales_invoices: SalesInvoices;
@@ -1328,4 +1615,6 @@ export interface DB {
   tenants: Tenants;
   usage_counters: UsageCounters;
   users: Users;
+  vendor_customers: VendorCustomers;
+  vendor_orders: VendorOrders;
 }

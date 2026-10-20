@@ -2,8 +2,10 @@
 
 > **Kadai (கடை)** is a vertical retail ERP for Indian — first of all Tamil Nadu — small and
 > mid-sized shops: general stores (மளிகை), supermarkets, textile/readymade stores, pharmacies,
-> footwear, hardware, bakeries. One codebase ships as a **multi-tenant cloud SaaS** and as a
-> **single-tenant on-premise server** that runs on the shop's own PC/LAN.
+> footwear, hardware, bakeries. One codebase ships as a **single-tenant on-premise server**
+> (Kadai Server — our primary product) that runs on the shop's own PC/LAN, as a **multi-tenant
+> cloud SaaS**, and as our own **vendor control plane** (licensing, offers, partners, updates —
+> §21).
 >
 > This document is the contract every module is built against. If code and this document
 > disagree, fix one of them in the same change.
@@ -36,11 +38,13 @@ serves both.
 |---|---|---|
 | Tenancy | many tenants, self-signup | exactly one tenant, created by the first-run **setup wizard** (`/setup`) |
 | `GET /api/v1/setup/status` (public probe) | `{mode: 'cloud', setup_required: false}` | `{mode: 'onprem', setup_required, token_required}`; `POST /setup` exists only here |
-| Entitlements | plan + subscription (`plans`, `subscriptions`) | signed **license file** (Ed25519) uploaded in settings |
+| Entitlements | plan + subscription (`plans`, `subscriptions`) | signed **license file** (Ed25519) activated online or offline; editions are `onprem_*` plans (§21) |
 | Signup / platform admin | enabled | disabled (404) |
+| Vendor control plane (`KADAI_VENDOR_CONSOLE=true`, our deployment only) | licensing API, vendor console, Connect, relay (§21) | — (the shop server is a *client* of it via `KADAI_VENDOR_URL`; every call optional) |
+| Updates | rolling deploys | signed releases via the update center + host updater (§21.4) |
 | Payment webhooks | public HTTPS endpoint | usually unreachable → **status polling** reconciles UPI |
 | Files | S3-compatible object storage (or local in small installs) | local disk (`KADAI_DATA_DIR`) |
-| Backups | managed Postgres backups | scheduled `pg_dump` to `KADAI_DATA_DIR/backups` + optional encrypted cloud upload |
+| Backups | managed Postgres backups | scheduled `pg_dump` to `KADAI_DATA_DIR/backups`, USB/external copy, optional encrypted cloud backup add-on (§21.5) |
 | Web app | served by the API (`@fastify/static`) behind a CDN/ingress | served by the API on the LAN (`http://shop-pc:8080`) |
 | Scaling | N stateless API pods + M worker pods | one process runs API + worker (`KADAI_EMBEDDED_WORKER=true`) |
 
@@ -99,7 +103,9 @@ deliberate cross-module change.
 | accounting | `modules/accounting` (accounts, journals, expenses, shifts, books, financial statements) | `api/accounting.ts` | `features/accounting` | 0700–0799 |
 | reports | `modules/reports` (dashboard, sales/stock/party reports, GST returns, H1 register) | `api/reports.ts` | `features/reports`, `features/dashboard` | 0800–0899 |
 | notifications | `modules/notifications` | `api/notifications.ts` | `features/notifications` | 0900–0999 |
-| platform | `modules/platform` (plans, subscriptions, SaaS billing, platform admin, license, backups, API keys, system info) | `api/platform.ts` | `features/platform`, `features/billing`, `features/system` | 1000–1099 |
+| platform | `modules/platform` (cloud plans & subscriptions with offers/coupons, announcements for tenants, API keys, system info) | `api/platform.ts` | `features/billing` | 1000–1049 |
+| licensing | `modules/licensing` (vendor control plane: staff & partners, customers, price book, licences & activations, orders & GST invoices, offers & coupons, releases, announcements, cloud-tenant admin, Connect, cloud-backup storage, messaging relay, public licensing API) | `api/licensing.ts` | `features/platform` (vendor console, `/connect`, `/activate`) | 1050–1099 |
+| onprem | `modules/onprem` (activation, licence & AMC status, renewals, signed check-ins, update center, backups & restore requests, Connect push, relay provider, LAN info, support bundle) + `deploy/onprem/updater/**` | `api/onprem.ts` | `features/system` (`/settings/system`) | 1200–1249 |
 
 Foundation-owned (shared by everyone, change carefully, never break signatures):
 `apps/server/src/{config,db,core,plugins,jobs,app.ts,server.ts,worker.ts}`, `modules/index.ts`,
@@ -877,3 +883,97 @@ pnpm dev                        # server :8080 + web :5173 (proxy /api → :8080
 pnpm test                       # all unit + integration tests
 pnpm lint && pnpm typecheck
 ```
+
+---
+
+## 21. Licensing, vendor control plane & the on-prem experience
+
+On-prem (Kadai Server) is the **primary** product (docs/PRODUCT.md). Three parts of the codebase
+work together:
+
+| Part | Where it runs | Module | What it does |
+|---|---|---|---|
+| Vendor control plane | our cloud deployment with `KADAI_VENDOR_CONSOLE=true` | `licensing` | staff & partner console, customers, price book, licences & activations, orders & GST invoices, offers/coupons, partners & commissions, releases, announcements, cloud-tenant admin, Kadai Connect, cloud-backup storage, messaging relay, public licensing API |
+| Shop server (on-prem) | the shop's PC, `KADAI_MODE=onprem` | `onprem` (+ core/license.ts, core/entitlements.ts) | activation (online/offline), licence status & AMC, renewal checkout, signed check-ins, update center + host updater, backups (local/USB/encrypted cloud) & restore requests, Connect snapshot push, relay messaging provider, LAN info, support bundle |
+| Cloud tenants | our cloud, `KADAI_MODE=cloud` | `platform` | plan billing with offers & coupons, announcements, API keys, system info |
+
+### 21.1 Vendor data
+
+Migration `0010_vendor_licensing.sql`: `platform_staff`, `partners`, `vendor_customers`,
+`license_products` (price book), `licenses`, `license_activations`, `license_events`
+(append-only), `releases`, `offers`, `vendor_orders`, `offer_redemptions`, `partner_commissions`,
+`announcements`, `installation_snapshots`, `cloud_backups`. They carry no `tenant_id`, are revoked
+from the runtime role and are used only through the system pool by the `licensing` module. On-prem
+editions are rows in `plans` (`onprem_starter|standard|pro|enterprise`, not public), so
+entitlements resolve `license.plan_code` exactly like a cloud plan.
+
+### 21.2 Licences
+
+* Human key `KD-XXXX-XXXX-XXXX-XXXX` (Crockford base32 + check character); only sha256 + prefix
+  are stored. Types: `perpetual`, `subscription` (yearly), `trial`, `nfr` (partners/demo).
+* The licence document is the existing `kadai-license-v1` (Ed25519, `core/license.ts`), extended
+  with optional `license_type`, `edition`, `updates_until`, `support_until`, `grace_days`,
+  `addons`, `customer_id`, `partner_id`, `check_in_days`; older documents stay valid. It is bound to
+  `installation_id`. Signing key: `KADAI_LICENSE_SIGNING_KEY` (vendor only, KMS-held in production).
+* Semantics on the shop server: perpetual → never expires; subscription past `valid_until` + grace
+  → Free limits (writable, data never locked); tampered/foreign → read-only (existing core
+  behaviour). `updates_until` (AMC) gates **updates only**, never daily use.
+* Activation: online (`POST /public/v1/licensing/activate`) or offline (signed request file →
+  vendor console / `kadai.app/activate` → licence file). Each installation has an Ed25519
+  keypair; re-activation of the same installation is idempotent; a known installation id with a
+  different fingerprint is flagged `clone_suspected`. Self-service transfer to a new PC is
+  rate-limited.
+
+### 21.3 Check-in (optional, when online)
+
+Every 6 h the shop server sends a request signed with its installation key (headers
+`X-Kadai-Installation`, `X-Kadai-Timestamp`, `X-Kadai-Signature` over
+`METHOD\npath\ntimestamp\nsha256(body)`; ±10 min skew, replay-protected) carrying version and
+**counts only**. The response carries a refreshed licence (after renewals/upgrades), targeted
+announcements and offers with priced quotes, the latest eligible release (and the newest
+ineligible one, to nudge AMC renewal), renewal due date + checkout URL, and add-on entitlements.
+A perpetual licence never needs a check-in.
+
+### 21.4 Updates
+
+Releases carry signed artifacts (Ed25519 over `sha256|version|platform`, `KADAI_RELEASE_SIGNING_KEY`).
+The app never replaces itself: `POST /system/updates/install` takes a `pre_upgrade` backup and
+writes `KADAI_DATA_DIR/updates/request.json`; a **host updater** (Windows scheduled task /
+systemd timer / Docker compose script in `deploy/onprem/updater/`) verifies the signature,
+swaps the app keeping the previous version, migrates, health-checks `/health/ready` and rolls back
+on failure, reporting progress in `status.json`. Restores use the same request/status channel.
+
+### 21.5 Backups
+
+Daily scheduled + manual `pg_dump -Fc` to `KADAI_DATA_DIR/backups` (retention 14 daily, 12
+monthly, 10 manual), optional copy to an external drive/USB folder, and the encrypted cloud-backup
+add-on: AES-256-GCM on the shop server with a key derived from a recovery code that only the shop
+holds; we store opaque blobs via presigned URLs.
+
+### 21.6 Offers, orders & pricing
+
+One shared pure helper (`priceOrder()` in `@kadai/shared/api/licensing`) prices everything we
+sell — editions, yearly licences, AMC, add-ons, prepaid cloud plans — applying automatic
+campaigns and coupon codes (percent / flat / free months / price override; audience by channel,
+business type, state, segment; limits; partner-exclusive codes), partner discounts and GST
+(CGST+SGST vs IGST by buyer state vs `KADAI_VENDOR_STATE_CODE`, SAC 997331). Orders are paid by
+Razorpay payment link, manual UPI/bank reference or partner settlement; on payment they are
+fulfilled automatically (licence issued/extended, gapless GST invoice number `KD/<FY>/<seq>`,
+partner commission accrued, offer redemption recorded).
+
+### 21.7 Kadai Connect & messaging relay
+
+* **Connect** (add-on): opted-in shop servers include a dashboard snapshot (aggregates only) in
+  check-ins; the owner opens `kadai.app/connect`, logs in with the licensee phone OTP and sees
+  today's sales, collections, dues and stock alerts.
+* **Relay**: on-prem shops can send WhatsApp/SMS through our providers (`kadai_relay`
+  notifications provider → signed `POST /public/v1/licensing/relay/messages`), so they need no
+  DLT registration or WhatsApp Business API account; metered per licence.
+
+### 21.8 Shop-floor hardware (on-prem)
+
+Thermal printers via the OS driver with silent printing through the Kadai desktop shortcut
+(`msedge --kiosk-printing --app=http://localhost:8080/pos`); keyboard-wedge barcode scanners;
+weighing scales over Web Serial (configurable baud/parser per register); cash drawers opened by the
+printer driver; other counters, tablets and phones join via the LAN URL/QR shown in Settings →
+System.
