@@ -228,7 +228,11 @@ export function isDynamicProvider(code: PaymentProviderCode): boolean {
 }
 
 /** Razorpay webhook events to enable on the dashboard (shown in the setup screen). */
-export const RAZORPAY_WEBHOOK_EVENTS = ['qr_code.credited', 'payment_link.paid', 'payment.failed'] as const
+export const RAZORPAY_WEBHOOK_EVENTS = [
+  'qr_code.credited',
+  'payment_link.paid',
+  'payment.failed',
+] as const
 
 /** Webhook path for a provider account (prefix with PUBLIC_BASE_URL): fixed by ingress rules. */
 export function paymentWebhookPath(provider: PaymentProviderCode, accountId: string): string {
@@ -313,7 +317,10 @@ export type PaymentProviderPublic = z.output<typeof PaymentProviderPublicSchema>
 
 const ProviderCommonFields = {
   display_name: z.string().trim().min(1).max(80),
-  store_id: zId.nullable().optional().describe('Store the account serves; null/absent = all stores'),
+  store_id: zId
+    .nullable()
+    .optional()
+    .describe('Store the account serves; null/absent = all stores'),
   settlement_account_id: zId
     .nullable()
     .optional()
@@ -378,10 +385,9 @@ export const PaymentProviderUpdateSchema = z
     auto_pay_delay_ms: z.int().min(0).max(600_000).optional(),
     if_updated_at: zIfUpdatedAt,
   })
-  .refine(
-    (v) => Object.entries(v).some(([k, x]) => x !== undefined && k !== 'if_updated_at'),
-    { message: 'empty_patch' },
-  )
+  .refine((v) => Object.entries(v).some(([k, x]) => x !== undefined && k !== 'if_updated_at'), {
+    message: 'empty_patch',
+  })
 export type PaymentProviderUpdate = z.input<typeof PaymentProviderUpdateSchema>
 
 export const PaymentProviderListQuerySchema = PageQuerySchema.extend({
@@ -556,7 +562,11 @@ export const PaymentIntentMockPaySchema = z
     /** Simulate an amount mismatch. */
     amount_paise: zAmountPaise.optional(),
     payer_vpa: z.string().trim().refine(isValidVpa, { message: 'vpa_invalid' }).optional(),
-    utr: z.string().trim().regex(/^[A-Za-z0-9]{6,35}$/, 'utr_invalid').optional(),
+    utr: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9]{6,35}$/, 'utr_invalid')
+      .optional(),
   })
   .prefault({})
 
@@ -778,7 +788,11 @@ export const PaymentCreateSchema = z
   })
   .superRefine((v, ctx) => {
     if (v.allocations?.length && v.auto_allocate) {
-      ctx.addIssue({ code: 'custom', path: ['auto_allocate'], message: 'allocations_and_auto_allocate' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['auto_allocate'],
+        message: 'allocations_and_auto_allocate',
+      })
     }
     const allowed = ALLOCATION_TARGETS_BY_DIRECTION[v.direction]
     let sum = 0
@@ -918,7 +932,11 @@ export function allocateFifo(
     if (left <= 0) break
     if (item.due_paise <= 0) continue
     const amount = Math.min(left, item.due_paise)
-    allocations.push({ target_type: item.target_type, target_id: item.target_id, amount_paise: amount })
+    allocations.push({
+      target_type: item.target_type,
+      target_id: item.target_id,
+      amount_paise: amount,
+    })
     left -= amount
   }
   return { allocations, unallocated_paise: left }
@@ -1257,7 +1275,7 @@ export const paymentsRoutes = defineRoutes({
     scope: 'webhook',
     auth: 'public',
     params: PaymentWebhookParamsSchema,
-    response: WebhookAckSchema,
+    response: dataOf(WebhookAckSchema),
     summary: 'Provider webhook (raw body, HMAC verified; invalid signature → 401; deduplicated)',
   },
 })

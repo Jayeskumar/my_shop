@@ -103,6 +103,14 @@ export const CatalogSettingsSchema = z.object({
   default_track_batches: z.boolean().default(false),
   /** Generate an internal EAN-13 ('20…') for products without a barcode. */
   auto_generate_barcode: z.boolean().default(false),
+  /** Give products created without a SKU the next `sku_prefix` + 5-digit number (P00042). */
+  auto_sku: z.boolean().default(false),
+  sku_prefix: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9-]{0,8}$/)
+    .default('P'),
   /** Default variant axes offered when creating a variant product. */
   variant_axes: z.array(z.string().trim().min(1).max(30)).max(4).default([]),
 })

@@ -72,6 +72,7 @@ import {
   zQueryList,
   zReason,
 } from './payments'
+import { zQueryIds } from './identity'
 import { TaxBreakupRowSchema } from './sales'
 
 // =============================================================================================
@@ -208,7 +209,11 @@ export function suggestedReorderQtyMilli(input: {
   reorder_qty_milli: number | null
   stock_milli: number
 }): number {
-  return Math.max(0, input.reorder_qty_milli ?? 0, 2 * input.reorder_level_milli - input.stock_milli)
+  return Math.max(
+    0,
+    input.reorder_qty_milli ?? 0,
+    2 * input.reorder_level_milli - input.stock_milli,
+  )
 }
 
 /** Average daily sales (milli) over a window (default 30 days), rounded. */
@@ -251,7 +256,14 @@ export function purchaseOrderActions(status: PurchaseOrderStatus): {
 export function purchaseBillActions(
   status: PurchaseBillStatus,
   opts: { due_paise: number; has_live_payments: boolean },
-): { edit: boolean; delete: boolean; post: boolean; cancel: boolean; pay: boolean; return: boolean } {
+): {
+  edit: boolean
+  delete: boolean
+  post: boolean
+  cancel: boolean
+  pay: boolean
+  return: boolean
+} {
   return {
     edit: status === 'draft',
     delete: status === 'draft',
@@ -341,12 +353,15 @@ export function purchaseLineWarnings(
     const mrp = line.mrp_paise ?? product.mrp_paise
     if (mrp != null && line.sale_price_paise > mrp) w('sale_price_above_mrp', { mrp_paise: mrp })
   }
-  if (line.gst_rate_bp !== product.gst_rate_bp) w('gst_rate_differs', { product_gst_rate_bp: product.gst_rate_bp })
+  if (line.gst_rate_bp !== product.gst_rate_bp)
+    w('gst_rate_differs', { product_gst_rate_bp: product.gst_rate_bp })
   return out
 }
 
 /** WhatsApp / SMS text of a purchase order (`items` param of po_to_supplier). */
-export function formatPurchaseOrderText(lines: readonly { name: string; qty_display: string }[]): string {
+export function formatPurchaseOrderText(
+  lines: readonly { name: string; qty_display: string }[],
+): string {
   return lines.map((l, i) => `${i + 1}. ${l.name} — ${l.qty_display}`).join('\n')
 }
 
@@ -545,7 +560,13 @@ export const PurchaseOrderListQuerySchema = PageQuerySchema.extend({
   supplier_id: zId.optional(),
   store_id: zId.optional(),
   ...DATE_RANGE_FIELDS,
-  sort: sortQuery(['order_date', 'number', 'total_paise', 'expected_date', 'created_at']).optional(),
+  sort: sortQuery([
+    'order_date',
+    'number',
+    'total_paise',
+    'expected_date',
+    'created_at',
+  ]).optional(),
   format: zListFormat,
 }).refine(dateOrderOk, DATE_ORDER_ISSUE)
 export type PurchaseOrderListQuery = z.input<typeof PurchaseOrderListQuerySchema>
@@ -590,7 +611,9 @@ const BillFields = {
   supplier_invoice_no: z.string().trim().min(1, 'supplier_invoice_no_required').max(40),
   supplier_invoice_date: zDateStr,
   received_date: zDateStr.optional().describe('Default: today'),
-  due_date: zDateStr.optional().describe("Default: supplier invoice date + supplier's payment terms"),
+  due_date: zDateStr
+    .optional()
+    .describe("Default: supplier invoice date + supplier's payment terms"),
   is_interstate: z.boolean().optional().describe('Default: supplier state ≠ store state'),
   reverse_charge: z.boolean().default(false),
   itc_eligible: z.boolean().default(true),
@@ -623,7 +646,12 @@ export const PurchaseBillUpdateSchema = z
   .object({
     supplier_id: zId.optional(),
     purchase_order_id: zId.nullable().optional(),
-    supplier_invoice_no: z.string().trim().min(1, 'supplier_invoice_no_required').max(40).optional(),
+    supplier_invoice_no: z
+      .string()
+      .trim()
+      .min(1, 'supplier_invoice_no_required')
+      .max(40)
+      .optional(),
     supplier_invoice_date: zDateStr.optional(),
     received_date: zDateStr.optional(),
     due_date: zDateStr.nullable().optional(),
@@ -645,7 +673,12 @@ export type PurchaseBillUpdate = z.input<typeof PurchaseBillUpdateSchema>
 /** POST /purchase-bills/from-order/:orderId — a draft with the PO's pending quantities. */
 export const PurchaseBillFromOrderSchema = z
   .object({
-    supplier_invoice_no: z.string().trim().max(40).optional().describe("'' until entered; required to post"),
+    supplier_invoice_no: z
+      .string()
+      .trim()
+      .max(40)
+      .optional()
+      .describe("'' until entered; required to post"),
     supplier_invoice_date: zDateStr.optional(),
     received_date: zDateStr.optional(),
   })
@@ -818,7 +851,15 @@ export const PurchaseBillListQuerySchema = PageQuerySchema.extend({
   has_due: zBooleanQuery.optional(),
   /** Received date range. */
   ...DATE_RANGE_FIELDS,
-  sort: sortQuery(['received_date', 'supplier_invoice_date', 'due_date', 'number', 'total_paise', 'due_paise', 'created_at']).optional(),
+  sort: sortQuery([
+    'received_date',
+    'supplier_invoice_date',
+    'due_date',
+    'number',
+    'total_paise',
+    'due_paise',
+    'created_at',
+  ]).optional(),
   format: zListFormat,
 }).refine(dateOrderOk, DATE_ORDER_ISSUE)
 export type PurchaseBillListQuery = z.input<typeof PurchaseBillListQuerySchema>
@@ -1028,10 +1069,16 @@ export const DebitNoteListResponseSchema = listOf(DebitNoteListRowSchema).extend
   summary: z.object({ count: z.int(), total_paise: zPaise }),
 })
 
-/** GET /debit-notes/prefill?batch_ids=…&store_id= — free-form return lines for batches. */
+/**
+ * GET /debit-notes/prefill?batch_ids=…&store_id=&supplier_id= — free-form return lines for
+ * batches (the inventory batches page links to /purchases/returns/new with
+ * purchaseReturnPrefillPath(); the page passes its query on, adding the current store).
+ */
 export const DebitNotePrefillQuerySchema = z.object({
-  batch_ids: zQueryList(zId),
+  /** Repeated keys or comma-separated. */
+  batch_ids: zQueryIds,
   store_id: zId,
+  supplier_id: zId.optional(),
 })
 export type DebitNotePrefillQuery = z.input<typeof DebitNotePrefillQuerySchema>
 
@@ -1071,6 +1118,11 @@ export const ReorderSuggestionsQuerySchema = z.object({
   supplier_id: zId.optional(),
   category_id: zId.optional(),
   q: zSearchQuery.optional(),
+  /**
+   * Only these products — included even above their reorder level (the PO form opened with
+   * inventory's reorderPrefillPath(): /purchases/orders/new?source=reorder&product_ids=…).
+   */
+  product_ids: zQueryIds.optional(),
 })
 export type ReorderSuggestionsQuery = z.input<typeof ReorderSuggestionsQuerySchema>
 

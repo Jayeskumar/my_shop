@@ -74,6 +74,7 @@ import {
   TenantSettingsSchema,
 } from '../settings'
 import { isUnitCode } from '../units'
+import { loyaltyRedeemIssue, loyaltyValuePaise } from './parties'
 import {
   AddressSchema,
   PageQuerySchema,
@@ -229,7 +230,8 @@ export function salesDocumentModeFor(scheme: GstScheme): {
   tax_mode: TaxMode
   series: NumberSeriesDocType
 } {
-  if (scheme === 'regular') return { doc_type: 'tax_invoice', tax_mode: 'regular', series: 'sales_invoice' }
+  if (scheme === 'regular')
+    return { doc_type: 'tax_invoice', tax_mode: 'regular', series: 'sales_invoice' }
   return { doc_type: 'bill_of_supply', tax_mode: scheme, series: 'bill_of_supply' }
 }
 
@@ -288,9 +290,18 @@ export function resolveUnitPrice(c: PriceCandidates): {
   source: Exclude<PriceSource, 'manual' | 'ad_hoc'>
 } {
   const mrp = c.batch?.mrp_paise ?? c.store_price?.mrp_paise ?? c.product.mrp_paise ?? null
-  if (c.store_price) return { unit_price_paise: c.store_price.sale_price_paise, mrp_paise: mrp, source: 'store_price' }
+  if (c.store_price)
+    return {
+      unit_price_paise: c.store_price.sale_price_paise,
+      mrp_paise: mrp,
+      source: 'store_price',
+    }
   if (c.price_tier === 'wholesale' && c.product.wholesale_price_paise != null) {
-    return { unit_price_paise: c.product.wholesale_price_paise, mrp_paise: mrp, source: 'price_tier' }
+    return {
+      unit_price_paise: c.product.wholesale_price_paise,
+      mrp_paise: mrp,
+      source: 'price_tier',
+    }
   }
   if (c.batch?.sale_price_paise != null) {
     return { unit_price_paise: c.batch.sale_price_paise, mrp_paise: mrp, source: 'batch' }
@@ -307,14 +318,20 @@ export function qtyIssue(
   qtyMilli: number,
 ): 'decimal_qty_not_allowed' | 'loose_not_allowed' | null {
   if (!product.decimal_qty && qtyMilli % 1000 !== 0) return 'decimal_qty_not_allowed'
-  if (product.pack_size > 1 && !product.allow_loose && qtyMilli % (product.pack_size * 1000) !== 0) {
+  if (
+    product.pack_size > 1 &&
+    !product.allow_loose &&
+    qtyMilli % (product.pack_size * 1000) !== 0
+  ) {
     return 'loose_not_allowed'
   }
   return null
 }
 
 /** Drug schedule of a product from its attributes (pharmacy; default OTC). */
-export function drugScheduleOf(attributes: Record<string, unknown> | null | undefined): DrugSchedule {
+export function drugScheduleOf(
+  attributes: Record<string, unknown> | null | undefined,
+): DrugSchedule {
   const parsed = DrugScheduleSchema.safeParse(attributes?.['schedule'])
   return parsed.success ? parsed.data : 'OTC'
 }
@@ -349,7 +366,10 @@ export function batchExpiryStatus(
  * product.max_discount_bp). Manual discounts above it need `sales.discount_override`
  * (promotions and loyalty are sanctioned and never count).
  */
-export function discountLimitBp(settingsLimitBp: number, productMaxDiscountBp: number | null | undefined): number {
+export function discountLimitBp(
+  settingsLimitBp: number,
+  productMaxDiscountBp: number | null | undefined,
+): number {
   return Math.min(settingsLimitBp, productMaxDiscountBp ?? 10_000)
 }
 
@@ -387,43 +407,61 @@ export function parseCashTenderNotes(
   return m ? { tendered_paise: Number(m[1]), change_paise: Number(m[2]) } : null
 }
 
+/** Payment notes for display (without the machine part of cashTenderNotes). */
+export function displayPaymentNotes(notes: string | null | undefined): string | null {
+  const text = notes?.replace(CASH_NOTE_RE, '').trim()
+  return text ? text : null
+}
+
+/** Default validity of an estimate (valid_until = estimate date + this many days). */
+export const ESTIMATE_VALIDITY_DAYS = 7
+
 // ---- loyalty -----------------------------------------------------------------------------------
 
 type LoyaltySettings = z.output<typeof LoyaltySettingsSchema>
 
-export type LoyaltyIssue = 'loyalty_disabled' | 'loyalty_insufficient_points' | 'loyalty_below_minimum'
+/** Redemption problems (the parties contract's loyaltyRedeemIssue keys). */
+export type LoyaltyIssue = 'loyalty_disabled' | 'loyalty_insufficient' | 'loyalty_below_minimum'
 
 /**
- * Points → paise redemption, capped so the redemption never exceeds `cap_paise` (the bill after
- * other discounts); only whole points are redeemed. Redemption is a flat bill discount (part of
- * bill_discount_paise, reported as loyalty_redeem_paise / loyalty_points_redeemed).
+ * Points → paise redemption of a cart. The request is validated with the parties contract's
+ * loyaltyRedeemIssue (the same rules core/loyalty redeemPoints enforces), then capped so the
+ * value never exceeds `cap_paise` (the bill after other discounts) — whole points only, so the
+ * posted redemption can never be 'loyalty_exceeds_bill'; when the cap leaves fewer points than
+ * settings.loyalty.min_redeem_points nothing is redeemed ('loyalty_below_minimum'). Redemption is a flat bill discount
+ * (part of bill_discount_paise, reported as loyalty_redeem_paise / loyalty_points_redeemed).
+ * Points earned on the bill: loyaltyPointsForAmount(total_paise) from the parties contract.
  */
 export function loyaltyRedemption(input: {
   requested_points: number
   available_points: number
   cap_paise: number
-  settings: Pick<LoyaltySettings, 'enabled' | 'point_value_paise' | 'min_redeem_points'>
+  settings: LoyaltySettings
 }): { points: number; paise: number; issue: LoyaltyIssue | null } {
   const { requested_points: req, settings } = input
   if (req <= 0) return { points: 0, paise: 0, issue: null }
-  if (!settings.enabled) return { points: 0, paise: 0, issue: 'loyalty_disabled' }
-  if (req > input.available_points) return { points: 0, paise: 0, issue: 'loyalty_insufficient_points' }
-  if (req < settings.min_redeem_points) return { points: 0, paise: 0, issue: 'loyalty_below_minimum' }
-  if (settings.point_value_paise <= 0) return { points: 0, paise: 0, issue: null }
-  const points = Math.min(req, Math.floor(Math.max(0, input.cap_paise) / settings.point_value_paise))
-  return { points, paise: points * settings.point_value_paise, issue: null }
-}
-
-/**
- * Points earned on a bill: floor(amount × points_per_100_rupees / 10000) on the payable total
- * (after redemption); 0 when loyalty is disabled. core/loyalty uses the same formula.
- */
-export function loyaltyPointsEarned(
-  amountPaise: number,
-  settings: Pick<LoyaltySettings, 'enabled' | 'points_per_100_rupees'>,
-): number {
-  if (!settings.enabled || amountPaise <= 0) return 0
-  return Math.floor((amountPaise * settings.points_per_100_rupees) / 10_000)
+  const issue = loyaltyRedeemIssue({
+    points: req,
+    balance_points: input.available_points,
+    settings,
+  })
+  if (
+    issue === 'loyalty_disabled' ||
+    issue === 'loyalty_insufficient' ||
+    issue === 'loyalty_below_minimum'
+  ) {
+    return { points: 0, paise: 0, issue }
+  }
+  if (issue !== null || settings.point_value_paise <= 0) return { points: 0, paise: 0, issue: null }
+  const points = Math.min(
+    req,
+    Math.floor(Math.max(0, input.cap_paise) / settings.point_value_paise),
+  )
+  // A bill too small for the minimum redemption redeems nothing (core/loyalty would refuse it).
+  if (points < settings.min_redeem_points) {
+    return { points: 0, paise: 0, issue: 'loyalty_below_minimum' }
+  }
+  return { points, paise: loyaltyValuePaise(points, settings), issue: null }
 }
 
 // ---- cart pricing --------------------------------------------------------------------------------
@@ -465,7 +503,7 @@ export interface CartPricingInput {
   loyalty?: {
     redeem_points: number
     available_points: number
-    settings: Pick<LoyaltySettings, 'enabled' | 'point_value_paise' | 'min_redeem_points'>
+    settings: LoyaltySettings
   } | null
 }
 
@@ -520,7 +558,10 @@ export function priceCart(input: CartPricingInput): CartPricingResult {
     gst_rate_bp: l.gst_rate_bp,
     cess_rate_bp: l.cess_rate_bp ?? 0,
     discount_bp: l.discount_bp ?? 0,
-    discount_paise: sumSafe([l.discount_paise ?? 0, promo?.line_discounts[l.key]?.discount_paise ?? 0]),
+    discount_paise: sumSafe([
+      l.discount_paise ?? 0,
+      promo?.line_discounts[l.key]?.discount_paise ?? 0,
+    ]),
     mrp_paise: l.mrp_paise ?? null,
     tax_slabs: l.tax_slabs ?? null,
   }))
@@ -538,7 +579,10 @@ export function priceCart(input: CartPricingInput): CartPricingResult {
   const netTotal = sumSafe(lineInputs.map(lineNetBeforeBillDiscount))
   const manualBill = Math.min(
     netTotal,
-    sumSafe([input.bill_discount_paise ?? 0, mulDiv(netTotal, input.bill_discount_bp ?? 0, 10_000)]),
+    sumSafe([
+      input.bill_discount_paise ?? 0,
+      mulDiv(netTotal, input.bill_discount_bp ?? 0, 10_000),
+    ]),
   )
   const promoBill = Math.min(netTotal - manualBill, promo?.bill_discount_paise ?? 0)
   const loyalty = input.loyalty
@@ -697,11 +741,17 @@ export function returnableQtyMilli(line: {
  */
 export function prorateReturnLine(
   original: TaxAmounts,
-  opts: { qty_milli: number; total_qty_milli: number; returned_qty_milli: number; credited: TaxAmounts },
+  opts: {
+    qty_milli: number
+    total_qty_milli: number
+    returned_qty_milli: number
+    credited: TaxAmounts
+  },
 ): TaxAmounts & { total_paise: number } {
   const { qty_milli: qty, total_qty_milli: total, returned_qty_milli: returned } = opts
   if (!Number.isSafeInteger(qty) || qty <= 0) throw new RangeError('qty_milli must be > 0')
-  if (!Number.isSafeInteger(total) || total <= 0) throw new RangeError('total_qty_milli must be > 0')
+  if (!Number.isSafeInteger(total) || total <= 0)
+    throw new RangeError('total_qty_milli must be > 0')
   if (returned < 0 || returned + qty > total) {
     throw new RangeError('cannot return more than the remaining quantity')
   }
@@ -788,7 +838,7 @@ export const SALES_BLOCKING_ISSUE_CODES = [
   'payment_intent_invalid',
   'store_credit_insufficient',
   'loyalty_disabled',
-  'loyalty_insufficient_points',
+  'loyalty_insufficient',
   'loyalty_below_minimum',
   'backdate_not_allowed',
   'shift_required',
@@ -922,7 +972,9 @@ export const CartLineInputSchema = z
     discount_paise: zPaise.optional(),
     batch_id: zId
       .optional()
-      .describe('Batch-tracked products: omitted = FEFO auto-pick, splitting the line across batches when needed'),
+      .describe(
+        'Batch-tracked products: omitted = FEFO auto-pick, splitting the line across batches when needed',
+      ),
     serial_numbers: z.array(z.string().trim().min(1).max(60)).max(1000).optional(),
     /** Raw scanned code (barcode / scale barcode) for audit (meta.scanned_code). */
     scanned_code: z.string().trim().max(64).optional(),
@@ -1090,7 +1142,7 @@ export type InvoiceShare = z.input<typeof InvoiceShareSchema>
 /** POST /sales/estimates — doc_type estimate, number 'estimate', no stock / journal. */
 export const EstimateCreateSchema = z.object({
   ...CartFields,
-  /** Default: today + 7 days. Stored in sales_invoices.due_date. */
+  /** Default: today + ESTIMATE_VALIDITY_DAYS. Stored in sales_invoices.due_date. */
   valid_until: zDateStr.optional(),
   client_ref: zIdempotencyKey.optional(),
 })
@@ -1130,9 +1182,11 @@ export const CreditNoteLineInputSchema = z
   })
   .refine(
     (l) =>
-      [l.invoice_line_id !== undefined, l.invoice_line_no !== undefined, l.product_id !== undefined].filter(
-        Boolean,
-      ).length === 1,
+      [
+        l.invoice_line_id !== undefined,
+        l.invoice_line_no !== undefined,
+        l.product_id !== undefined,
+      ].filter(Boolean).length === 1,
     { message: 'credit_note_line_ref_required', path: ['invoice_line_id'] },
   )
   .refine((l) => l.product_id === undefined || l.unit_price_paise !== undefined, {
@@ -1173,7 +1227,11 @@ export const CreditNoteCreateSchema = z
       ctx.addIssue({ code: 'custom', path: ['lines'], message: 'credit_note_mixed_lines' })
     }
     if (freeForm === 0 && !hasInvoice) {
-      ctx.addIssue({ code: 'custom', path: ['invoice_id'], message: 'credit_note_line_ref_required' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['invoice_id'],
+        message: 'credit_note_line_ref_required',
+      })
     }
     if (freeForm > 0 && v.store_id === undefined) {
       ctx.addIssue({ code: 'custom', path: ['store_id'], message: 'credit_note_store_required' })
@@ -1332,6 +1390,7 @@ export const QuoteResultSchema = z.object({
       due_paise: zPaise,
     })
     .nullable(),
+  /** When tenders were sent and a due remains: the khata check (creditCheck) for the customer. */
   credit: z
     .object({
       due_paise: zPaise,
@@ -1526,7 +1585,12 @@ export const SalesInvoiceDetailSchema = SalesInvoiceListRowSchema.extend({
   credit_notes: z.array(CreditNoteRefSchema),
   journal_entry_id: zId.nullable(),
   shift: z
-    .object({ id: zId, status: ShiftStatusSchema, opened_at: zTimestamp, opened_by_name: z.string().nullable() })
+    .object({
+      id: zId,
+      status: ShiftStatusSchema,
+      opened_at: zTimestamp,
+      opened_by_name: z.string().nullable(),
+    })
     .nullable(),
   /** The customer's current khata state (link to the ledger). */
   customer: z
@@ -1624,7 +1688,14 @@ export const InvoiceListQuerySchema = PageQuerySchema.extend({
   has_due: zBooleanQuery.optional(),
   offline: zBooleanQuery.optional(),
   ...DATE_RANGE_FIELDS,
-  sort: sortQuery(['invoice_date', 'invoice_at', 'number', 'total_paise', 'due_paise', 'created_at']).optional(),
+  sort: sortQuery([
+    'invoice_date',
+    'invoice_at',
+    'number',
+    'total_paise',
+    'due_paise',
+    'created_at',
+  ]).optional(),
   format: zListFormat,
 }).refine(dateOrderOk, DATE_ORDER_ISSUE)
 export type InvoiceListQuery = z.input<typeof InvoiceListQuerySchema>
@@ -1932,7 +2003,11 @@ export const SalesPrintModelSchema = z.object({
     }),
   ),
   /** 'SGST' or 'UTGST' (stateTaxLabel of the place of supply). */
-  tax_labels: z.object({ cgst: z.literal('CGST'), sgst: z.enum(['SGST', 'UTGST']), igst: z.literal('IGST') }),
+  tax_labels: z.object({
+    cgst: z.literal('CGST'),
+    sgst: z.enum(['SGST', 'UTGST']),
+    igst: z.literal('IGST'),
+  }),
   totals: z.object({
     item_count: z.int().min(0),
     ...DocumentTotalFields,
@@ -1956,7 +2031,9 @@ export const SalesPrintModelSchema = z.object({
   /** Customer's khata balance after this document (when a customer is attached). */
   customer_balance_paise: z.int().nullable(),
   /** Shown when settings.invoice.show_mrp_savings and > 0 ("நீங்கள் சேமித்தது ₹x"). */
-  savings: z.object({ mrp_savings_paise: zPaise, discount_paise: zPaise, total_paise: zPaise }).nullable(),
+  savings: z
+    .object({ mrp_savings_paise: zPaise, discount_paise: zPaise, total_paise: zPaise })
+    .nullable(),
   loyalty: z
     .object({
       points_earned: z.int().min(0),
@@ -1967,10 +2044,17 @@ export const SalesPrintModelSchema = z.object({
     .nullable(),
   /** UPI QR for the due (settings.invoice.upi_qr_on_invoice and a UPI ID exists). */
   upi: z
-    .object({ uri: z.string(), amount_paise: zAmountPaise, vpa: z.string(), payee_name: z.string() })
+    .object({
+      uri: z.string(),
+      amount_paise: zAmountPaise,
+      vpa: z.string(),
+      payee_name: z.string(),
+    })
     .nullable(),
   /** Credit notes: how the value went back. */
-  settlement: z.object({ method: CreditNoteSettlementSchema, label: BilingualSchema, amount_paise: zPaise }).nullable(),
+  settlement: z
+    .object({ method: CreditNoteSettlementSchema, label: BilingualSchema, amount_paise: zPaise })
+    .nullable(),
   composition_declaration: BilingualSchema.nullable(),
   footer: z.object({ text_en: z.string(), text_ta: z.string(), terms: z.string() }),
   signatory: z.object({ label: BilingualSchema, for_name: z.string() }),
@@ -2281,7 +2365,11 @@ export const SyncItemResultSchema = z.object({
   number: z.string().nullable(),
   offline_number: z.string().nullable(),
   error: z
-    .object({ code: z.string(), message: z.string(), details: z.record(z.string(), z.unknown()).nullable() })
+    .object({
+      code: z.string(),
+      message: z.string(),
+      details: z.record(z.string(), z.unknown()).nullable(),
+    })
     .nullable(),
   warnings: z.array(SalesIssueSchema),
 })
@@ -2313,7 +2401,8 @@ export const salesRoutes = defineRoutes({
     feature: 'pos',
     query: PosBootstrapQuerySchema,
     response: dataOf(PosBootstrapSchema),
-    summary: 'Offline catalogue, settings, series state and providers for a register (delta with since)',
+    summary:
+      'Offline catalogue, settings, series state and providers for a register (delta with since)',
   },
   posQuote: {
     method: 'POST',

@@ -75,6 +75,11 @@ describe('core/payments', () => {
     amount: number
     status?: string
     settlementAccountId?: string | null
+    /** Amount actually received (default = amount when paid). */
+    paidAmount?: number | null
+    customerId?: string | null
+    purpose?: 'pos_sale' | 'invoice_due' | 'customer_due' | 'advance'
+    storeId?: string
   }): Promise<string> {
     const accountId = newId()
     await sys()
@@ -94,14 +99,20 @@ describe('core/payments', () => {
       .values({
         id: intentId,
         tenant_id: shop.tenant.id,
-        store_id: shop.store.id,
+        store_id: opts.storeId ?? shop.store.id,
         provider_account_id: accountId,
         provider: opts.provider,
-        purpose: 'pos_sale',
+        purpose: opts.purpose ?? 'pos_sale',
+        customer_id: opts.customerId ?? null,
         reference_code: generateReferenceCode(),
         amount_paise: opts.amount,
         status: opts.status ?? 'paid',
-        paid_amount_paise: opts.status === 'pending' ? null : opts.amount,
+        paid_amount_paise:
+          opts.paidAmount !== undefined
+            ? opts.paidAmount
+            : opts.status === 'pending'
+              ? null
+              : opts.amount,
         utr: '429876543210',
       })
       .execute()
@@ -336,8 +347,10 @@ describe('core/payments', () => {
       settlementAccountId: settlementId,
     })
     const pending = await insertIntent({ provider: 'razorpay', amount: 1_000, status: 'pending' })
-    const pay = (intentId: string, amount: number) =>
-      shop.tx((tx) =>
+    // Walk-in intent money must be fully allocated: settle a walk-in bill of the same amount.
+    const pay = async (intentId: string, amount: number) => {
+      const inv = await insertInvoice(null, amount)
+      return shop.tx((tx) =>
         recordPayment(tx, shop.ctx, {
           direction: 'in',
           store_id: shop.store.id,
@@ -345,8 +358,10 @@ describe('core/payments', () => {
           amount_paise: amount,
           payment_date: TODAY,
           payment_intent_id: intentId,
+          allocations: [{ target_type: 'sales_invoice', target_id: inv, amount_paise: amount }],
         }),
       )
+    }
     const a = await pay(vpaIntent, 2_500)
     const b = await pay(pspIntent, 3_000)
     const c = await pay(settledIntent, 1_000)
@@ -579,7 +594,7 @@ describe('core/payments', () => {
     await expect(
       shop.tx((tx) => cancelPayment(tx, shop.ctx, { payment_id: p.id, reason: 'again' })),
     ).rejects.toMatchObject({ code: 'CONFLICT' })
-    // The released intent can fund a new receipt.
+    // The released intent can fund a new receipt (the customer's advance).
     const again = await shop.tx((tx) =>
       recordPayment(tx, shop.ctx, {
         direction: 'in',
@@ -587,6 +602,7 @@ describe('core/payments', () => {
         method: 'upi',
         amount_paise: 2_500,
         payment_date: TODAY,
+        party: { type: 'customer', id: c.id },
         payment_intent_id: intent,
       }),
     )
@@ -642,5 +658,173 @@ describe('core/payments', () => {
       .where('id', '=', cn)
       .executeTakeFirstOrThrow()
     expect(reverted.settled_paise).toBe(0)
+  })
+  describe('payment intent consumption', () => {
+    const upi = (over: Partial<Parameters<typeof recordPayment>[2]>) =>
+      shop.tx((tx) =>
+        recordPayment(tx, shop.ctx, {
+          direction: 'in',
+          store_id: shop.store.id,
+          method: 'upi',
+          amount_paise: 1_000,
+          payment_date: TODAY,
+          ...over,
+        }),
+      )
+    const walkInBill = async (amount: number) => [
+      {
+        target_type: 'sales_invoice' as const,
+        target_id: await insertInvoice(null, amount),
+        amount_paise: amount,
+      },
+    ]
+
+    it('is consumed exactly once under concurrency and linked both ways', async () => {
+      const intent = await insertIntent({ provider: 'razorpay', amount: 1_000 })
+      const [a, b] = [await walkInBill(1_000), await walkInBill(1_000)]
+      const results = await Promise.allSettled([
+        upi({ payment_intent_id: intent, allocations: a }),
+        upi({ payment_intent_id: intent, allocations: b }),
+      ])
+      const ok = results.filter((r) => r.status === 'fulfilled')
+      const failed = results.filter((r) => r.status === 'rejected')
+      expect(ok).toHaveLength(1)
+      expect(failed).toHaveLength(1)
+      expect((failed[0] as PromiseRejectedResult).reason).toMatchObject({
+        code: 'CONFLICT',
+        details: { reason: 'intent_used' },
+      })
+      const payment = (ok[0] as PromiseFulfilledResult<Awaited<ReturnType<typeof recordPayment>>>)
+        .value
+      expect(payment.payment_intent_id).toBe(intent)
+      const row = await sys()
+        .selectFrom('payment_intents')
+        .select('payment_id')
+        .where('id', '=', intent)
+        .executeTakeFirstOrThrow()
+      expect(row.payment_id).toBe(payment.id)
+      // Exactly one live payment references the intent.
+      const linked = await sys()
+        .selectFrom('payments')
+        .select('id')
+        .where('tenant_id', '=', shop.tenant.id)
+        .where('payment_intent_id', '=', intent)
+        .execute()
+      expect(linked).toHaveLength(1)
+    })
+
+    it('requires a paid intent, a receipt and a non-cash method', async () => {
+      const pending = await insertIntent({ provider: 'razorpay', amount: 1_000, status: 'pending' })
+      await expect(
+        upi({ payment_intent_id: pending, allocations: await walkInBill(1_000) }),
+      ).rejects.toMatchObject({
+        code: 'UNPROCESSABLE',
+        details: { reason: 'intent_not_paid', status: 'pending' },
+      })
+      const paid = await insertIntent({ provider: 'razorpay', amount: 1_000 })
+      await expect(
+        upi({ payment_intent_id: paid, method: 'cash', allocations: await walkInBill(1_000) }),
+      ).rejects.toMatchObject({ details: { reason: 'intent_method' } })
+      const s = await insertTestSupplier(t.deps, shop.tenant.id)
+      await expect(
+        upi({ payment_intent_id: paid, direction: 'out', party: { type: 'supplier', id: s.id } }),
+      ).rejects.toMatchObject({ details: { reason: 'intent_direction' } })
+      await expect(upi({ payment_intent_id: newId() })).rejects.toMatchObject({ code: 'NOT_FOUND' })
+    })
+
+    it('must equal the amount actually received (mismatched intents included)', async () => {
+      const c = await insertTestCustomer(t.deps, shop.tenant.id)
+      // The customer paid ₹12 against a ₹10 QR: the payment records the ₹12 received.
+      const intent = await insertIntent({ provider: 'razorpay', amount: 1_000, paidAmount: 1_200 })
+      const inv = await insertInvoice(c.id, 1_000)
+      const allocations = [
+        { target_type: 'sales_invoice' as const, target_id: inv, amount_paise: 1_000 },
+      ]
+      const party = { type: 'customer' as const, id: c.id }
+      await expect(
+        upi({ payment_intent_id: intent, amount_paise: 1_000, party, allocations }),
+      ).rejects.toMatchObject({
+        details: { reason: 'intent_amount_mismatch', intent_amount_paise: 1_200 },
+      })
+      const p = await upi({ payment_intent_id: intent, amount_paise: 1_200, party, allocations })
+      expect(p).toMatchObject({ amount_paise: 1_200, unallocated_paise: 200 })
+      expect(await invoiceOf(inv)).toMatchObject({ due_paise: 0, payment_status: 'paid' })
+    })
+
+    it('belongs to its store', async () => {
+      const otherStore = newId()
+      await sys()
+        .insertInto('stores')
+        .values({
+          id: otherStore,
+          tenant_id: shop.tenant.id,
+          code: 'S9',
+          name: 'Branch',
+          state_code: '33',
+        })
+        .execute()
+      const intent = await insertIntent({ provider: 'upi_vpa', amount: 1_000, storeId: otherStore })
+      await expect(
+        upi({ payment_intent_id: intent, allocations: await walkInBill(1_000) }),
+      ).rejects.toMatchObject({
+        details: { reason: 'intent_store', intent_store_id: otherStore },
+      })
+    })
+
+    it("funds only its customer's payments (POS-sale intents may end as walk-in bills)", async () => {
+      const c = await insertTestCustomer(t.deps, shop.tenant.id)
+      const other = await insertTestCustomer(t.deps, shop.tenant.id)
+      const due = await insertIntent({
+        provider: 'razorpay',
+        amount: 1_000,
+        customerId: c.id,
+        purpose: 'customer_due',
+      })
+      await expect(
+        upi({ payment_intent_id: due, party: { type: 'customer', id: other.id } }),
+      ).rejects.toMatchObject({ details: { reason: 'intent_customer' } })
+      await expect(
+        upi({ payment_intent_id: due, allocations: await walkInBill(1_000) }),
+      ).rejects.toMatchObject({
+        details: { reason: 'intent_customer' },
+      })
+      const ok = await upi({ payment_intent_id: due, party: { type: 'customer', id: c.id } })
+      expect(ok.unallocated_paise).toBe(1_000)
+
+      const posSale = await insertIntent({ provider: 'razorpay', amount: 1_000, customerId: c.id })
+      const walkIn = await upi({ payment_intent_id: posSale, allocations: await walkInBill(1_000) })
+      expect(walkIn.party_id).toBeNull()
+    })
+
+    it('must be fully allocated unless the payment is for a customer', async () => {
+      const intent = await insertIntent({ provider: 'upi_vpa', amount: 1_000 })
+      await expect(upi({ payment_intent_id: intent })).rejects.toMatchObject({
+        details: { reason: 'intent_unallocated', unallocated_paise: 1_000 },
+      })
+      const half = await walkInBill(600)
+      await expect(upi({ payment_intent_id: intent, allocations: half })).rejects.toMatchObject({
+        details: { reason: 'intent_unallocated', unallocated_paise: 400 },
+      })
+      // Nothing was written by the failed attempts: the intent is still unused.
+      const row = await sys()
+        .selectFrom('payment_intents')
+        .select('payment_id')
+        .where('id', '=', intent)
+        .executeTakeFirstOrThrow()
+      expect(row.payment_id).toBeNull()
+    })
+
+    it('a client_ref replay must name the same intent', async () => {
+      const first = await insertIntent({ provider: 'razorpay', amount: 1_000 })
+      const second = await insertIntent({ provider: 'razorpay', amount: 1_000 })
+      const clientRef = `tender:${newId()}:0`
+      const allocations = await walkInBill(1_000)
+      const p = await upi({ payment_intent_id: first, allocations, client_ref: clientRef })
+      const replay = await upi({ payment_intent_id: first, allocations, client_ref: clientRef })
+      expect(replay).toMatchObject({ id: p.id, replayed: true })
+      await expect(
+        upi({ payment_intent_id: second, allocations, client_ref: clientRef }),
+      ).rejects.toMatchObject({ code: 'IDEMPOTENCY_MISMATCH' })
+    })
   })
 })

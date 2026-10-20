@@ -34,6 +34,21 @@
  * The remainder is kept as unallocated_paise (advance / on account). Allocation rows of a
  * cancelled payment are kept for history; sums over payment_allocations must join payments with
  * status 'completed' (the documents' paid/due columns are already corrected).
+ *
+ * Payment intents (`payment_intent_id`, UPI QR / link money) are consumed exactly once:
+ *  - the intent row is locked (FOR UPDATE) in the caller's transaction, so concurrent attempts
+ *    serialise and the loser sees `payment_id` set → 409 CONFLICT;
+ *  - it must belong to this tenant (RLS + explicit filter) and the payment's store, be `paid`
+ *    and unused (`payment_id` null); only receipts (direction 'in') by a non-cash method;
+ *  - the payment amount must EQUAL the money received (`paid_amount_paise`, else the intent
+ *    amount) — an intent is never split over several payments. Partial application is expressed
+ *    with allocations: what is not allocated stays on the payment as the customer's advance,
+ *    which therefore needs a customer party (walk-in intent money must be fully allocated);
+ *  - an intent created for a customer funds only that customer's payments, except POS-sale
+ *    intents, whose cart may end as a walk-in bill (never another customer's);
+ *  - on success `payment_intents.payment_id` is set (linked both ways). cancelPayment releases it
+ *    (paid, unused again) so it reappears in reconciliation.
+ * A client_ref replay must name the same intent (else IDEMPOTENCY_MISMATCH).
  */
 import {
   type AllocationTargetType,
@@ -527,8 +542,125 @@ function sameRequest(
     existing.amount_paise === input.amount_paise &&
     existing.payment_date === input.payment_date &&
     existing.party_type === (party?.type ?? null) &&
-    existing.party_id === (party?.id ?? null)
+    existing.party_id === (party?.id ?? null) &&
+    existing.payment_intent_id === (input.payment_intent_id?.toLowerCase() ?? null)
   )
+}
+
+/** Methods that can never be funded by a payment intent (the money did not come through it). */
+const NON_INTENT_METHODS: ReadonlySet<PaymentMethod> = new Set(['cash', 'cheque', 'store_credit'])
+
+/**
+ * Locks and validates the payment intent a payment consumes (rules in the module comment).
+ * Errors carry `details.reason` for clients: intent_direction, intent_method, intent_not_paid,
+ * intent_used (409), intent_amount_mismatch, intent_store, intent_customer, intent_unallocated.
+ */
+async function lockIntentForPayment(
+  tx: Tx,
+  ctx: Pick<RequestContext, 'tenantId'>,
+  input: {
+    intentId: string
+    direction: PaymentDirection
+    method: PaymentMethod
+    amount_paise: number
+    storeId: string
+    party: PaymentParty | null
+    unallocated_paise: number
+  },
+): Promise<{
+  id: string
+  provider: string
+  settlement_account_id: string | null
+  utr: string | null
+}> {
+  const row = await tx
+    .selectFrom('payment_intents as i')
+    .innerJoin('payment_provider_accounts as pa', (j) =>
+      j.onRef('pa.tenant_id', '=', 'i.tenant_id').onRef('pa.id', '=', 'i.provider_account_id'),
+    )
+    .select([
+      'i.id',
+      'i.status',
+      'i.store_id',
+      'i.customer_id',
+      'i.purpose',
+      'i.amount_paise',
+      'i.paid_amount_paise',
+      'i.payment_id',
+      'i.utr',
+      'i.provider',
+      'pa.settlement_account_id',
+    ])
+    .where('i.tenant_id', '=', ctx.tenantId)
+    .where('i.id', '=', input.intentId)
+    .forUpdate(['i'])
+    .executeTakeFirst()
+  if (!row) throw notFound('payment_intent', input.intentId)
+  const details = (reason: string, extra: Record<string, unknown> = {}) => ({
+    reason,
+    payment_intent_id: row.id,
+    ...extra,
+  })
+  if (input.direction !== 'in') {
+    throw unprocessable('A payment intent can only fund a receipt', details('intent_direction'))
+  }
+  if (NON_INTENT_METHODS.has(input.method)) {
+    throw unprocessable(
+      `A ${input.method} payment cannot use a payment intent`,
+      details('intent_method', { method: input.method }),
+    )
+  }
+  if (row.status !== 'paid') {
+    throw unprocessable(
+      'The payment intent is not paid',
+      details('intent_not_paid', { status: row.status }),
+    )
+  }
+  if (row.payment_id) {
+    throw conflict(
+      'The payment intent was already used',
+      details('intent_used', { payment_id: row.payment_id }),
+    )
+  }
+  const received = row.paid_amount_paise ?? row.amount_paise
+  if (received !== input.amount_paise) {
+    throw unprocessable(
+      'The amount differs from the amount paid through the intent',
+      details('intent_amount_mismatch', {
+        intent_amount_paise: received,
+        amount_paise: input.amount_paise,
+      }),
+    )
+  }
+  if (row.store_id !== input.storeId) {
+    throw unprocessable(
+      'The payment intent belongs to another store',
+      details('intent_store', { intent_store_id: row.store_id }),
+    )
+  }
+  const party = input.party
+  if (row.customer_id) {
+    const sameCustomer = party?.type === 'customer' && party.id === row.customer_id
+    const walkInPosSale = party === null && row.purpose === 'pos_sale'
+    if (!sameCustomer && !walkInPosSale) {
+      throw unprocessable(
+        'The payment intent belongs to another customer',
+        details('intent_customer', { intent_customer_id: row.customer_id }),
+      )
+    }
+  }
+  if (input.unallocated_paise > 0 && party?.type !== 'customer') {
+    throw unprocessable(
+      'A payment funded by a payment intent must be fully allocated unless it is for a customer (the rest becomes their advance)',
+      details('intent_unallocated', { unallocated_paise: input.unallocated_paise }),
+    )
+  }
+  return {
+    id: row.id,
+    provider: row.provider,
+    settlement_account_id: row.settlement_account_id,
+    utr: row.utr,
+  }
 }
 
 /** Records a completed payment (see the module comment). Runs in the caller's transaction. */
@@ -677,51 +809,15 @@ export async function recordPayment(
     utr: string | null
   } | null = null
   if (input.payment_intent_id) {
-    const intentId = uuidOf(input.payment_intent_id, 'payment_intent_id')
-    const row = await tx
-      .selectFrom('payment_intents as i')
-      .innerJoin('payment_provider_accounts as pa', (j) =>
-        j.onRef('pa.tenant_id', '=', 'i.tenant_id').onRef('pa.id', '=', 'i.provider_account_id'),
-      )
-      .select([
-        'i.id',
-        'i.status',
-        'i.store_id',
-        'i.customer_id',
-        'i.amount_paise',
-        'i.paid_amount_paise',
-        'i.payment_id',
-        'i.utr',
-        'i.provider',
-        'pa.settlement_account_id',
-      ])
-      .where('i.tenant_id', '=', ctx.tenantId)
-      .where('i.id', '=', intentId)
-      .forUpdate(['i'])
-      .executeTakeFirst()
-    if (!row) throw notFound('payment_intent', intentId)
-    if (input.direction !== 'in') throw unprocessable('A payment intent can only fund a receipt')
-    if (['cash', 'cheque', 'store_credit'].includes(input.method)) {
-      throw unprocessable(`A ${input.method} payment cannot use a payment intent`)
-    }
-    if (row.status !== 'paid') {
-      throw unprocessable('The payment intent is not paid', { status: row.status })
-    }
-    if (row.payment_id) {
-      throw conflict('The payment intent was already used', { payment_id: row.payment_id })
-    }
-    const paid = row.paid_amount_paise ?? row.amount_paise
-    if (paid !== input.amount_paise) {
-      throw unprocessable('The amount differs from the amount paid through the intent', {
-        intent_amount_paise: paid,
-        amount_paise: input.amount_paise,
-      })
-    }
-    if (row.store_id !== storeId) throw unprocessable('The payment intent belongs to another store')
-    if (row.customer_id && party && (party.type !== 'customer' || party.id !== row.customer_id)) {
-      throw unprocessable('The payment intent belongs to another customer')
-    }
-    intent = row
+    intent = await lockIntentForPayment(tx, ctx, {
+      intentId: uuidOf(input.payment_intent_id, 'payment_intent_id'),
+      direction: input.direction,
+      method: input.method,
+      amount_paise: input.amount_paise,
+      storeId,
+      party,
+      unallocated_paise: input.amount_paise - allocated,
+    })
   }
 
   const account = await resolvePaymentAccount(tx, ctx, {

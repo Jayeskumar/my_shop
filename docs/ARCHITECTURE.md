@@ -532,9 +532,13 @@ cancelPayment(tx, ctx, { payment_id, reason, date? }): Promise<{ reversal_entry_
   bank, `card`→card_clearing, `bank_transfer`/`cheque`/`other`→bank, `wallet`→upi_clearing,
   `store_credit`→customer_advance) unless `account_id` given. A payment consuming a payment
   intent uses the provider account's `settlement_account_id`, else `upi_clearing` for PSP
-  providers (razorpay, cashfree, phonepe, paytm, mock), else bank (`upi_vpa`). The intent must be
-  `paid`, unused, same store and amount; it is linked both ways (`payments.payment_intent_id`,
-  `payment_intents.payment_id`).
+  providers (razorpay, cashfree, phonepe, paytm, mock), else bank (`upi_vpa`). The intent is
+  locked `FOR UPDATE` and must be `paid`, unused, of the same store, and the payment amount must
+  equal the money received (`paid_amount_paise`) — an intent is never split; partial application
+  is done with allocations and the unallocated rest is the customer's advance (so it needs a
+  customer party). A customer's intent funds only that customer (POS-sale intents may end as a
+  walk-in bill). It is linked both ways (`payments.payment_intent_id`,
+  `payment_intents.payment_id`); errors carry `details.reason` (`intent_used` 409, …).
 * Posts the journal: `in` = Dr account, Cr counter; `out` = Dr counter, Cr account; counter =
   payable(supplier) for a supplier party, else receivable(customer or walk-in). `store_credit`
   lines on customer_advance carry the customer: `out` issues store credit (credit-note
@@ -558,6 +562,14 @@ provider credentials; `KADAI_ENCRYPTION_KEYS`), `core/files.ts` (local/S3 storag
 `core/events.ts` (LISTEN/NOTIFY fan-out for SSE), `core/jobs.ts` (enqueue helpers),
 `core/onboarding.ts` (create tenant + owner + store + register + roles + chart of accounts +
 vertical presets).
+
+`core/loyalty.ts` — the only writer of `loyalty_ledger` and `customers.loyalty_points`:
+`earnPoints` (from the bill amount via `settings.loyalty`, idempotent per document),
+`redeemPoints` (≥ `min_redeem_points`, ≤ balance, ≤ bill value), `reversePoints` (cancellations /
+returns: gives back redeemed points, takes back earned ones clamped to the balance, reporting
+`shortfall_points`), `adjustPoints` (manual, audited `customer.loyalty_adjust`) and
+`expirePoints`. Each call locks the customer row, so the balance never goes below zero; the
+points maths is shared with the POS (`@kadai/shared/api/parties`).
 
 ---
 
@@ -713,7 +725,8 @@ their oldest due invoices.
   number when it equals the series' next number (`acceptOfflineNumber`), otherwise assigns the
   next one and returns `renumbered: true` (audited for review). Offline tenders: cash, card,
   static-VPA UPI (manual). Stock is posted at sync time (negative stock allowed for synced
-  offline invoices, flagged).
+  offline invoices, flagged). Credit notes are numbered per store, so offline returns print a
+  provisional slip and get their number at sync (invoices are uploaded before credit notes).
 * **Held bills** (`status='held'`) survive refreshes and can be recalled on any register of the
   store.
 * **Scale barcodes** — EAN-13 with configurable prefixes (default `21–29`): `PP IIIII VVVVV C`

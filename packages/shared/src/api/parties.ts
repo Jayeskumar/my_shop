@@ -10,11 +10,15 @@
  */
 import { z } from 'zod'
 import {
+  type CustomerType,
   CustomerTypeSchema,
+  type JournalSourceType,
   JournalSourceTypeSchema,
+  type LoyaltyKind,
   LoyaltyKindSchema,
   PartyTypeSchema,
   PaymentIntentStatusSchema,
+  type PriceTier,
   PriceTierSchema,
   type PartyType,
 } from '../enums'
@@ -112,6 +116,46 @@ function refineTaxIds(
     ctx.addIssue({ code: 'custom', path: ['gstin'], message: 'gstin_state' })
   if (v.gstin && v.pan && panFromGstin(v.gstin) !== v.pan)
     ctx.addIssue({ code: 'custom', path: ['pan'], message: 'pan_gstin_mismatch' })
+}
+
+// =============================================================================================
+// Bilingual labels
+// =============================================================================================
+
+export type BilingualLabel = { en: string; ta: string }
+
+export const CUSTOMER_TYPE_LABELS: Readonly<Record<CustomerType, BilingualLabel>> = {
+  retail: { en: 'Retail', ta: 'சில்லறை' },
+  wholesale: { en: 'Wholesale', ta: 'மொத்த விற்பனை' },
+  business: { en: 'Business', ta: 'வணிக நிறுவனம்' },
+}
+
+export const PRICE_TIER_LABELS: Readonly<Record<PriceTier, BilingualLabel>> = {
+  retail: { en: 'Retail price', ta: 'சில்லறை விலை' },
+  wholesale: { en: 'Wholesale price', ta: 'மொத்த விலை' },
+}
+
+export const LOYALTY_KIND_LABELS: Readonly<Record<LoyaltyKind, BilingualLabel>> = {
+  earn: { en: 'Earned', ta: 'பெற்றது' },
+  redeem: { en: 'Redeemed', ta: 'பயன்படுத்தியது' },
+  adjust: { en: 'Adjusted', ta: 'சரிசெய்யப்பட்டது' },
+  expire: { en: 'Expired', ta: 'காலாவதியானது' },
+  reverse: { en: 'Reversed', ta: 'திரும்பப் பெறப்பட்டது' },
+}
+
+/** Row type of ledger statements (journal_entries.source_type). */
+export const LEDGER_SOURCE_LABELS: Readonly<Record<JournalSourceType, BilingualLabel>> = {
+  sales_invoice: { en: 'Sale bill', ta: 'விற்பனை பில்' },
+  credit_note: { en: 'Return (credit note)', ta: 'திருப்பம் (கிரெடிட் நோட்)' },
+  purchase_bill: { en: 'Purchase bill', ta: 'கொள்முதல் பில்' },
+  debit_note: { en: 'Purchase return (debit note)', ta: 'கொள்முதல் திருப்பம் (டெபிட் நோட்)' },
+  payment: { en: 'Payment', ta: 'பணப் பரிவர்த்தனை' },
+  expense: { en: 'Expense', ta: 'செலவு' },
+  stock_adjustment: { en: 'Stock adjustment', ta: 'இருப்புச் சரிசெய்தல்' },
+  stock_transfer: { en: 'Stock transfer', ta: 'இருப்பு மாற்றம்' },
+  shift: { en: 'Shift cash', ta: 'ஷிஃப்ட் ரொக்கம்' },
+  manual: { en: 'Journal entry', ta: 'பேரேட்டுப் பதிவு' },
+  opening: { en: 'Opening balance', ta: 'தொடக்க நிலுவை' },
 }
 
 // =============================================================================================
@@ -662,14 +706,12 @@ export const BankDetailsInputSchema = z
   .strictObject({
     account_name: zNullableText(100),
     account_number: z
-      .union([
-        z.null(),
-        z
-          .string()
-          .trim()
-          .regex(/^\d{6,18}$/, 'bank_account_number'),
-      ])
-      .optional(),
+      .union([z.null(), z.string().trim()])
+      .optional()
+      .refine((v) => v == null || v === '' || /^\d{6,18}$/.test(v.replace(/\s/g, '')), {
+        message: 'bank_account_number',
+      })
+      .transform((v) => (v === '' ? null : v == null ? v : v.replace(/\s/g, ''))),
     ifsc: z
       .union([z.null(), z.string().trim().toUpperCase()])
       .optional()

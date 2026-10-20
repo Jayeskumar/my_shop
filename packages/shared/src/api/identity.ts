@@ -38,6 +38,7 @@ import {
   ImportKindSchema,
   ImportStatusSchema,
   LocaleSchema,
+  type MembershipStatus,
   MembershipStatusSchema,
   type NumberSeriesDocType,
   NumberSeriesDocTypeSchema,
@@ -54,7 +55,8 @@ import {
 } from '../permissions'
 import { normalizeIndianPhone } from '../phone'
 import {
-  PrintFormatSchema,
+  type DeepPartial,
+  type RegisterSettings,
   RegisterSettingsSchema,
   TenantSettingsSchema,
   type TenantSettingsPatch,
@@ -384,6 +386,52 @@ export interface ImportColumnDef {
   description_en: string
   description_ta: string
 }
+
+// ---------------------------------------------------------------------------------------------
+// Address helpers
+// ---------------------------------------------------------------------------------------------
+
+/** Tamil Nadu districts (address suggestions on business / store / customer forms). */
+export const TAMIL_NADU_DISTRICTS: readonly { en: string; ta: string }[] = [
+  { en: 'Ariyalur', ta: 'அரியலூர்' },
+  { en: 'Chengalpattu', ta: 'செங்கல்பட்டு' },
+  { en: 'Chennai', ta: 'சென்னை' },
+  { en: 'Coimbatore', ta: 'கோயம்புத்தூர்' },
+  { en: 'Cuddalore', ta: 'கடலூர்' },
+  { en: 'Dharmapuri', ta: 'தருமபுரி' },
+  { en: 'Dindigul', ta: 'திண்டுக்கல்' },
+  { en: 'Erode', ta: 'ஈரோடு' },
+  { en: 'Kallakurichi', ta: 'கள்ளக்குறிச்சி' },
+  { en: 'Kancheepuram', ta: 'காஞ்சிபுரம்' },
+  { en: 'Kanniyakumari', ta: 'கன்னியாகுமரி' },
+  { en: 'Karur', ta: 'கரூர்' },
+  { en: 'Krishnagiri', ta: 'கிருஷ்ணகிரி' },
+  { en: 'Madurai', ta: 'மதுரை' },
+  { en: 'Mayiladuthurai', ta: 'மயிலாடுதுறை' },
+  { en: 'Nagapattinam', ta: 'நாகப்பட்டினம்' },
+  { en: 'Namakkal', ta: 'நாமக்கல்' },
+  { en: 'Nilgiris', ta: 'நீலகிரி' },
+  { en: 'Perambalur', ta: 'பெரம்பலூர்' },
+  { en: 'Pudukkottai', ta: 'புதுக்கோட்டை' },
+  { en: 'Ramanathapuram', ta: 'இராமநாதபுரம்' },
+  { en: 'Ranipet', ta: 'இராணிப்பேட்டை' },
+  { en: 'Salem', ta: 'சேலம்' },
+  { en: 'Sivaganga', ta: 'சிவகங்கை' },
+  { en: 'Tenkasi', ta: 'தென்காசி' },
+  { en: 'Thanjavur', ta: 'தஞ்சாவூர்' },
+  { en: 'Theni', ta: 'தேனி' },
+  { en: 'Thoothukudi', ta: 'தூத்துக்குடி' },
+  { en: 'Tiruchirappalli', ta: 'திருச்சிராப்பள்ளி' },
+  { en: 'Tirunelveli', ta: 'திருநெல்வேலி' },
+  { en: 'Tirupathur', ta: 'திருப்பத்தூர்' },
+  { en: 'Tiruppur', ta: 'திருப்பூர்' },
+  { en: 'Tiruvallur', ta: 'திருவள்ளூர்' },
+  { en: 'Tiruvannamalai', ta: 'திருவண்ணாமலை' },
+  { en: 'Tiruvarur', ta: 'திருவாரூர்' },
+  { en: 'Vellore', ta: 'வேலூர்' },
+  { en: 'Viluppuram', ta: 'விழுப்புரம்' },
+  { en: 'Virudhunagar', ta: 'விருதுநகர்' },
+]
 
 // ---------------------------------------------------------------------------------------------
 // Document / entity links (audit log, ledgers, stock movements)
@@ -813,14 +861,15 @@ export const RegisterCreateSchema = z.object({
 })
 export type RegisterCreate = z.input<typeof RegisterCreateSchema>
 
-/** Partial register settings without defaults (PATCH merges into the stored settings). */
-export const RegisterSettingsPatchSchema = z.object({
-  print_format: PrintFormatSchema.nullable().optional(),
-  auto_print: z.boolean().optional(),
-  customer_display: z.boolean().optional(),
-  cash_drawer: z.boolean().optional(),
-  printer_name: z.string().trim().max(100).nullable().optional(),
-})
+/**
+ * Deep-partial register settings without defaults, unknown keys rejected (derived from the
+ * shared RegisterSettingsSchema, so new fields are patchable automatically). The server
+ * deep-merges into the stored settings and validates the result with RegisterSettingsSchema.
+ */
+export const RegisterSettingsPatchSchema = strictPatchOf(RegisterSettingsSchema) as z.ZodType<
+  DeepPartial<RegisterSettings>,
+  DeepPartial<RegisterSettings>
+>
 
 /** PATCH /registers/:id */
 export const RegisterUpdateSchema = z
@@ -920,7 +969,7 @@ function strictPatchOf(schema: z.ZodType): z.ZodType {
  * audits the changed paths.
  */
 export const SettingsPatchSchema = (
-  strictPatchOf(TenantSettingsSchema) as z.ZodType<TenantSettingsPatch>
+  strictPatchOf(TenantSettingsSchema) as z.ZodType<TenantSettingsPatch, TenantSettingsPatch>
 ).refine((v) => Object.keys(v as object).length > 0, { message: 'empty_patch' })
 export type SettingsPatch = TenantSettingsPatch
 
@@ -1243,6 +1292,43 @@ export type FileUploadQuery = z.input<typeof FileUploadQuerySchema>
 
 /** GET /files/:id/content — `download=true` → Content-Disposition attachment. */
 export const FileContentQuerySchema = z.object({ download: zBooleanQuery.optional() })
+
+// =============================================================================================
+// Bilingual labels
+// =============================================================================================
+
+export type BilingualLabel = { en: string; ta: string }
+
+export const MEMBERSHIP_STATUS_LABELS: Readonly<Record<MembershipStatus, BilingualLabel>> = {
+  active: { en: 'Active', ta: 'செயலில்' },
+  invited: { en: 'Invited', ta: 'அழைக்கப்பட்டது' },
+  disabled: { en: 'Disabled', ta: 'முடக்கப்பட்டது' },
+}
+
+export const DOC_TYPE_LABELS: Readonly<Record<NumberSeriesDocType, BilingualLabel>> = {
+  sales_invoice: { en: 'Tax invoice', ta: 'வரி விலைப்பட்டியல்' },
+  bill_of_supply: { en: 'Bill of supply', ta: 'விநியோகப் பில்' },
+  credit_note: { en: 'Credit note', ta: 'கிரெடிட் நோட்' },
+  estimate: { en: 'Estimate', ta: 'மதிப்பீடு' },
+  sales_order: { en: 'Sales order', ta: 'விற்பனை ஆர்டர்' },
+  receipt: { en: 'Receipt', ta: 'ரசீது' },
+  payment_voucher: { en: 'Payment voucher', ta: 'பண வவுச்சர்' },
+  purchase_order: { en: 'Purchase order', ta: 'கொள்முதல் ஆர்டர்' },
+  purchase_bill: { en: 'Goods receipt (GRN)', ta: 'சரக்கு வரவு (GRN)' },
+  debit_note: { en: 'Debit note', ta: 'டெபிட் நோட்' },
+  stock_adjustment: { en: 'Stock adjustment', ta: 'இருப்புச் சரிசெய்தல்' },
+  stock_transfer: { en: 'Stock transfer', ta: 'இருப்பு மாற்றம்' },
+  expense: { en: 'Expense', ta: 'செலவு' },
+  journal: { en: 'Journal voucher', ta: 'பேரேட்டுப் பதிவு' },
+}
+
+export const UPLOAD_PURPOSE_LABELS: Readonly<Record<UploadPurpose, BilingualLabel>> = {
+  logo: { en: 'Logo', ta: 'சின்னம்' },
+  product_image: { en: 'Product photo', ta: 'பொருள் படம்' },
+  prescription: { en: 'Prescription', ta: 'மருந்துச் சீட்டு' },
+  import: { en: 'Import file', ta: 'இறக்குமதிக் கோப்பு' },
+  attachment: { en: 'Attachment', ta: 'இணைப்பு' },
+}
 
 // =============================================================================================
 // Route catalogue (docs/API.md "identity")

@@ -186,7 +186,12 @@ describe('users', () => {
       'password_not_allowed',
     ])
     expect(
-      ok(MemberCreateSchema, { ...base, first_login: 'password', password: 'Secret#2026', pin: '1234' }),
+      ok(MemberCreateSchema, {
+        ...base,
+        first_login: 'password',
+        password: 'Secret#2026',
+        pin: '1234',
+      }),
     ).toBe(true)
     expect(messages(MemberCreateSchema, { ...base, store_ids: [] })).toEqual(['store_ids_empty'])
     expect(
@@ -201,7 +206,9 @@ describe('users', () => {
   it('update needs a change; reset PIN allows null', () => {
     expect(messages(MemberUpdateSchema, {})).toEqual(['empty_patch'])
     expect(messages(MemberUpdateSchema, { if_updated_at: now })).toEqual(['empty_patch'])
-    expect(MemberUpdateSchema.parse({ store_ids: [newId()], email: '' })).toMatchObject({ email: null })
+    expect(MemberUpdateSchema.parse({ store_ids: [newId()], email: '' })).toMatchObject({
+      email: null,
+    })
     expect(ResetPinSchema.parse({ pin: null })).toEqual({ pin: null })
     expect(ok(ResetPinSchema, { pin: '12' })).toBe(false)
   })
@@ -210,16 +217,18 @@ describe('users', () => {
 describe('roles & permissions', () => {
   it('role create / update validation', () => {
     expect(
-      RoleCreateSchema.parse({ name: 'Billing + stock', permissions: ['pos.use', 'inventory.read'] })
-        .name_ta,
+      RoleCreateSchema.parse({
+        name: 'Billing + stock',
+        permissions: ['pos.use', 'inventory.read'],
+      }).name_ta,
     ).toBeUndefined()
     expect(messages(RoleCreateSchema, { name: 'x', permissions: ['pos.use', 'pos.use'] })).toEqual([
       'duplicate_permission',
     ])
     expect(ok(RoleCreateSchema, { name: 'x', permissions: ['pos.fly'] })).toBe(false)
-    expect(messages(RoleCreateSchema, { name: 'x', permissions: ['pos.use'], code: '9x' })).toEqual([
-      'role_code',
-    ])
+    expect(messages(RoleCreateSchema, { name: 'x', permissions: ['pos.use'], code: '9x' })).toEqual(
+      ['role_code'],
+    )
     expect(ok(RoleUpdateSchema, { name_ta: 'காசாளர்' })).toBe(true)
   })
   it('role response', () => {
@@ -277,15 +286,15 @@ describe('stores, registers, devices', () => {
     expect(
       StoreCreateSchema.parse({ code: 's2', name: 'Branch', state_code: '33', gstin: TN_GSTIN }),
     ).toMatchObject({ code: 'S2', address: {} })
-    expect(messages(StoreCreateSchema, { code: 'S2', name: 'B', state_code: '33', gstin: KA_GSTIN })).toEqual([
-      'gstin_state',
-    ])
+    expect(
+      messages(StoreCreateSchema, { code: 'S2', name: 'B', state_code: '33', gstin: KA_GSTIN }),
+    ).toEqual(['gstin_state'])
     expect(messages(StoreCreateSchema, { code: 'TOOLONG', name: 'B', state_code: '33' })).toEqual([
       'store_code',
     ])
-    expect(messages(StoreCreateSchema, { code: 'S3', name: 'B', state_code: '33', fssai_number: '123' })).toEqual([
-      'fssai',
-    ])
+    expect(
+      messages(StoreCreateSchema, { code: 'S3', name: 'B', state_code: '33', fssai_number: '123' }),
+    ).toEqual(['fssai'])
     expect(ok(StoreUpdateSchema, { is_active: false, if_updated_at: now })).toBe(true)
     expect(messages(StoreUpdateSchema, { if_updated_at: now })).toEqual(['empty_patch'])
   })
@@ -305,14 +314,22 @@ describe('stores, registers, devices', () => {
       updated_at: now,
     })
     expect(reg.settings).toMatchObject({ print_format: null, auto_print: true })
-    expect(RegisterCreateSchema.parse({ store_id: store.id, code: 'b', name: 'Counter 2' }).code).toBe('B')
+    expect(
+      RegisterCreateSchema.parse({ store_id: store.id, code: 'b', name: 'Counter 2' }).code,
+    ).toBe('B')
     expect(ok(RegisterCreateSchema, { store_id: store.id, code: 'ABC', name: 'x' })).toBe(false)
     expect(RegisterUpdateSchema.parse({ settings: { cash_drawer: true } })).toEqual({
       settings: { cash_drawer: true },
     })
+    expect(RegisterUpdateSchema.parse({ settings: { scale: { enabled: true } } })).toEqual({
+      settings: { scale: { enabled: true } },
+    })
+    expect(ok(RegisterUpdateSchema, { settings: { bogus: true } })).toBe(false)
   })
   it('device create returns the secret once', () => {
-    expect(DeviceCreateSchema.parse({ name: 'Counter PC', store_id: store.id }).register_id).toBeNull()
+    expect(
+      DeviceCreateSchema.parse({ name: 'Counter PC', store_id: store.id }).register_id,
+    ).toBeNull()
     expect(DeviceListQuerySchema.parse({}).status).toBe('active')
     const res = DeviceCreateResultSchema.parse({
       device: {
@@ -412,9 +429,21 @@ describe('number series', () => {
     expect(formatSeriesNumber('S1-A/2627/', 42, 5)).toBe('S1-A/2627/00042')
     expect(seriesMaxLength('sales_invoice')).toBe(16)
     expect(seriesMaxLength('estimate')).toBe(32)
-    expect(seriesFormatIssues({ doc_type: 'sales_invoice', prefix: 'S1/2627/', padding: 5, next_number: 1 })).toEqual([])
     expect(
-      seriesFormatIssues({ doc_type: 'sales_invoice', prefix: 'MAINSTORE/2627/', padding: 5, next_number: 1 }),
+      seriesFormatIssues({
+        doc_type: 'sales_invoice',
+        prefix: 'S1/2627/',
+        padding: 5,
+        next_number: 1,
+      }),
+    ).toEqual([])
+    expect(
+      seriesFormatIssues({
+        doc_type: 'sales_invoice',
+        prefix: 'MAINSTORE/2627/',
+        padding: 5,
+        next_number: 1,
+      }),
     ).toEqual([{ path: 'prefix', code: 'series_too_long' }])
     expect(
       seriesFormatIssues({ doc_type: 'journal', prefix: 'JV S1', padding: 5, next_number: 1 }),
@@ -475,7 +504,9 @@ describe('audit log & files', () => {
         created_at: new Date(now),
       }).created_at,
     ).toBe(now)
-    expect(ok(AuditLogListQuerySchema, { action: 'product', from: '2026-10-01', to: '2026-10-31' })).toBe(true)
+    expect(
+      ok(AuditLogListQuerySchema, { action: 'product', from: '2026-10-01', to: '2026-10-31' }),
+    ).toBe(true)
     expect(messages(AuditLogListQuerySchema, { from: '2026-10-31', to: '2026-10-01' })).toEqual([
       'date_order',
     ])
@@ -489,7 +520,9 @@ describe('audit log & files', () => {
     )
     expect(fileUploadIssue('logo', { size: 10, type: 'image/svg+xml' })).toBe('file_type')
     expect(fileUploadIssue('import', { size: 0, type: 'text/csv' })).toBe('file_empty')
-    expect(fileUploadIssue('prescription', { size: 10, type: 'application/pdf; charset=x' })).toBeNull()
+    expect(
+      fileUploadIssue('prescription', { size: 10, type: 'application/pdf; charset=x' }),
+    ).toBeNull()
     expect(FILE_UPLOAD_RULES.import.max_bytes).toBe(10 * 1024 * 1024)
     const id = newId()
     expect(
@@ -536,7 +569,12 @@ describe('audit log & files', () => {
       updated_at: now,
       finished_at: now,
     })
-    expect(job.errors[0]).toEqual({ row: 4, field: 'gst_rate', code: 'invalid', message: 'Invalid GST rate 13' })
+    expect(job.errors[0]).toEqual({
+      row: 4,
+      field: 'gst_rate',
+      code: 'invalid',
+      message: 'Invalid GST rate 13',
+    })
     expect(job.summary).toEqual({ created: 1, updated: 1, unchanged: 0, skipped: 0, details: {} })
   })
 })
@@ -557,5 +595,13 @@ describe('route catalogue', () => {
     expect(identityRoutes.disableUser.body.safeParse(undefined).success).toBe(true)
     expect(identityRoutes.revokeDevice.body.safeParse(undefined).success).toBe(true)
     expect(identityRoutes.resetUserPassword.body.safeParse(undefined).success).toBe(true)
+  })
+})
+
+describe('address helpers', () => {
+  it('lists the 38 Tamil Nadu districts once', async () => {
+    const { TAMIL_NADU_DISTRICTS } = await import('../../src/api/identity')
+    expect(TAMIL_NADU_DISTRICTS).toHaveLength(38)
+    expect(new Set(TAMIL_NADU_DISTRICTS.map((d) => d.en)).size).toBe(38)
   })
 })

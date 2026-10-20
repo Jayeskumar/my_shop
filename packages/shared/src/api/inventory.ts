@@ -16,6 +16,7 @@ import {
   AdjustmentStatusSchema,
   type StockMovementType,
   StockMovementTypeSchema,
+  type TransferStatus,
   TransferStatusSchema,
 } from '../enums'
 import { diffDays } from '../fy'
@@ -217,6 +218,57 @@ export const ADJUSTMENT_REASONS = [
   label_ta: string
   kinds: readonly AdjustmentKind[]
 }[]
+
+// =============================================================================================
+// Bilingual labels (server CSV / print output and every web module use the same words)
+// =============================================================================================
+
+export type BilingualLabel = { en: string; ta: string }
+
+export const MOVEMENT_TYPE_LABELS: Readonly<Record<StockMovementType, BilingualLabel>> = {
+  opening: { en: 'Opening stock', ta: 'தொடக்க இருப்பு' },
+  purchase: { en: 'Purchase', ta: 'கொள்முதல்' },
+  purchase_return: { en: 'Purchase return', ta: 'கொள்முதல் திருப்பம்' },
+  sale: { en: 'Sale', ta: 'விற்பனை' },
+  sale_return: { en: 'Sales return', ta: 'விற்பனைத் திருப்பம்' },
+  adjustment: { en: 'Adjustment', ta: 'சரிசெய்தல்' },
+  stock_take: { en: 'Stock take', ta: 'இருப்புச் சரிபார்ப்பு' },
+  damage: { en: 'Damage', ta: 'சேதம்' },
+  expiry_writeoff: { en: 'Expiry write-off', ta: 'காலாவதி நீக்கம்' },
+  transfer_out: { en: 'Transfer out', ta: 'வெளி மாற்றம்' },
+  transfer_in: { en: 'Transfer in', ta: 'உள் மாற்றம்' },
+  sale_cancel: { en: 'Sale cancelled', ta: 'விற்பனை ரத்து' },
+  purchase_cancel: { en: 'Purchase cancelled', ta: 'கொள்முதல் ரத்து' },
+}
+
+export const ADJUSTMENT_KIND_LABELS: Readonly<Record<AdjustmentKind, BilingualLabel>> = {
+  adjustment: { en: 'Adjustment', ta: 'சரிசெய்தல்' },
+  stock_take: { en: 'Stock take', ta: 'இருப்புச் சரிபார்ப்பு' },
+  damage: { en: 'Damage', ta: 'சேதம்' },
+  expiry_writeoff: { en: 'Expiry write-off', ta: 'காலாவதி நீக்கம்' },
+  opening: { en: 'Opening stock', ta: 'தொடக்க இருப்பு' },
+}
+
+export const TRANSFER_STATUS_LABELS: Readonly<Record<TransferStatus, BilingualLabel>> = {
+  draft: { en: 'Draft', ta: 'வரைவு' },
+  dispatched: { en: 'Dispatched', ta: 'அனுப்பப்பட்டது' },
+  received: { en: 'Received', ta: 'பெறப்பட்டது' },
+  cancelled: { en: 'Cancelled', ta: 'ரத்து செய்யப்பட்டது' },
+}
+
+export const STOCK_STATUS_LABELS: Readonly<Record<StockStatus, BilingualLabel>> = {
+  ok: { en: 'In stock', ta: 'இருப்பில் உள்ளது' },
+  low: { en: 'Low stock', ta: 'இருப்பு குறைவு' },
+  out: { en: 'Out of stock', ta: 'இருப்பு இல்லை' },
+  negative: { en: 'Negative stock', ta: 'எதிர்மறை இருப்பு' },
+}
+
+export const EXPIRY_STATUS_LABELS: Readonly<Record<ExpiryStatus, BilingualLabel>> = {
+  expired: { en: 'Expired', ta: 'காலாவதியானது' },
+  expiring: { en: 'Expiring soon', ta: 'விரைவில் காலாவதி' },
+  ok: { en: 'Good', ta: 'நன்று' },
+  none: { en: 'No expiry', ta: 'காலாவதி இல்லை' },
+}
 
 // =============================================================================================
 // Stock levels

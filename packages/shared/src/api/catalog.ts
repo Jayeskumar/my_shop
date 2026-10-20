@@ -93,8 +93,9 @@ const uniqueIds = (ids: readonly string[]) => new Set(ids).size === ids.length
 
 /** Optional, clearable HSN in bodies: '' / null → null. */
 const zNullableHsn = z
-  .union([z.null(), z.literal(''), zHsn])
+  .union([z.null(), z.string().trim()])
   .optional()
+  .refine((v) => v == null || v === '' || zHsn.safeParse(v).success, { message: 'hsn' })
   .transform((v) => (v === '' ? null : v))
 
 /** Lenient slab shape for responses (stored JSON). */
@@ -102,6 +103,28 @@ const StoredSlabSchema = z.object({
   max_unit_value_paise: z.int().nullable(),
   gst_rate_bp: z.int().min(0),
 })
+
+// =============================================================================================
+// Bilingual labels
+// =============================================================================================
+
+export type BilingualLabel = { en: string; ta: string }
+
+export const PRODUCT_KIND_LABELS: Readonly<Record<ProductKind, BilingualLabel>> = {
+  standard: { en: 'Product', ta: 'பொருள்' },
+  variant_parent: { en: 'Product with variants', ta: 'வகைகள் கொண்ட பொருள்' },
+  variant: { en: 'Variant', ta: 'வகை' },
+  service: { en: 'Service', ta: 'சேவை' },
+}
+
+export const PROMOTION_KIND_LABELS: Readonly<Record<PromotionKind, BilingualLabel>> = {
+  item_percent: { en: '% off items', ta: 'பொருட்களுக்கு % தள்ளுபடி' },
+  item_flat: { en: '₹ off items', ta: 'பொருட்களுக்கு ₹ தள்ளுபடி' },
+  buy_x_get_y: { en: 'Buy X get Y', ta: 'X வாங்கினால் Y' },
+  bill_percent: { en: '% off the bill', ta: 'பில்லுக்கு % தள்ளுபடி' },
+  bill_flat: { en: '₹ off the bill', ta: 'பில்லுக்கு ₹ தள்ளுபடி' },
+  combo_price: { en: 'Combo price', ta: 'காம்போ விலை' },
+}
 
 // =============================================================================================
 // Categories (tree, max depth 3)
@@ -410,8 +433,9 @@ const SkuSchema = z
   .regex(/^[A-Za-z0-9][A-Za-z0-9\-_./]*$/, 'sku_format')
 
 const zNullableSku = z
-  .union([z.null(), z.literal(''), SkuSchema])
+  .union([z.null(), z.string().trim()])
   .optional()
+  .refine((v) => v == null || v === '' || SkuSchema.safeParse(v).success, { message: 'sku_format' })
   .transform((v) => (v === '' ? null : v))
 
 const AliasesSchema = z
@@ -434,13 +458,6 @@ const UnitCodeSchema = z
   .toUpperCase()
   .refine(isUnitCode, { message: 'unit_unknown' })
   .describe('Unit code from GET /units (base / stock unit)')
-
-const ScalePluSchema = z
-  .string()
-  .trim()
-  .regex(/^\d{1,10}$/, 'scale_plu_format')
-  .transform(normalizePlu)
-  .describe('Weighing-scale item code (leading zeros dropped)')
 
 const AttributeValueSchema = z.union([z.string().max(500), z.number(), z.boolean(), z.null()])
 
@@ -474,6 +491,12 @@ export function barcodeFormatFor(code: string): 'EAN13' | 'EAN8' | 'UPC' | 'CODE
 /** Shop-generated internal barcode ('20…' EAN-13). */
 export function isInternalCode(code: string): boolean {
   return isValidEan13(code) && code.startsWith(INTERNAL_BARCODE_PREFIX)
+}
+
+/** Automatic SKU (settings.catalog.auto_sku): prefix + sequence, ≥ 5 digits ('P', 42 → 'P00042'). */
+export function formatAutoSku(prefix: string, seq: number): string {
+  if (!Number.isSafeInteger(seq) || seq < 1) throw new RangeError('seq must be a positive integer')
+  return `${prefix}${String(seq).padStart(5, '0')}`
 }
 
 export const ProductBarcodeSchema = z.object({
@@ -677,7 +700,7 @@ export const CreatableProductKindSchema = ProductKindSchema.exclude(['variant'])
  * settings.invoice.default_price_includes_tax, track_batches ← settings.catalog
  * .default_track_batches (forced for pharmacy medicines), hsn_code / gst_rate_bp /
  * tax_slab_rule_id ← the category, then settings.catalog.default_gst_rate_bp, decimal_qty ← the
- * unit's default; sku generated when settings ask for it.
+ * unit's default; sku ← formatAutoSku(settings.catalog.sku_prefix, next) when settings.catalog.auto_sku.
  */
 const ProductWritableShape = {
   name: z.string().trim().min(1).max(200),
@@ -708,8 +731,10 @@ const ProductWritableShape = {
   track_batches: z.boolean(),
   is_weighed: z.boolean(),
   scale_plu: z
-    .union([z.null(), z.literal(''), ScalePluSchema])
-    .transform((v) => (v === '' ? null : v)),
+    .union([z.null(), z.string().trim()])
+    .refine((v) => v === null || v === '' || /^\d{1,10}$/.test(v), { message: 'scale_plu_format' })
+    .transform((v) => (v === null || v === '' ? null : normalizePlu(v)))
+    .describe('Weighing-scale item code (leading zeros dropped)'),
   reorder_level_milli: z.int().min(0).nullable(),
   reorder_qty_milli: z.int().min(0).nullable(),
   attributes: ProductAttributesInputSchema,
@@ -933,9 +958,12 @@ export const VariantValueSchema = z.string().trim().min(1).max(30)
 export const MAX_VARIANT_COMBINATIONS = 500
 
 const VariantAxesInputSchema = z
-  .record(VariantAxisNameSchema, z.array(VariantValueSchema).min(1).max(60))
+  .record(z.string(), z.array(VariantValueSchema).min(1).max(60))
   .superRefine((axes, ctx) => {
     const names = Object.keys(axes)
+    for (const name of names)
+      if (!VariantAxisNameSchema.safeParse(name).success)
+        ctx.addIssue({ code: 'custom', path: [name], message: 'variant_axis' })
     if (names.length < 1 || names.length > 3)
       ctx.addIssue({ code: 'custom', message: 'variant_axes_count' })
     for (const [name, values] of Object.entries(axes)) {
@@ -951,7 +979,7 @@ const VariantAxesInputSchema = z
 export const VariantPriceOverrideSchema = z.object({
   /** Applies to every combination having these values (e.g. {size: 'XXL'}); later entries win. */
   match: z
-    .record(VariantAxisNameSchema, VariantValueSchema)
+    .record(z.string(), VariantValueSchema)
     .refine((m) => Object.keys(m).length > 0, { message: 'variant_override_match' }),
   sale_price_paise: zPaise.optional(),
   mrp_paise: zPaise.nullable().optional(),
@@ -969,7 +997,7 @@ export const VariantGenerateSchema = z.object({
   axes: VariantAxesInputSchema,
   /** Tamil labels of values for Tamil names, per axis: {color: {Red: 'சிவப்பு'}}. */
   value_labels_ta: z
-    .record(VariantAxisNameSchema, z.record(z.string(), z.string().trim().min(1).max(30)))
+    .record(z.string(), z.record(z.string(), z.string().trim().min(1).max(30)))
     .default({}),
   price_overrides: z.array(VariantPriceOverrideSchema).max(500).default([]),
   /** Generate internal EAN-13 barcodes for the new variants. */
@@ -1535,6 +1563,13 @@ export const ProductImportTemplateQuerySchema = z.object({
 
 export const PromotionStatusSchema = z.enum(['active', 'scheduled', 'expired', 'inactive'])
 export type PromotionStatus = z.infer<typeof PromotionStatusSchema>
+
+export const PROMOTION_STATUS_LABELS: Readonly<Record<PromotionStatus, BilingualLabel>> = {
+  active: { en: 'Active', ta: 'நடப்பில்' },
+  scheduled: { en: 'Scheduled', ta: 'திட்டமிடப்பட்டது' },
+  expired: { en: 'Ended', ta: 'முடிந்தது' },
+  inactive: { en: 'Switched off', ta: 'நிறுத்தப்பட்டது' },
+}
 
 /** Status shown in lists: inactive (switched off) / scheduled / active / expired (window only). */
 export function promotionStatus(

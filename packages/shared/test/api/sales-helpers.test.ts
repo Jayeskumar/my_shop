@@ -12,12 +12,12 @@ import {
   defaultRestock,
   discountBpOf,
   discountLimitBp,
+  displayPaymentNotes,
   drugScheduleOf,
   formatSeriesNumber,
   generateShareToken,
   isBlockingSalesIssue,
   lineRequiresRx,
-  loyaltyPointsEarned,
   loyaltyRedemption,
   parseCashTenderNotes,
   priceCart,
@@ -32,7 +32,9 @@ import {
   type CartPricingInput,
   type CartPricingLine,
 } from '../../src/api/sales'
+import { loyaltyPointsForAmount, loyaltyRedeemIssue } from '../../src/api/parties'
 import { isErrorCode } from '../../src/errors'
+import { DEFAULT_SETTINGS } from '../../src/settings'
 import { computeDocument, type TaxAmounts, type TaxSlab } from '../../src/pricing'
 import type { PromotionLike } from '../../src/promotions'
 import { createRng } from '../helpers/prng'
@@ -63,6 +65,14 @@ const base = (over: Partial<CartPricingInput>): CartPricingInput => ({
   ...over,
 })
 
+const LOYALTY = {
+  ...DEFAULT_SETTINGS.loyalty,
+  enabled: true,
+  point_value_paise: 100,
+  min_redeem_points: 100,
+  points_per_100_rupees: 1,
+}
+
 const APPAREL: TaxSlab[] = [
   { max_unit_value_paise: 250_000, gst_rate_bp: 500 },
   { max_unit_value_paise: null, gst_rate_bp: 1800 },
@@ -73,7 +83,13 @@ describe('priceCart', () => {
     const input = base({
       lines: [
         line({ key: 'a', qty_milli: 2000, discount_bp: 500 }),
-        line({ key: 'b', product_id: P2, unit_price_paise: 4_999, gst_rate_bp: 500, mrp_paise: 5_500 }),
+        line({
+          key: 'b',
+          product_id: P2,
+          unit_price_paise: 4_999,
+          gst_rate_bp: 500,
+          mrp_paise: 5_500,
+        }),
       ],
       bill_discount_paise: 300,
     })
@@ -100,7 +116,14 @@ describe('priceCart', () => {
       base({
         is_interstate: true,
         round_off: 'none',
-        lines: [line({ price_includes_tax: false, gst_rate_bp: 2800, cess_rate_bp: 1200, qty_milli: 3000 })],
+        lines: [
+          line({
+            price_includes_tax: false,
+            gst_rate_bp: 2800,
+            cess_rate_bp: 1200,
+            qty_milli: 3000,
+          }),
+        ],
       }),
     )
     expect(r.taxable_paise).toBe(30_000)
@@ -116,7 +139,10 @@ describe('priceCart', () => {
       expect(r.tax_paise).toBe(0)
       expect(r.taxable_paise).toBe(15_000)
       expect(r.lines[0]!.gst_rate_bp).toBe(0)
-      expect(salesDocumentModeFor(tax_mode)).toMatchObject({ doc_type: 'bill_of_supply', series: 'bill_of_supply' })
+      expect(salesDocumentModeFor(tax_mode)).toMatchObject({
+        doc_type: 'bill_of_supply',
+        series: 'bill_of_supply',
+      })
     }
     expect(salesDocumentModeFor('regular')).toEqual({
       doc_type: 'tax_invoice',
@@ -202,7 +228,7 @@ describe('priceCart', () => {
   })
 
   it('redeems whole loyalty points, capped by the bill', () => {
-    const settings = { enabled: true, point_value_paise: 100, min_redeem_points: 10 }
+    const settings = { ...LOYALTY, min_redeem_points: 10 }
     const r = priceCart(
       base({
         round_off: 'none',
@@ -215,8 +241,10 @@ describe('priceCart', () => {
     expect(r.loyalty_redeem_paise).toBe(5_000)
     expect(r.total_paise).toBe(50)
     expect(r.loyalty_issue).toBeNull()
-    const short = priceCart(base({ loyalty: { redeem_points: 80, available_points: 20, settings } }))
-    expect(short.loyalty_issue).toBe('loyalty_insufficient_points')
+    const short = priceCart(
+      base({ loyalty: { redeem_points: 80, available_points: 20, settings } }),
+    )
+    expect(short.loyalty_issue).toBe('loyalty_insufficient')
     expect(short.loyalty_redeem_paise).toBe(0)
   })
 
@@ -250,12 +278,13 @@ describe('priceCart', () => {
             ? {
                 redeem_points: rng.int(0, 200),
                 available_points: 1000,
-                settings: { enabled: true, point_value_paise: 50, min_redeem_points: 0 },
+                settings: { ...LOYALTY, point_value_paise: 50, min_redeem_points: 0 },
               }
             : null,
         }),
       )
-      const sum = (f: (l: (typeof r.lines)[number]) => number) => r.lines.reduce((s, l) => s + f(l), 0)
+      const sum = (f: (l: (typeof r.lines)[number]) => number) =>
+        r.lines.reduce((s, l) => s + f(l), 0)
       expect(sum((l) => l.total_paise)).toBe(r.taxable_paise + r.tax_paise)
       expect(r.total_paise).toBe(r.taxable_paise + r.tax_paise + r.round_off_paise)
       expect(r.bill_discount_paise).toBe(
@@ -269,14 +298,24 @@ describe('priceCart', () => {
 describe('resolveUnitPrice', () => {
   const product = { sale_price_paise: 1_000, mrp_paise: 1_200, wholesale_price_paise: 900 }
   it('store override > wholesale tier > batch > product', () => {
-    expect(resolveUnitPrice({ product })).toEqual({ unit_price_paise: 1_000, mrp_paise: 1_200, source: 'product' })
-    expect(resolveUnitPrice({ product, batch: { sale_price_paise: 1_050, mrp_paise: 1_250 } })).toEqual({
+    expect(resolveUnitPrice({ product })).toEqual({
+      unit_price_paise: 1_000,
+      mrp_paise: 1_200,
+      source: 'product',
+    })
+    expect(
+      resolveUnitPrice({ product, batch: { sale_price_paise: 1_050, mrp_paise: 1_250 } }),
+    ).toEqual({
       unit_price_paise: 1_050,
       mrp_paise: 1_250,
       source: 'batch',
     })
     expect(
-      resolveUnitPrice({ product, price_tier: 'wholesale', batch: { sale_price_paise: 1_050, mrp_paise: null } }),
+      resolveUnitPrice({
+        product,
+        price_tier: 'wholesale',
+        batch: { sale_price_paise: 1_050, mrp_paise: null },
+      }),
     ).toMatchObject({ unit_price_paise: 900, source: 'price_tier', mrp_paise: 1_200 })
     expect(
       resolveUnitPrice({
@@ -286,7 +325,10 @@ describe('resolveUnitPrice', () => {
       }),
     ).toEqual({ unit_price_paise: 950, mrp_paise: 1_150, source: 'store_price' })
     expect(
-      resolveUnitPrice({ product: { ...product, wholesale_price_paise: null }, price_tier: 'wholesale' }).source,
+      resolveUnitPrice({
+        product: { ...product, wholesale_price_paise: null },
+        price_tier: 'wholesale',
+      }).source,
     ).toBe('product')
   })
 })
@@ -297,7 +339,9 @@ describe('cart rules', () => {
       'decimal_qty_not_allowed',
     )
     expect(qtyIssue({ decimal_qty: true, allow_loose: false, pack_size: 1 }, 1250)).toBeNull()
-    expect(qtyIssue({ decimal_qty: false, allow_loose: false, pack_size: 10 }, 3000)).toBe('loose_not_allowed')
+    expect(qtyIssue({ decimal_qty: false, allow_loose: false, pack_size: 10 }, 3000)).toBe(
+      'loose_not_allowed',
+    )
     expect(qtyIssue({ decimal_qty: false, allow_loose: true, pack_size: 10 }, 3000)).toBeNull()
     expect(qtyIssue({ decimal_qty: false, allow_loose: false, pack_size: 10 }, 20_000)).toBeNull()
   })
@@ -353,15 +397,22 @@ describe('cart rules', () => {
 })
 
 describe('loyalty', () => {
-  const settings = { enabled: true, point_value_paise: 100, min_redeem_points: 100, points_per_100_rupees: 1 }
+  const settings = LOYALTY
   it('redemption rules', () => {
-    expect(loyaltyRedemption({ requested_points: 0, available_points: 10, cap_paise: 1, settings })).toEqual({
+    expect(
+      loyaltyRedemption({ requested_points: 0, available_points: 10, cap_paise: 1, settings }),
+    ).toEqual({
       points: 0,
       paise: 0,
       issue: null,
     })
     expect(
-      loyaltyRedemption({ requested_points: 50, available_points: 500, cap_paise: 100_000, settings }).issue,
+      loyaltyRedemption({
+        requested_points: 50,
+        available_points: 500,
+        cap_paise: 100_000,
+        settings,
+      }).issue,
     ).toBe('loyalty_below_minimum')
     expect(
       loyaltyRedemption({
@@ -372,13 +423,39 @@ describe('loyalty', () => {
       }).issue,
     ).toBe('loyalty_disabled')
     expect(
-      loyaltyRedemption({ requested_points: 150, available_points: 500, cap_paise: 12_345, settings }),
+      loyaltyRedemption({
+        requested_points: 150,
+        available_points: 500,
+        cap_paise: 12_345,
+        settings,
+      }),
     ).toEqual({ points: 123, paise: 12_300, issue: null })
   })
-  it('earning', () => {
-    expect(loyaltyPointsEarned(99_99, settings)).toBe(0)
-    expect(loyaltyPointsEarned(25_000, settings)).toBe(2)
-    expect(loyaltyPointsEarned(25_000, { ...settings, enabled: false })).toBe(0)
+  it('uses the parties loyalty rules (one formula for POS, pricing and core/loyalty)', () => {
+    expect(
+      loyaltyRedemption({ requested_points: 600, available_points: 500, cap_paise: 1e9, settings })
+        .issue,
+    ).toBe('loyalty_insufficient')
+    // Whatever the cart redeems is always accepted by core/loyalty's redeemPoints for that bill.
+    for (const cap of [0, 99, 100, 12_345, 50_000]) {
+      const r = loyaltyRedemption({
+        requested_points: 400,
+        available_points: 500,
+        cap_paise: cap,
+        settings,
+      })
+      if (r.points > 0) {
+        expect(
+          loyaltyRedeemIssue({
+            points: r.points,
+            balance_points: 500,
+            settings,
+            bill_total_paise: cap,
+          }),
+        ).toBeNull()
+      }
+    }
+    expect(loyaltyPointsForAmount(25_000, settings)).toBe(2)
   })
 })
 
@@ -418,6 +495,8 @@ describe('allocateTenders', () => {
     expect(notes).toContain('change Rs 120.00')
     expect(parseCashTenderNotes(notes)).toEqual({ tendered_paise: 50_000, change_paise: 12_000 })
     expect(parseCashTenderNotes('UTR 1234')).toBeNull()
+    expect(displayPaymentNotes(notes)).toBe('Cash tendered Rs 500.00, change Rs 120.00')
+    expect(displayPaymentNotes('[tendered=1;change=0]')).toBeNull()
     expect(parseCashTenderNotes(null)).toBeNull()
   })
 })
@@ -425,8 +504,18 @@ describe('allocateTenders', () => {
 describe('creditCheck', () => {
   it('limits', () => {
     expect(
-      creditCheck({ due_paise: 5_000, balance_paise: 10_000, credit_limit_paise: 12_000, block_over_limit: true }),
-    ).toEqual({ new_balance_paise: 15_000, available_credit_paise: 2_000, over_limit: true, blocked: true })
+      creditCheck({
+        due_paise: 5_000,
+        balance_paise: 10_000,
+        credit_limit_paise: 12_000,
+        block_over_limit: true,
+      }),
+    ).toEqual({
+      new_balance_paise: 15_000,
+      available_credit_paise: 2_000,
+      over_limit: true,
+      blocked: true,
+    })
     expect(
       creditCheck({
         due_paise: 5_000,
@@ -437,15 +526,28 @@ describe('creditCheck', () => {
       }).blocked,
     ).toBe(false)
     expect(
-      creditCheck({ due_paise: 5_000, balance_paise: 10_000, credit_limit_paise: null, block_over_limit: true })
-        .over_limit,
+      creditCheck({
+        due_paise: 5_000,
+        balance_paise: 10_000,
+        credit_limit_paise: null,
+        block_over_limit: true,
+      }).over_limit,
     ).toBe(false)
     expect(
-      creditCheck({ due_paise: 1, balance_paise: 0, credit_limit_paise: 0, block_over_limit: false }),
+      creditCheck({
+        due_paise: 1,
+        balance_paise: 0,
+        credit_limit_paise: 0,
+        block_over_limit: false,
+      }),
     ).toMatchObject({ over_limit: true, blocked: false })
     expect(
-      creditCheck({ due_paise: 0, balance_paise: 50_000, credit_limit_paise: 0, block_over_limit: true })
-        .blocked,
+      creditCheck({
+        due_paise: 0,
+        balance_paise: 50_000,
+        credit_limit_paise: 0,
+        block_over_limit: true,
+      }).blocked,
     ).toBe(false)
   })
 })
@@ -458,7 +560,13 @@ describe('returns', () => {
     igst_paise: 0,
     cess_paise: 0,
   }
-  const zero: TaxAmounts = { taxable_paise: 0, cgst_paise: 0, sgst_paise: 0, igst_paise: 0, cess_paise: 0 }
+  const zero: TaxAmounts = {
+    taxable_paise: 0,
+    cgst_paise: 0,
+    sgst_paise: 0,
+    igst_paise: 0,
+    cess_paise: 0,
+  }
   const add = (a: TaxAmounts, b: TaxAmounts): TaxAmounts => ({
     taxable_paise: a.taxable_paise + b.taxable_paise,
     cgst_paise: a.cgst_paise + b.cgst_paise,
@@ -471,7 +579,12 @@ describe('returns', () => {
     let credited = zero
     let returned = 0
     for (const qty of [1000, 1000, 1000]) {
-      const r = prorateReturnLine(original, { qty_milli: qty, total_qty_milli: 3000, returned_qty_milli: returned, credited })
+      const r = prorateReturnLine(original, {
+        qty_milli: qty,
+        total_qty_milli: 3000,
+        returned_qty_milli: returned,
+        credited,
+      })
       credited = add(credited, r)
       returned += qty
     }
@@ -479,7 +592,12 @@ describe('returns', () => {
   })
 
   it('stays exact when a note in between is cancelled', () => {
-    const first = prorateReturnLine(original, { qty_milli: 1000, total_qty_milli: 3000, returned_qty_milli: 0, credited: zero })
+    const first = prorateReturnLine(original, {
+      qty_milli: 1000,
+      total_qty_milli: 3000,
+      returned_qty_milli: 0,
+      credited: zero,
+    })
     const second = prorateReturnLine(original, {
       qty_milli: 1000,
       total_qty_milli: 3000,
@@ -487,7 +605,12 @@ describe('returns', () => {
       credited: first,
     })
     // The first note is cancelled: only `second` is live; return the remaining 2 units.
-    const last = prorateReturnLine(original, { qty_milli: 2000, total_qty_milli: 3000, returned_qty_milli: 1000, credited: second })
+    const last = prorateReturnLine(original, {
+      qty_milli: 2000,
+      total_qty_milli: 3000,
+      returned_qty_milli: 1000,
+      credited: second,
+    })
     expect(add(second, last)).toEqual(original)
     expect(last.total_paise + second.total_paise).toBe(10_501)
   })
@@ -507,7 +630,12 @@ describe('returns', () => {
       let returned = 0
       while (returned < total) {
         const qty = Math.min(total - returned, rng.int(1, 10) * 500)
-        const r = prorateReturnLine(orig, { qty_milli: qty, total_qty_milli: total, returned_qty_milli: returned, credited })
+        const r = prorateReturnLine(orig, {
+          qty_milli: qty,
+          total_qty_milli: total,
+          returned_qty_milli: returned,
+          credited,
+        })
         for (const v of Object.values(r)) expect(v).toBeGreaterThanOrEqual(0)
         credited = add(credited, r)
         returned += qty
@@ -518,13 +646,20 @@ describe('returns', () => {
 
   it('rejects over-returns', () => {
     expect(() =>
-      prorateReturnLine(original, { qty_milli: 2000, total_qty_milli: 3000, returned_qty_milli: 1500, credited: zero }),
+      prorateReturnLine(original, {
+        qty_milli: 2000,
+        total_qty_milli: 3000,
+        returned_qty_milli: 1500,
+        credited: zero,
+      }),
     ).toThrow(RangeError)
   })
 
   it('returnable qty, restock defaults and settlement options', () => {
     expect(returnableQtyMilli({ qty_milli: 3000, returned_qty_milli: 1000 })).toBe(2000)
-    expect(returnableQtyMilli({ qty_milli: 3000, free_qty_milli: 1000, returned_qty_milli: 4000 })).toBe(0)
+    expect(
+      returnableQtyMilli({ qty_milli: 3000, free_qty_milli: 1000, returned_qty_milli: 4000 }),
+    ).toBe(0)
     expect(defaultRestock('return')).toBe(true)
     expect(defaultRestock('expired')).toBe(false)
     expect(defaultRestock('damaged')).toBe(false)
