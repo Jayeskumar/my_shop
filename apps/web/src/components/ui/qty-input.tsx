@@ -8,10 +8,12 @@
 import { Minus, Plus } from 'lucide-react'
 import { forwardRef, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { getUnit, isDecimalUnit, milliToDecimalString, tryParseQty } from '@kadai/shared/units'
+import { getUnit, isDecimalUnit, milliToDecimalString } from '@kadai/shared/units'
 import { cn } from '@/lib/cn'
 import { getLanguage } from '@/lib/i18n'
-import { Input, type FieldSize, type InputProps } from './input'
+import { parseQtyText } from './input-parsing'
+import { Input, type InputProps } from './input'
+import type { FieldSize } from './variants'
 
 export interface QtyInputProps
   extends Omit<
@@ -34,20 +36,6 @@ export interface QtyInputProps
   steppers?: boolean
   /** Show the unit symbol (default true). */
   showUnit?: boolean
-}
-
-const ZERO_RE = /^0*(\.0*)?$/
-
-/** Parses quantity text; '0' is accepted when the minimum allows it. */
-export function parseQtyText(
-  text: string,
-  unit: string,
-  options: { allowDecimal?: boolean; min?: number } = {},
-): number | null {
-  const trimmed = text.trim()
-  if (trimmed === '') return null
-  if (ZERO_RE.test(trimmed) && (options.min ?? 0) <= 0 && /\d/.test(trimmed)) return 0
-  return tryParseQty(trimmed, unit, { allowDecimal: options.allowDecimal })
 }
 
 const stepperSize: Record<FieldSize, string> = {

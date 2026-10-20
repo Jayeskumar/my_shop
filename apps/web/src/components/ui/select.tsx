@@ -10,8 +10,8 @@ import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { forwardRef, type ComponentPropsWithoutRef, type ElementRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/cn'
-import { useFormFieldControl } from './form-field'
-import { fieldVariants, type FieldSize } from './input'
+import { useFormFieldControl } from './form-field-context'
+import { fieldVariants, type FieldSize } from './variants'
 
 export const SelectRoot = SelectPrimitive.Root
 export const SelectGroup = SelectPrimitive.Group

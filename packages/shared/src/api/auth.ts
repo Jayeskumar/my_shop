@@ -15,7 +15,16 @@ import {
 import { EntitlementsSchema } from '../features'
 import { PermissionSchema } from '../permissions'
 import { TenantSettingsSchema } from '../settings'
-import { AddressSchema, zE164, zId, zOptionalGstin, zPhone, zStateCode, zTimestamp } from './common'
+import {
+  AddressSchema,
+  zE164,
+  zId,
+  zOptionalGstin,
+  zOptionalText,
+  zPhone,
+  zStateCode,
+  zTimestamp,
+} from './common'
 
 // ---------------------------------------------------------------------------------------------
 // Field rules
@@ -49,6 +58,8 @@ const OptionalEmailSchema = z
 
 const BusinessFields = {
   business_name: z.string().trim().min(1).max(200),
+  /** Shop name in Tamil (tenants.name_ta), printed on Tamil / bilingual invoices. */
+  business_name_ta: zOptionalText(200),
   business_type: BusinessTypeSchema,
   owner_name: z.string().trim().min(1).max(120),
   phone: zPhone,

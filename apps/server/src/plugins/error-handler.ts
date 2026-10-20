@@ -15,7 +15,10 @@
  *   anything else                      → 500 INTERNAL (message and stack hidden in production)
  */
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
-import { hasZodFastifySchemaValidationErrors, isResponseSerializationError } from 'fastify-type-provider-zod'
+import {
+  hasZodFastifySchemaValidationErrors,
+  isResponseSerializationError,
+} from 'fastify-type-provider-zod'
 import { $ZodError } from 'zod/v4/core'
 import type { ErrorCode, ValidationIssue } from '@kadai/shared'
 import { AppError, isAppError } from '../core/errors'
@@ -47,7 +50,11 @@ function isPgError(err: unknown): err is PgError {
 }
 
 function zodIssues(err: $ZodError): ValidationIssue[] {
-  return err.issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message, code: i.code }))
+  return err.issues.map((i) => ({
+    path: i.path.map(String).join('.'),
+    message: i.message,
+    code: i.code,
+  }))
 }
 
 /** Maps any thrown value to an AppError (pure; exported for tests). */
@@ -62,10 +69,16 @@ export function toAppError(err: unknown, exposeInternal: boolean): AppError {
     }))
     const location = (err as { validationContext?: string }).validationContext ?? 'body'
     const first = issues[0]
-    return new AppError('VALIDATION_ERROR', first ? `${location}${first.path ? `.${first.path}` : ''}: ${first.message}` : 'Validation failed', {
-      issues,
-      location,
-    })
+    return new AppError(
+      'VALIDATION_ERROR',
+      first
+        ? `${location}${first.path ? `.${first.path}` : ''}: ${first.message}`
+        : 'Validation failed',
+      {
+        issues,
+        location,
+      },
+    )
   }
 
   if (err instanceof $ZodError) {
@@ -76,15 +89,40 @@ export function toAppError(err: unknown, exposeInternal: boolean): AppError {
   if (isPgError(err)) {
     switch (err.code) {
       case '23505':
-        return new AppError('DUPLICATE', 'A record with these details already exists', { constraint: err.constraint ?? null }, { cause: err })
+        return new AppError(
+          'DUPLICATE',
+          'A record with these details already exists',
+          { constraint: err.constraint ?? null },
+          { cause: err },
+        )
       case '23503':
-        return new AppError('UNPROCESSABLE', 'A referenced record does not exist or is still in use', { constraint: err.constraint ?? null }, { cause: err })
+        return new AppError(
+          'UNPROCESSABLE',
+          'A referenced record does not exist or is still in use',
+          { constraint: err.constraint ?? null },
+          { cause: err },
+        )
       case '23514':
-        return new AppError('UNPROCESSABLE', 'The data violates a business rule', { constraint: err.constraint ?? null }, { cause: err })
+        return new AppError(
+          'UNPROCESSABLE',
+          'The data violates a business rule',
+          { constraint: err.constraint ?? null },
+          { cause: err },
+        )
       case '23502':
-        return new AppError('UNPROCESSABLE', 'A required value is missing', { column: err.column ?? null }, { cause: err })
+        return new AppError(
+          'UNPROCESSABLE',
+          'A required value is missing',
+          { column: err.column ?? null },
+          { cause: err },
+        )
       case '23P01':
-        return new AppError('CONFLICT', 'This overlaps with an existing record', { constraint: err.constraint ?? null }, { cause: err })
+        return new AppError(
+          'CONFLICT',
+          'This overlaps with an existing record',
+          { constraint: err.constraint ?? null },
+          { cause: err },
+        )
       case '22P02':
       case '22007':
       case '22008':
@@ -97,10 +135,20 @@ export function toAppError(err: unknown, exposeInternal: boolean): AppError {
       case '40001':
       case '40P01':
       case '55P03':
-        return new AppError('CONFLICT', 'The record is busy; please retry', { retryable: true }, { cause: err })
+        return new AppError(
+          'CONFLICT',
+          'The record is busy; please retry',
+          { retryable: true },
+          { cause: err },
+        )
       case 'P0001':
         if (/append-only/i.test(err.message)) {
-          return new AppError('CONFLICT', 'This record cannot be changed (append-only ledger)', {}, { cause: err })
+          return new AppError(
+            'CONFLICT',
+            'This record cannot be changed (append-only ledger)',
+            {},
+            { cause: err },
+          )
         }
         return new AppError('UNPROCESSABLE', err.message, {}, { cause: err })
       default:
@@ -108,10 +156,22 @@ export function toAppError(err: unknown, exposeInternal: boolean): AppError {
     }
   }
 
-  if (isResponseSerializationError(err as object) && (err as { cause?: unknown }).cause instanceof $ZodError) {
-    return new AppError('INTERNAL', exposeInternal ? `Response does not match its schema: ${zodIssues((err as { cause: $ZodError }).cause).map((i) => `${i.path} ${i.message}`).join('; ')}` : 'Internal error', undefined, {
-      cause: err,
-    })
+  if (
+    isResponseSerializationError(err as object) &&
+    (err as { cause?: unknown }).cause instanceof $ZodError
+  ) {
+    return new AppError(
+      'INTERNAL',
+      exposeInternal
+        ? `Response does not match its schema: ${zodIssues((err as { cause: $ZodError }).cause)
+            .map((i) => `${i.path} ${i.message}`)
+            .join('; ')}`
+        : 'Internal error',
+      undefined,
+      {
+        cause: err,
+      },
+    )
   }
 
   const fe = err as Partial<FastifyError>
@@ -128,10 +188,15 @@ export function toAppError(err: unknown, exposeInternal: boolean): AppError {
       429: 'RATE_LIMITED',
     }
     const code = byStatus[status] ?? 'VALIDATION_ERROR'
-    return new AppError(code, message, code === 'VALIDATION_ERROR' ? { issues: [], reason: fe.code ?? null } : undefined, {
-      status,
-      cause: err,
-    })
+    return new AppError(
+      code,
+      message,
+      code === 'VALIDATION_ERROR' ? { issues: [], reason: fe.code ?? null } : undefined,
+      {
+        status,
+        cause: err,
+      },
+    )
   }
 
   const message = exposeInternal && err instanceof Error ? err.message : 'Internal error'
@@ -171,9 +236,15 @@ export function registerErrorHandler(app: FastifyInstance, opts: ErrorHandlerOpt
     if (appErr.status >= 500) {
       req.log.error({ err: appErr.cause ?? err, code: appErr.code }, 'request error')
       if (opts.exposeInternalErrors && appErr.code === 'INTERNAL') {
-        const original = appErr.cause instanceof Error ? appErr.cause : err instanceof Error ? err : null
+        const original =
+          appErr.cause instanceof Error ? appErr.cause : err instanceof Error ? err : null
         if (original?.stack) {
-          return send(reply, new AppError('INTERNAL', appErr.message, { stack: original.stack.split('\n').slice(0, 15) }))
+          return send(
+            reply,
+            new AppError('INTERNAL', appErr.message, {
+              stack: original.stack.split('\n').slice(0, 15),
+            }),
+          )
         }
       }
     } else {
@@ -184,6 +255,11 @@ export function registerErrorHandler(app: FastifyInstance, opts: ErrorHandlerOpt
 
   app.setNotFoundHandler(async (req, reply) => {
     if (opts.notFoundFallback && (await opts.notFoundFallback(req, reply))) return reply
-    return send(reply, new AppError('NOT_FOUND', `Route ${req.method} ${req.url.split('?')[0]} not found`, { entity: 'route' }))
+    return send(
+      reply,
+      new AppError('NOT_FOUND', `Route ${req.method} ${req.url.split('?')[0]} not found`, {
+        entity: 'route',
+      }),
+    )
   })
 }

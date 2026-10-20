@@ -21,7 +21,10 @@ describe('health endpoints', () => {
 
   it('GET /health/ready checks database and migrations (worker not required)', async () => {
     const res = await t.app.inject({ method: 'GET', url: '/health/ready' })
-    const body = res.json<{ status: string; checks: Record<string, { status: string; pending?: string[] }> }>()
+    const body = res.json<{
+      status: string
+      checks: Record<string, { status: string; pending?: string[] }>
+    }>()
     expect(res.statusCode, JSON.stringify(body)).toBe(200)
     expect(body.checks.database?.status).toBe('ok')
     expect(body.checks.migrations?.status).toBe('ok')
@@ -29,9 +32,17 @@ describe('health endpoints', () => {
   })
 
   it('echoes a well-formed x-request-id and replaces a malformed one', async () => {
-    const ok = await t.app.inject({ method: 'GET', url: '/health/live', headers: { 'x-request-id': 'req-12345678' } })
+    const ok = await t.app.inject({
+      method: 'GET',
+      url: '/health/live',
+      headers: { 'x-request-id': 'req-12345678' },
+    })
     expect(ok.headers['x-request-id']).toBe('req-12345678')
-    const bad = await t.app.inject({ method: 'GET', url: '/health/live', headers: { 'x-request-id': 'bad id\nwith newline' } })
+    const bad = await t.app.inject({
+      method: 'GET',
+      url: '/health/live',
+      headers: { 'x-request-id': 'bad id\nwith newline' },
+    })
     expect(bad.headers['x-request-id']).not.toContain('bad')
   })
 })
@@ -50,7 +61,9 @@ describe('health with a required worker', () => {
   it('is not ready without a heartbeat, ready once the worker has beaten', async () => {
     const missing = await t.app.inject({ method: 'GET', url: '/health/ready' })
     expect(missing.statusCode).toBe(503)
-    expect(missing.json<{ checks: { worker: { status: string } } }>().checks.worker.status).toBe('error')
+    expect(missing.json<{ checks: { worker: { status: string } } }>().checks.worker.status).toBe(
+      'error',
+    )
 
     await writeHeartbeat(t.deps, 1, heartbeatKey)
     const fresh = await t.app.inject({ method: 'GET', url: '/health/ready' })

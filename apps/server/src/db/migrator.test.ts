@@ -5,7 +5,14 @@ import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { testDatabaseUrls } from '../test/env'
 import { testEnv } from '../test/helpers'
-import { ChecksumMismatchError, checksumOf, defaultMigrationsDir, migrate, migrationStatus, readMigrationFiles } from './migrator'
+import {
+  ChecksumMismatchError,
+  checksumOf,
+  defaultMigrationsDir,
+  migrate,
+  migrationStatus,
+  readMigrationFiles,
+} from './migrator'
 
 // Each run gets its own throw-away database created by the owner role.
 const dbName = `kadai_mig_${process.pid}_${Date.now().toString(36)}`
@@ -30,13 +37,19 @@ describe('migrator', () => {
   let dir: string
   const warnings: string[] = []
   const logger = { info: () => undefined, warn: (m: string) => warnings.push(m) }
-  const opts = () => ({ connectionString: urlFor(dbName), appRole: 'kadai_app', migrationsDir: dir, logger })
+  const opts = () => ({
+    connectionString: urlFor(dbName),
+    appRole: 'kadai_app',
+    migrationsDir: dir,
+    logger,
+  })
 
   beforeAll(async () => {
     await admin(`CREATE DATABASE ${dbName}`)
     dir = await mkdtemp(path.join(os.tmpdir(), 'kadai-migrations-'))
     for (const f of await readdir(defaultMigrationsDir())) {
-      if (f.endsWith('.sql')) await copyFile(path.join(defaultMigrationsDir(), f), path.join(dir, f))
+      if (f.endsWith('.sql'))
+        await copyFile(path.join(defaultMigrationsDir(), f), path.join(dir, f))
     }
   })
 
@@ -59,12 +72,18 @@ describe('migrator', () => {
     const client = new pg.Client({ connectionString: urlFor(dbName) })
     await client.connect()
     try {
-      const res = await client.query<{ name: string; checksum: string }>('SELECT name, checksum FROM schema_migrations ORDER BY name')
+      const res = await client.query<{ name: string; checksum: string }>(
+        'SELECT name, checksum FROM schema_migrations ORDER BY name',
+      )
       const files = await readMigrationFiles(dir)
       expect(res.rows).toEqual(files.map((f) => ({ name: f.name, checksum: f.checksum })))
-      const grant = await client.query<{ ok: boolean }>("SELECT has_table_privilege('kadai_app', 'public.products', 'INSERT') AS ok")
+      const grant = await client.query<{ ok: boolean }>(
+        "SELECT has_table_privilege('kadai_app', 'public.products', 'INSERT') AS ok",
+      )
       expect(grant.rows[0]?.ok).toBe(true)
-      const revoked = await client.query<{ ok: boolean }>("SELECT has_table_privilege('kadai_app', 'public.auth_sessions', 'SELECT') AS ok")
+      const revoked = await client.query<{ ok: boolean }>(
+        "SELECT has_table_privilege('kadai_app', 'public.auth_sessions', 'SELECT') AS ok",
+      )
       expect(revoked.rows[0]?.ok).toBe(false)
     } finally {
       await client.end()
@@ -73,11 +92,17 @@ describe('migrator', () => {
 
   it('applies a pending file that sorts before applied ones, with a warning', async () => {
     await writeFile(path.join(dir, '0099_late_band.sql'), 'CREATE TABLE zz_late (id int);\n')
-    await writeFile(path.join(dir, '0090_parallel_band.sql'), 'CREATE TABLE zz_parallel (id int);\n')
+    await writeFile(
+      path.join(dir, '0090_parallel_band.sql'),
+      'CREATE TABLE zz_parallel (id int);\n',
+    )
     // Apply 0099 first (as if another module's migration had landed), then 0090 arrives.
     await rm(path.join(dir, '0090_parallel_band.sql'))
     expect((await migrate(opts())).applied).toEqual(['0099_late_band.sql'])
-    await writeFile(path.join(dir, '0090_parallel_band.sql'), 'CREATE TABLE zz_parallel (id int);\n')
+    await writeFile(
+      path.join(dir, '0090_parallel_band.sql'),
+      'CREATE TABLE zz_parallel (id int);\n',
+    )
     warnings.length = 0
     const res = await migrate(opts())
     expect(res.applied).toEqual(['0090_parallel_band.sql'])

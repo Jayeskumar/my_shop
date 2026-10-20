@@ -34,7 +34,8 @@ export function registerRequestContext(app: FastifyInstance): void {
       user_id: req.kadaiCtx?.userId ?? null,
     }
     if (status >= 500) req.log.error(line, 'request failed')
-    else if (req.url.startsWith('/health') || req.url === '/metrics') req.log.debug(line, 'request completed')
+    else if (req.url.startsWith('/health') || req.url === '/metrics')
+      req.log.debug(line, 'request completed')
     else req.log.info(line, 'request completed')
   })
 }

@@ -1,33 +1,9 @@
-import { cva, type VariantProps } from 'class-variance-authority'
+import type { VariantProps } from 'class-variance-authority'
 import { forwardRef, type InputHTMLAttributes, type ReactNode } from 'react'
 import { cn } from '@/lib/cn'
-import { useFormFieldControl } from './form-field'
+import { useFormFieldControl } from './form-field-context'
+import { fieldVariants, type FieldSize } from './variants'
 
-/** Shared look of text-like controls (Input, Textarea, Select trigger, DatePicker…). */
-export const fieldVariants = cva(
-  [
-    'w-full min-w-0 rounded-md border border-input bg-surface text-foreground shadow-card',
-    'placeholder:text-muted-foreground/70 transition-[color,box-shadow,border-color]',
-    'focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/25',
-    'disabled:cursor-not-allowed disabled:bg-surface-2 disabled:opacity-70',
-    'aria-[invalid=true]:border-danger aria-[invalid=true]:focus-visible:ring-danger/25',
-    'read-only:bg-surface-2',
-  ],
-  {
-    variants: {
-      size: {
-        // 16px text on phones avoids iOS zoom-on-focus; 14px from sm up.
-        sm: 'h-8 px-2.5 text-sm',
-        md: 'h-10 px-3 text-base sm:text-sm',
-        lg: 'h-12 px-3.5 text-base',
-        xl: 'h-14 px-4 text-lg font-medium',
-      },
-    },
-    defaultVariants: { size: 'md' },
-  },
-)
-
-export type FieldSize = NonNullable<VariantProps<typeof fieldVariants>['size']>
 
 export interface InputProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'>,

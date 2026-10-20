@@ -133,7 +133,10 @@ export interface InsertTestTenantOptions {
 }
 
 /** Minimal raw tenant fixture via the system database (bypasses RLS). */
-export async function insertTestTenant(systemDb: Kysely<DB>, opts: InsertTestTenantOptions = {}): Promise<TestTenant> {
+export async function insertTestTenant(
+  systemDb: Kysely<DB>,
+  opts: InsertTestTenantOptions = {},
+): Promise<TestTenant> {
   const tenantId = newId()
   const businessType = opts.business_type ?? 'general_store'
   const name = opts.name ?? `Test Shop ${tenantId.slice(-6)}`
@@ -142,25 +145,72 @@ export async function insertTestTenant(systemDb: Kysely<DB>, opts: InsertTestTen
   return systemDb.transaction().execute(async (tx) => {
     await tx
       .insertInto('tenants')
-      .values({ id: tenantId, name, business_type: businessType, gst_scheme: 'unregistered', state_code: stateCode, plan_code: planCode, status: opts.status ?? 'active' })
+      .values({
+        id: tenantId,
+        name,
+        business_type: businessType,
+        gst_scheme: 'unregistered',
+        state_code: stateCode,
+        plan_code: planCode,
+        status: opts.status ?? 'active',
+      })
       .execute()
     const roleId = newId()
     await tx
       .insertInto('roles')
-      .values({ id: roleId, tenant_id: tenantId, code: 'owner', name: 'Owner', name_ta: 'உரிமையாளர்', permissions: [...PERMISSION_CODES], is_system: true })
+      .values({
+        id: roleId,
+        tenant_id: tenantId,
+        code: 'owner',
+        name: 'Owner',
+        name_ta: 'உரிமையாளர்',
+        permissions: [...PERMISSION_CODES],
+        is_system: true,
+      })
       .execute()
     const userId = newId()
     const phone = randomPhone()
-    await tx.insertInto('users').values({ id: userId, phone, full_name: `Owner ${tenantId.slice(-4)}` }).execute()
+    await tx
+      .insertInto('users')
+      .values({ id: userId, phone, full_name: `Owner ${tenantId.slice(-4)}` })
+      .execute()
     const membershipId = newId()
-    await tx.insertInto('memberships').values({ id: membershipId, tenant_id: tenantId, user_id: userId, role_id: roleId }).execute()
+    await tx
+      .insertInto('memberships')
+      .values({ id: membershipId, tenant_id: tenantId, user_id: userId, role_id: roleId })
+      .execute()
     const storeId = newId()
-    await tx.insertInto('stores').values({ id: storeId, tenant_id: tenantId, code: 'S1', name: `${name} Main`, state_code: stateCode }).execute()
+    await tx
+      .insertInto('stores')
+      .values({
+        id: storeId,
+        tenant_id: tenantId,
+        code: 'S1',
+        name: `${name} Main`,
+        state_code: stateCode,
+      })
+      .execute()
     const registerId = newId()
-    await tx.insertInto('registers').values({ id: registerId, tenant_id: tenantId, store_id: storeId, code: 'A', name: 'Counter A' }).execute()
+    await tx
+      .insertInto('registers')
+      .values({
+        id: registerId,
+        tenant_id: tenantId,
+        store_id: storeId,
+        code: 'A',
+        name: 'Counter A',
+      })
+      .execute()
     return {
       tenant: { id: tenantId, name, business_type: businessType, plan_code: planCode },
-      owner: { user_id: userId, tenant_id: tenantId, membership_id: membershipId, role_id: roleId, role_code: 'owner', phone },
+      owner: {
+        user_id: userId,
+        tenant_id: tenantId,
+        membership_id: membershipId,
+        role_id: roleId,
+        role_code: 'owner',
+        phone,
+      },
       store: { id: storeId, code: 'S1' },
       register: { id: registerId, code: 'A', store_id: storeId },
     }
@@ -171,21 +221,52 @@ export async function insertTestTenant(systemDb: Kysely<DB>, opts: InsertTestTen
 export async function insertTestMember(
   systemDb: Kysely<DB>,
   tenantId: string,
-  opts: { role_code?: string; permissions: readonly string[]; store_ids?: string[] | null; status?: 'active' | 'invited' | 'disabled' },
+  opts: {
+    role_code?: string
+    permissions: readonly string[]
+    store_ids?: string[] | null
+    status?: 'active' | 'invited' | 'disabled'
+  },
 ): Promise<TestMember> {
   const roleCode = opts.role_code ?? `role_${randomInt(1e6, 1e7)}`
   return systemDb.transaction().execute(async (tx) => {
     const roleId = newId()
-    await tx.insertInto('roles').values({ id: roleId, tenant_id: tenantId, code: roleCode, name: roleCode, permissions: [...opts.permissions] }).execute()
+    await tx
+      .insertInto('roles')
+      .values({
+        id: roleId,
+        tenant_id: tenantId,
+        code: roleCode,
+        name: roleCode,
+        permissions: [...opts.permissions],
+      })
+      .execute()
     const userId = newId()
     const phone = randomPhone()
-    await tx.insertInto('users').values({ id: userId, phone, full_name: `User ${userId.slice(-4)}` }).execute()
+    await tx
+      .insertInto('users')
+      .values({ id: userId, phone, full_name: `User ${userId.slice(-4)}` })
+      .execute()
     const membershipId = newId()
     await tx
       .insertInto('memberships')
-      .values({ id: membershipId, tenant_id: tenantId, user_id: userId, role_id: roleId, store_ids: opts.store_ids ?? null, status: opts.status ?? 'active' })
+      .values({
+        id: membershipId,
+        tenant_id: tenantId,
+        user_id: userId,
+        role_id: roleId,
+        store_ids: opts.store_ids ?? null,
+        status: opts.status ?? 'active',
+      })
       .execute()
-    return { user_id: userId, tenant_id: tenantId, membership_id: membershipId, role_id: roleId, role_code: roleCode, phone }
+    return {
+      user_id: userId,
+      tenant_id: tenantId,
+      membership_id: membershipId,
+      role_id: roleId,
+      role_code: roleCode,
+      phone,
+    }
   })
 }
 
@@ -201,7 +282,11 @@ export interface SignTestTokenOptions {
  * Creates a real refresh session (auth_sessions) and signs an access token for a member.
  * Returns the access token; `signTestSession` also returns the session/refresh token.
  */
-export async function signTestToken(deps: Pick<KadaiDeps, 'config' | 'db'>, member: Pick<TestMember, 'user_id' | 'tenant_id' | 'membership_id'>, opts: SignTestTokenOptions = {}): Promise<string> {
+export async function signTestToken(
+  deps: Pick<KadaiDeps, 'config' | 'db'>,
+  member: Pick<TestMember, 'user_id' | 'tenant_id' | 'membership_id'>,
+  opts: SignTestTokenOptions = {},
+): Promise<string> {
   return (await signTestSession(deps, member, opts)).accessToken
 }
 
@@ -231,7 +316,14 @@ export async function signTestSession(
     },
     { ttlSeconds: opts.ttlSeconds },
   )
-  return { accessToken: token, sessionId: session.sessionId, familyId: session.familyId, refreshToken: session.refreshToken }
+  return {
+    accessToken: token,
+    sessionId: session.sessionId,
+    familyId: session.familyId,
+    refreshToken: session.refreshToken,
+  }
 }
 
-export const bearer = (token: string): { authorization: string } => ({ authorization: `Bearer ${token}` })
+export const bearer = (token: string): { authorization: string } => ({
+  authorization: `Bearer ${token}`,
+})

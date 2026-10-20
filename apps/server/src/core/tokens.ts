@@ -190,9 +190,18 @@ export async function rotateSession(
         // Reuse of a rotated token: assume theft, kill every session of the family. Committed
         // even though the request fails (the outer error is raised after the transaction).
         await revokeFamilyTx(tx, row.family_id, 'reuse_detected')
-        return { kind: 'error' as const, error: new AppError('SESSION_REVOKED', 'Refresh token reuse detected; all sessions of this login were revoked') }
+        return {
+          kind: 'error' as const,
+          error: new AppError(
+            'SESSION_REVOKED',
+            'Refresh token reuse detected; all sessions of this login were revoked',
+          ),
+        }
       }
-      return { kind: 'error' as const, error: new AppError('SESSION_REVOKED', 'Session was revoked') }
+      return {
+        kind: 'error' as const,
+        error: new AppError('SESSION_REVOKED', 'Session was revoked'),
+      }
     }
     if (row.expires_at.getTime() <= Date.now()) {
       return { kind: 'error' as const, error: unauthenticated('Refresh token expired') }
@@ -251,7 +260,11 @@ async function broadcast(db: SystemDb, rows: ReadonlyArray<{ user_id: string }>)
 }
 
 /** Revokes one session (logout). Returns false when it was already revoked / unknown. */
-export async function revokeSession(systemDb: SystemDb, sessionId: string, reason = 'logout'): Promise<boolean> {
+export async function revokeSession(
+  systemDb: SystemDb,
+  sessionId: string,
+  reason = 'logout',
+): Promise<boolean> {
   const rows = await systemDb
     .updateTable('auth_sessions')
     .set({ revoked_at: new Date(), revoked_reason: reason })
@@ -264,7 +277,11 @@ export async function revokeSession(systemDb: SystemDb, sessionId: string, reaso
 }
 
 /** Revokes a whole refresh family (e.g. the login a session belongs to). */
-export function revokeFamily(systemDb: SystemDb, familyId: string, reason = 'logout'): Promise<string[]> {
+export function revokeFamily(
+  systemDb: SystemDb,
+  familyId: string,
+  reason = 'logout',
+): Promise<string[]> {
   return revokeFamilyTx(systemDb, familyId, reason)
 }
 

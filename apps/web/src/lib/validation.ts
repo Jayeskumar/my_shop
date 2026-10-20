@@ -15,6 +15,7 @@ import { z } from 'zod'
 import enLocale from 'zod/v4/locales/en.js'
 import taLocale from 'zod/v4/locales/ta.js'
 import i18next from 'i18next'
+import { errorMessage, isErrorCode } from '@kadai/shared/errors'
 import type { Resources } from './i18n-resources'
 
 export type ValidationKey = keyof Resources['errors']['validation']
@@ -113,9 +114,13 @@ export function validationToken(key: ValidationKey, params?: Record<string, stri
   return token(key, params)
 }
 
-/** Translates a validation message (token, known shared message, or free text) for display. */
+/**
+ * Translates a validation message for display: a token, a known shared message, an API error
+ * code (e.g. `setError('pin', { message: 'PIN_LOCKED' })`), or free text (shown as-is).
+ */
 export function localizeValidationMessage(message: string | undefined | null): string | undefined {
   if (!message) return undefined
+  if (isErrorCode(message)) return errorMessage(message, i18next.language === 'en' ? 'en' : 'ta')
   if (message.startsWith(TOKEN_PREFIX)) {
     const [rawKey = '', query = ''] = message.slice(TOKEN_PREFIX.length).split('?')
     if (!isValidationKey(rawKey)) return message

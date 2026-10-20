@@ -1,7 +1,7 @@
 import { cva, type VariantProps } from 'class-variance-authority'
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { cn } from '@/lib/cn'
-import { buttonVariants } from './button'
+import { buttonVariants } from './variants'
 import { Spinner } from './spinner'
 import { Tooltip } from './tooltip'
 

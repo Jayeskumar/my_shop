@@ -30,8 +30,16 @@ export class AppError extends Error {
   /** Fastify reads statusCode from thrown errors (e.g. inside plugins). */
   readonly statusCode: number
 
-  constructor(code: ErrorCode, message?: string, details?: Record<string, unknown>, options: AppErrorOptions = {}) {
-    super(message ?? defaultMessage(code), options.cause === undefined ? undefined : { cause: options.cause })
+  constructor(
+    code: ErrorCode,
+    message?: string,
+    details?: Record<string, unknown>,
+    options: AppErrorOptions = {},
+  ) {
+    super(
+      message ?? defaultMessage(code),
+      options.cause === undefined ? undefined : { cause: options.cause },
+    )
     this.name = 'AppError'
     this.code = code
     this.status = options.status ?? httpStatusFor(code)
@@ -57,8 +65,10 @@ function defaultMessage(code: ErrorCode): string {
 // Helpers (English, developer-facing messages; the web localises by code)
 // ---------------------------------------------------------------------------------------------
 
-export const validationError = (issues: ValidationIssue[], message = 'Validation failed'): AppError =>
-  new AppError('VALIDATION_ERROR', message, { issues })
+export const validationError = (
+  issues: ValidationIssue[],
+  message = 'Validation failed',
+): AppError => new AppError('VALIDATION_ERROR', message, { issues })
 
 /** Single-field validation error. */
 export const invalidField = (path: string, message: string): AppError =>
@@ -67,8 +77,10 @@ export const invalidField = (path: string, message: string): AppError =>
 export const unauthenticated = (message = 'Authentication required'): AppError =>
   new AppError('UNAUTHENTICATED', message)
 
-export const forbidden = (message = 'You do not have permission to do this', details?: Record<string, unknown>): AppError =>
-  new AppError('FORBIDDEN', message, details)
+export const forbidden = (
+  message = 'You do not have permission to do this',
+  details?: Record<string, unknown>,
+): AppError => new AppError('FORBIDDEN', message, details)
 
 export const notFound = (entity: string, id?: string): AppError =>
   new AppError('NOT_FOUND', `${entity} not found`, id ? { entity, id } : { entity })
@@ -91,7 +103,12 @@ export const featureNotInPlan = (feature: Feature, plan: string): AppError =>
     plan,
   })
 
-export const planLimitReached = (metric: LimitMetric, limit: number, current: number, plan: string): AppError =>
+export const planLimitReached = (
+  metric: LimitMetric,
+  limit: number,
+  current: number,
+  plan: string,
+): AppError =>
   new AppError('PLAN_LIMIT_REACHED', `Plan limit reached for ${metric} (${current}/${limit})`, {
     metric,
     limit,

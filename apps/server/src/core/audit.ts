@@ -48,14 +48,18 @@ export async function audit(tx: Tx, ctx: AuditContext, entry: AuditEntry): Promi
 }
 
 type Plain = Record<string, unknown>
-const isPlain = (v: unknown): v is Plain => typeof v === 'object' && v !== null && !Array.isArray(v) && !(v instanceof Date)
+const isPlain = (v: unknown): v is Plain =>
+  typeof v === 'object' && v !== null && !Array.isArray(v) && !(v instanceof Date)
 
 /**
  * Field-level diff of two objects (nested objects compared recursively, arrays/scalars by value):
  * returns only what changed, as {before, after}, or null when nothing changed. Secret-looking keys
  * are masked.
  */
-export function diffChanges(before: unknown, after: unknown): { before: Plain; after: Plain } | null {
+export function diffChanges(
+  before: unknown,
+  after: unknown,
+): { before: Plain; after: Plain } | null {
   const b: Plain = {}
   const a: Plain = {}
   const walk = (x: unknown, y: unknown, outB: Plain, outA: Plain): boolean => {

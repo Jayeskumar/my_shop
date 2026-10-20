@@ -5,6 +5,7 @@
  */
 import { forwardRef, useEffect, useRef, useState, type FocusEvent, type ReactNode } from 'react'
 import { cn } from '@/lib/cn'
+import { formatScaled, parseScaled } from './input-parsing'
 import { Input, type InputProps } from './input'
 
 export interface NumberInputProps
@@ -23,40 +24,6 @@ export interface NumberInputProps
   allowNegative?: boolean
   suffix?: ReactNode
   prefix?: ReactNode
-}
-
-/** "12.5" with scale 100 → 1250 (string arithmetic, no float error). */
-export function parseScaled(text: string, scale: number, decimals: number, allowNegative: boolean): number | null {
-  const trimmed = text.trim()
-  const m = /^(-)?(\d*)(?:\.(\d*))?$/.exec(trimmed)
-  if (!m || trimmed === '' || trimmed === '-' || trimmed === '.') return null
-  const [, sign, int = '', frac = ''] = m
-  if (sign && !allowNegative) return null
-  if (frac.length > decimals) return null
-  if (int === '' && frac === '') return null
-  const scaleDigits = Math.round(Math.log10(scale))
-  if (scale === 1) {
-    if (decimals === 0) {
-      const n = Number(int || '0')
-      return Number.isSafeInteger(n) ? (sign ? -n : n) : null
-    }
-    const n = Number(`${int || '0'}.${frac || '0'}`)
-    return Number.isFinite(n) ? (sign ? -n : n) : null
-  }
-  if (frac.length > scaleDigits) return null
-  const n = Number(int || '0') * scale + Number(frac.padEnd(scaleDigits, '0') || '0')
-  if (!Number.isSafeInteger(n)) return null
-  return sign ? -n : n
-}
-
-export function formatScaled(value: number, scale: number): string {
-  if (scale === 1) return String(value)
-  const digits = Math.round(Math.log10(scale))
-  const abs = Math.abs(value)
-  const whole = Math.trunc(abs / scale)
-  const frac = abs % scale
-  const fracText = frac === 0 ? '' : `.${String(frac).padStart(digits, '0').replace(/0+$/, '')}`
-  return `${value < 0 ? '-' : ''}${whole}${fracText}`
 }
 
 export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(function NumberInput(

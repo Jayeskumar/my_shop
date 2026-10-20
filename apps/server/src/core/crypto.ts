@@ -48,7 +48,10 @@ export class SecretBox {
     const iv = randomBytes(IV_BYTES)
     const cipher = createCipheriv('aes-256-gcm', key, iv, { authTagLength: TAG_BYTES })
     if (aad !== undefined) cipher.setAAD(Buffer.from(aad, 'utf8'))
-    const ct = Buffer.concat([cipher.update(typeof plaintext === 'string' ? Buffer.from(plaintext, 'utf8') : plaintext), cipher.final()])
+    const ct = Buffer.concat([
+      cipher.update(typeof plaintext === 'string' ? Buffer.from(plaintext, 'utf8') : plaintext),
+      cipher.final(),
+    ])
     const tag = cipher.getAuthTag()
     return [VERSION, this.activeKid, b64u(iv), b64u(tag), b64u(ct)].join(':')
   }
@@ -61,14 +64,17 @@ export class SecretBox {
     if (!key) throw new DecryptionError(`unknown encryption key id "${kid}"`)
     const iv = fromB64u(ivPart)
     const tag = fromB64u(tagPart)
-    if (iv.length !== IV_BYTES || tag.length !== TAG_BYTES) throw new DecryptionError('malformed envelope')
+    if (iv.length !== IV_BYTES || tag.length !== TAG_BYTES)
+      throw new DecryptionError('malformed envelope')
     try {
       const decipher = createDecipheriv('aes-256-gcm', key, iv, { authTagLength: TAG_BYTES })
       if (aad !== undefined) decipher.setAAD(Buffer.from(aad, 'utf8'))
       decipher.setAuthTag(tag)
       return Buffer.concat([decipher.update(fromB64u(ctPart)), decipher.final()])
     } catch (err) {
-      throw new DecryptionError('ciphertext failed authentication (tampered or wrong key/AAD)', { cause: err })
+      throw new DecryptionError('ciphertext failed authentication (tampered or wrong key/AAD)', {
+        cause: err,
+      })
     }
   }
 

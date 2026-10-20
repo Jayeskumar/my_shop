@@ -35,7 +35,10 @@ export const REDACT_PATHS = [
   ...SECRET_KEYS.flatMap((k) => [k, `*.${k}`, `*.*.${k}`]),
 ]
 
-export function loggerOptions(config: Pick<Config, 'logLevel' | 'logPretty' | 'mode'>, version: string): LoggerOptions {
+export function loggerOptions(
+  config: Pick<Config, 'logLevel' | 'logPretty' | 'mode'>,
+  version: string,
+): LoggerOptions {
   const opts: LoggerOptions = {
     level: config.logLevel,
     base: { app: 'kadai', mode: config.mode, version },
@@ -45,11 +48,17 @@ export function loggerOptions(config: Pick<Config, 'logLevel' | 'logPretty' | 'm
   }
   if (config.logPretty) {
     // pino-pretty is a dev dependency: only used when explicitly pretty (development on a TTY).
-    opts.transport = { target: 'pino-pretty', options: { translateTime: 'SYS:HH:MM:ss.l', ignore: 'pid,hostname,app,mode,version' } }
+    opts.transport = {
+      target: 'pino-pretty',
+      options: { translateTime: 'SYS:HH:MM:ss.l', ignore: 'pid,hostname,app,mode,version' },
+    }
   }
   return opts
 }
 
-export function createLogger(config: Pick<Config, 'logLevel' | 'logPretty' | 'mode'>, version: string): Logger {
+export function createLogger(
+  config: Pick<Config, 'logLevel' | 'logPretty' | 'mode'>,
+  version: string,
+): Logger {
   return pino(loggerOptions(config, version))
 }

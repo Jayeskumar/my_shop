@@ -12,10 +12,8 @@
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
 import { AlertTriangle, Info } from 'lucide-react'
 import {
-  createContext,
   forwardRef,
   useCallback,
-  useContext,
   useRef,
   useState,
   type ComponentPropsWithoutRef,
@@ -27,6 +25,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/cn'
 import { useHotkeyScope } from '@/lib/hotkeys'
 import { Button } from './button'
+import { ConfirmContext, type ConfirmFn, type ConfirmOptions } from './confirm-context'
 
 export const AlertDialogRoot = AlertDialogPrimitive.Root
 export const AlertDialogTrigger = AlertDialogPrimitive.Trigger
@@ -62,14 +61,6 @@ export const AlertDialogContent = forwardRef<
     </AlertDialogPrimitive.Portal>
   )
 })
-
-export interface ConfirmOptions {
-  title: ReactNode
-  description?: ReactNode
-  confirmLabel?: ReactNode
-  cancelLabel?: ReactNode
-  tone?: 'danger' | 'primary'
-}
 
 export interface ConfirmDialogProps extends ConfirmOptions {
   open: boolean
@@ -154,8 +145,6 @@ export function ConfirmDialog({
   )
 }
 
-type ConfirmFn = (options: ConfirmOptions) => Promise<boolean>
-const ConfirmContext = createContext<ConfirmFn | null>(null)
 
 /** Mount once near the root; provides `useConfirm()`. */
 export function ConfirmProvider({ children }: { children: ReactNode }) {
@@ -191,10 +180,4 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       ) : null}
     </ConfirmContext.Provider>
   )
-}
-
-export function useConfirm(): ConfirmFn {
-  const fn = useContext(ConfirmContext)
-  if (!fn) throw new Error('useConfirm must be used inside <ConfirmProvider>')
-  return fn
 }

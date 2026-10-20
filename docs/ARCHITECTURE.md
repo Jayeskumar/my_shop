@@ -177,8 +177,8 @@ needs it must justify it in a comment. In dev a single URL may be used for both 
 
 ```ts
 // apps/server/src/db/tenant.ts
-await withTenant(ctx, async (tx) => { ... })   // BEGIN; set_config('app.tenant_id', ctx.tenantId, true);
-                                               //        set_config('app.user_id',   ctx.userId,   true); ... COMMIT
+await withTenant(appDb, ctx, async (tx) => { ... })  // BEGIN; set_config('app.tenant_id', ctx.tenantId, true);
+                                                     //        set_config('app.user_id',   ctx.userId,   true); ... COMMIT
 ```
 
 * Each request handler that touches tenant data runs inside **one** `withTenant` transaction
@@ -248,13 +248,16 @@ interface RequestContext {
   tenantId: string          // always set for tenant routes
   userId: string | null     // null for API keys
   membershipId: string | null
-  roleCode: string
+  sessionId: string | null             // auth_sessions.id (null for API keys / jobs)
+  apiKeyId: string | null              // api_keys.id for X-Api-Key requests
+  roleCode: string                     // 'api_key' / 'system' for non-user actors
   permissions: ReadonlySet<Permission>
   storeIds: readonly string[] | null   // null = all stores
   deviceId: string | null
   registerId: string | null            // from trusted device
   locale: 'ta' | 'en'
   ip: string; userAgent: string
+  authMethods: readonly ('password' | 'otp' | 'pin' | 'api' | 'system')[]
 }
 ```
 
@@ -302,8 +305,10 @@ app.post('/products', {
 * **Route catalogues** — each contract file exports `<module>Routes = defineRoutes({...})`
   (`api/common.ts`): one entry per endpoint with `method`, `path` (relative to the scope prefix
   `/api/v1`, `/public/v1` or `/webhooks`), `permission`, `feature`, `mode`, `idempotent`, and the
-  `params`/`query`/`body`/`response` schemas. The server registers each route from its definition
-  (schemas + permission/feature/mode guards applied automatically) and the web calls it through a
+  `params`/`query`/`body`/`response` schemas (`response` is the complete body, i.e. the envelope:
+  `dataOf(X)` / `listOf(X)`). The server registers each route from its definition with
+  `route(app, def, handler)` (`core/http.ts`: schemas + permission/feature/mode guards applied
+  automatically) and the web calls it through a
   typed client (`routeUrl()`, `RouteBody<R>`, `RouteResponse<R>`), so paths and payloads cannot
   drift. docs/API.md is the human-readable index of the same catalogue.
 

@@ -114,7 +114,9 @@ export class RbacService {
     const row = await withTenant(this.appDb, { tenantId, userId }, (tx) =>
       tx
         .selectFrom('memberships as m')
-        .innerJoin('roles as r', (j) => j.onRef('r.id', '=', 'm.role_id').onRef('r.tenant_id', '=', 'm.tenant_id'))
+        .innerJoin('roles as r', (j) =>
+          j.onRef('r.id', '=', 'm.role_id').onRef('r.tenant_id', '=', 'm.tenant_id'),
+        )
         .innerJoin('tenants as t', 't.id', 'm.tenant_id')
         .innerJoin('users as u', 'u.id', 'm.user_id')
         .select([
@@ -157,14 +159,21 @@ export class RbacService {
 function isAccessChange(v: unknown): v is AccessChange {
   if (typeof v !== 'object' || v === null) return false
   const o = v as Record<string, unknown>
-  return o.scope === 'rbac' && typeof o.tenant_id === 'string' && (o.user_id === undefined || typeof o.user_id === 'string')
+  return (
+    o.scope === 'rbac' &&
+    typeof o.tenant_id === 'string' &&
+    (o.user_id === undefined || typeof o.user_id === 'string')
+  )
 }
 
 /**
  * Call inside the transaction that changes a role, membership, user status, device or tenant
  * status. Every process drops the affected cache entries once the transaction commits.
  */
-export function notifyAccessChanged(tx: Tx | Kysely<DB>, change: { tenant_id: string; user_id?: string }): Promise<void> {
+export function notifyAccessChanged(
+  tx: Tx | Kysely<DB>,
+  change: { tenant_id: string; user_id?: string },
+): Promise<void> {
   const payload: AccessChange = { scope: 'rbac', tenant_id: change.tenant_id }
   if (change.user_id) payload.user_id = change.user_id
   return notify(tx, CHANNELS.cache, { ...payload })

@@ -17,7 +17,11 @@ export interface KadaiMetrics {
   observePools(pools: Record<string, pg.Pool>): void
 }
 
-export function createMetrics(opts: { version: string; mode: string; defaultMetrics?: boolean }): KadaiMetrics {
+export function createMetrics(opts: {
+  version: string
+  mode: string
+  defaultMetrics?: boolean
+}): KadaiMetrics {
   const registry = new Registry()
   registry.setDefaultLabels({ app: 'kadai' })
   if (opts.defaultMetrics ?? true) collectDefaultMetrics({ register: registry, prefix: 'kadai_' })

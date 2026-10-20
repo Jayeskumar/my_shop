@@ -5,8 +5,9 @@
  *   <MoneyInput value={field.value} onChange={field.onChange} />   // via RHF <Controller>
  */
 import { forwardRef, useEffect, useRef, useState, type ClipboardEvent, type FocusEvent } from 'react'
-import { formatINR, paiseToRupeesString, tryParseRupees } from '@kadai/shared/money'
+import { tryParseRupees } from '@kadai/shared/money'
 import { cn } from '@/lib/cn'
+import { formatMoneyInputValue, moneyEditingText, parseMoneyText } from './input-parsing'
 import { Input, type InputProps } from './input'
 
 export interface MoneyInputProps
@@ -18,25 +19,6 @@ export interface MoneyInputProps
   allowNegative?: boolean
   /** Show the ₹ symbol inside the field (default true). */
   showSymbol?: boolean
-}
-
-/** Grouped display text for a paise value ('' for empty). */
-export function formatMoneyInputValue(paise: number | null | undefined): string {
-  if (paise === null || paise === undefined) return ''
-  return formatINR(paise, { symbol: false, decimals: 2 })
-}
-
-/** Editing text: no grouping, no trailing ".00" (easy to overwrite). */
-function editingText(paise: number | null | undefined): string {
-  if (paise === null || paise === undefined) return ''
-  return paiseToRupeesString(paise).replace(/\.00$/, '')
-}
-
-/** Parses typed text, ignoring grouping commas typed mid-way (e.g. "1,5" while typing "1,500"). */
-export function parseMoneyText(text: string, allowNegative = false): number | null {
-  const compact = text.replace(/,/g, '').trim()
-  if (compact === '') return null
-  return tryParseRupees(compact, { allowNegative })
 }
 
 const ALLOWED = /^-?[\d,]*(\.\d{0,2})?$/
@@ -55,7 +37,7 @@ export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(function
     if (value === lastEmitted.current) return
     lastEmitted.current = value
     setInvalid(false)
-    setText(focused.current ? editingText(value) : formatMoneyInputValue(value))
+    setText(focused.current ? moneyEditingText(value) : formatMoneyInputValue(value))
   }, [value])
 
   const emit = (next: number | null): void => {
@@ -81,14 +63,14 @@ export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(function
     if (parsed !== null) {
       event.preventDefault()
       setInvalid(false)
-      setText(editingText(parsed))
+      setText(moneyEditingText(parsed))
       emit(parsed)
     }
   }
 
   const handleFocus = (event: FocusEvent<HTMLInputElement>): void => {
     focused.current = true
-    if (!invalid) setText(editingText(lastEmitted.current))
+    if (!invalid) setText(moneyEditingText(lastEmitted.current))
     onFocus?.(event)
     // Select all so the cashier can just type the new amount.
     const target = event.currentTarget

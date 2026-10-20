@@ -1,6 +1,7 @@
 import * as AvatarPrimitive from '@radix-ui/react-avatar'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/cn'
+import { initialsOf } from '@/lib/text'
 
 const avatarVariants = cva(
   'relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full font-semibold',
@@ -26,23 +27,6 @@ function toneFor(name: string): string {
   let hash = 0
   for (const ch of name) hash = (hash * 31 + (ch.codePointAt(0) ?? 0)) >>> 0
   return TONES[hash % TONES.length] ?? TONES[0]!
-}
-
-let segmenter: Intl.Segmenter | undefined
-
-/**
- * Up to two initials, grapheme-aware so Tamil names keep their vowel signs:
- * "Murugan K" → "MK", "முருகன் கண்ணன்" → "முக".
- */
-export function initialsOf(name: string): string {
-  segmenter ??= new Intl.Segmenter(undefined, { granularity: 'grapheme' })
-  const words = name.trim().split(/\s+/u).filter(Boolean)
-  const first = (w: string): string => {
-    const it = segmenter!.segment(w)[Symbol.iterator]().next()
-    return it.done ? '' : it.value.segment
-  }
-  const picks = words.length > 1 ? [words[0]!, words[words.length - 1]!] : words.slice(0, 1)
-  return picks.map(first).join('').toLocaleUpperCase('en-IN')
 }
 
 export interface AvatarProps extends VariantProps<typeof avatarVariants> {

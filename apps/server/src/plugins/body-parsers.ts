@@ -17,10 +17,14 @@ export function registerBodyParsers(app: FastifyInstance): void {
     defaultJson(req, body.toString('utf8'), done)
   })
 
-  app.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'buffer' }, (req, body: Buffer, done) => {
-    if (isWebhook(req)) req.rawBody = body
-    done(null, Object.fromEntries(new URLSearchParams(body.toString('utf8'))))
-  })
+  app.addContentTypeParser(
+    'application/x-www-form-urlencoded',
+    { parseAs: 'buffer' },
+    (req, body: Buffer, done) => {
+      if (isWebhook(req)) req.rawBody = body
+      done(null, Object.fromEntries(new URLSearchParams(body.toString('utf8'))))
+    },
+  )
 
   app.removeContentTypeParser('text/plain')
   app.addContentTypeParser('text/plain', { parseAs: 'buffer' }, (req, body: Buffer, done) => {

@@ -1,6 +1,15 @@
 import { randomBytes } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { DecryptionError, SecretBox, canonicalJson, deriveKey, hmacSha256Hex, randomToken, sha256Hex, timingSafeEqualStr } from './crypto'
+import {
+  DecryptionError,
+  SecretBox,
+  canonicalJson,
+  deriveKey,
+  hmacSha256Hex,
+  randomToken,
+  sha256Hex,
+  timingSafeEqualStr,
+} from './crypto'
 
 const key = (kid: string) => ({ kid, key: randomBytes(32) })
 
@@ -13,8 +22,13 @@ describe('SecretBox (AES-256-GCM envelopes)', () => {
     const env = box.encrypt('rzp_live_secret_ಠ_தமிழ்')
     expect(env).toMatch(/^v1:k1:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$/)
     expect(box.decrypt(env)).toBe('rzp_live_secret_ಠ_தமிழ்')
-    expect(box.decryptToBuffer(box.encrypt(Buffer.from([0, 1, 2]))).equals(Buffer.from([0, 1, 2]))).toBe(true)
-    expect(box.decryptJson(box.encryptJson({ key_id: 'rzp', key_secret: 's' }))).toEqual({ key_id: 'rzp', key_secret: 's' })
+    expect(
+      box.decryptToBuffer(box.encrypt(Buffer.from([0, 1, 2]))).equals(Buffer.from([0, 1, 2])),
+    ).toBe(true)
+    expect(box.decryptJson(box.encryptJson({ key_id: 'rzp', key_secret: 's' }))).toEqual({
+      key_id: 'rzp',
+      key_secret: 's',
+    })
   })
 
   it('uses a fresh IV every time', () => {
@@ -68,9 +82,13 @@ describe('SecretBox (AES-256-GCM envelopes)', () => {
 
 describe('hash helpers', () => {
   it('sha256Hex / hmacSha256Hex match known vectors', () => {
-    expect(sha256Hex('abc')).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
+    expect(sha256Hex('abc')).toBe(
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    )
     // RFC 4231 test case 2
-    expect(hmacSha256Hex('Jefe', 'what do ya want for nothing?')).toBe('5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843')
+    expect(hmacSha256Hex('Jefe', 'what do ya want for nothing?')).toBe(
+      '5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843',
+    )
   })
 
   it('timingSafeEqualStr compares exactly', () => {
@@ -93,6 +111,8 @@ describe('hash helpers', () => {
   })
 
   it('canonicalJson sorts keys recursively and drops undefined', () => {
-    expect(canonicalJson({ b: 1, a: { d: [3, { z: 1, y: 2 }], c: undefined } })).toBe('{"a":{"d":[3,{"y":2,"z":1}]},"b":1}')
+    expect(canonicalJson({ b: 1, a: { d: [3, { z: 1, y: 2 }], c: undefined } })).toBe(
+      '{"a":{"d":[3,{"y":2,"z":1}]},"b":1}',
+    )
   })
 })

@@ -63,13 +63,21 @@ export function createDeps(config: Config, opts: CreateDepsOptions = {}): KadaiD
     onPoolError: (err, pool) => logger.error({ err, pool }, 'database pool error'),
   })
   const events = new EventBus({ pool: db.systemPool, logger })
-  const jobs = new JobQueue(createBoss(config, opts.jobRole ?? 'producer', opts.applicationName), opts.jobDefinitions ?? [], {
-    systemDb: db.systemDb,
-    appRole: config.database.appRole,
-    logger,
-  })
+  const jobs = new JobQueue(
+    createBoss(config, opts.jobRole ?? 'producer', opts.applicationName),
+    opts.jobDefinitions ?? [],
+    {
+      systemDb: db.systemDb,
+      appRole: config.database.appRole,
+      logger,
+    },
+  )
   const otpSender = opts.otpSender ?? createOtpSender(config, logger)
-  const metrics = createMetrics({ version: VERSION, mode: config.mode, defaultMetrics: opts.defaultMetrics })
+  const metrics = createMetrics({
+    version: VERSION,
+    mode: config.mode,
+    defaultMetrics: opts.defaultMetrics,
+  })
   metrics.observePools({ app: db.appPool, system: db.systemPool })
   const deps: KadaiDeps = {
     config,
@@ -84,7 +92,11 @@ export function createDeps(config: Config, opts: CreateDepsOptions = {}): KadaiD
     otpSender,
     rbac: new RbacService(db.appDb),
     sessions: new SessionCache(db.systemDb),
-    entitlements: new EntitlementsService({ config, systemDb: db.systemDb, licenseSettingsKey: opts.licenseSettingsKey }),
+    entitlements: new EntitlementsService({
+      config,
+      systemDb: db.systemDb,
+      licenseSettingsKey: opts.licenseSettingsKey,
+    }),
     metrics,
   }
   // Cross-process cache invalidation (NOTIFY kadai_cache).
@@ -98,12 +110,16 @@ export function createDeps(config: Config, opts: CreateDepsOptions = {}): KadaiD
 export function installRuntime(deps: KadaiDeps): void {
   setEntitlementsService(deps.entitlements)
   setJobQueue(deps.jobs)
-  setTxHookErrorHandler((err, phase) => deps.logger.error({ err }, `transaction ${phase} hook failed`))
+  setTxHookErrorHandler((err, phase) =>
+    deps.logger.error({ err }, `transaction ${phase} hook failed`),
+  )
 }
 
 /** Stops the event bus and job queue and closes both pools. */
 export async function destroyDeps(deps: KadaiDeps): Promise<void> {
-  await deps.events.stop().catch((err: unknown) => deps.logger.warn({ err }, 'event bus stop failed'))
+  await deps.events
+    .stop()
+    .catch((err: unknown) => deps.logger.warn({ err }, 'event bus stop failed'))
   await deps.jobs.stop().catch((err: unknown) => deps.logger.warn({ err }, 'job queue stop failed'))
   await deps.db.destroy()
 }

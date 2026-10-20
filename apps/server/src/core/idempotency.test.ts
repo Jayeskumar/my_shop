@@ -2,7 +2,14 @@ import { newId } from '@kadai/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { withTenant } from '../db/tenant'
 import { fixtureModule } from '../test/fixture-module'
-import { type TestApp, type TestTenant, bearer, buildTestApp, insertTestTenant, signTestToken } from '../test/helpers'
+import {
+  type TestApp,
+  type TestTenant,
+  bearer,
+  buildTestApp,
+  insertTestTenant,
+  signTestToken,
+} from '../test/helpers'
 import { systemContext } from './context'
 import { requestHash, runIdempotent } from './idempotency'
 
@@ -35,7 +42,12 @@ describe('idempotency (in-transaction keys)', () => {
     expect(second.statusCode).toBe(201)
     expect(second.headers['idempotent-replayed']).toBe('true')
     expect(second.json()).toEqual(first.json())
-    const count = await t.deps.db.systemDb.selectFrom('brands').select((eb) => eb.fn.countAll<string>().as('n')).where('tenant_id', '=', shop.tenant.id).where('name', '=', 'Idhayam').executeTakeFirstOrThrow()
+    const count = await t.deps.db.systemDb
+      .selectFrom('brands')
+      .select((eb) => eb.fn.countAll<string>().as('n'))
+      .where('tenant_id', '=', shop.tenant.id)
+      .where('name', '=', 'Idhayam')
+      .executeTakeFirstOrThrow()
     expect(Number(count.n)).toBe(1)
   })
 
@@ -61,7 +73,12 @@ describe('idempotency (in-transaction keys)', () => {
     const failed = await post({ name: 'Dup Brand' }, key) // unique violation → rolled back
     expect(failed.statusCode).toBe(409)
     expect(failed.json<{ error: { code: string } }>().error.code).toBe('DUPLICATE')
-    const row = await t.deps.db.systemDb.selectFrom('idempotency_keys').select('key').where('tenant_id', '=', shop.tenant.id).where('key', '=', key).executeTakeFirst()
+    const row = await t.deps.db.systemDb
+      .selectFrom('idempotency_keys')
+      .select('key')
+      .where('tenant_id', '=', shop.tenant.id)
+      .where('key', '=', key)
+      .executeTakeFirst()
     expect(row).toBeUndefined()
   })
 
@@ -113,7 +130,10 @@ describe('idempotency (in-transaction keys)', () => {
     )
     await new Promise((r) => setTimeout(r, 100))
     const second = withTenant(t.deps.db.appDb, ctx, (tx) =>
-      runIdempotent(tx, ctx, { key, method: 'POST', path: '/x', requestHash: hash }, async () => ({ status: 201, body: { id: 'second' } })),
+      runIdempotent(tx, ctx, { key, method: 'POST', path: '/x', requestHash: hash }, async () => ({
+        status: 201,
+        body: { id: 'second' },
+      })),
     )
     release()
     await expect(first).rejects.toThrow('boom')

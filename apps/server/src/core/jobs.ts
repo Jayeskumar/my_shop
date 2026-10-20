@@ -7,7 +7,8 @@
  *   both create every registered queue (idempotent) before sending/working.
  * * enqueue(name, data, options) can be called from request handlers. With `options.tx` the job
  *   row is inserted in the caller's transaction (it exists only if the business change commits);
- *   for that the runtime role is granted INSERT on pgboss.job when the queue starts.
+ *   for that the runtime role is granted INSERT (+ SELECT of the id column) on pgboss.job when
+ *   the queue starts.
  * * Schedules: `cron` (5-field, minute resolution, `tz` default Asia/Kolkata) or `intervalSeconds`
  *   for sub-minute periodic jobs (each worker sends a singleton job per interval; pg-boss dedupes
  *   across worker processes).
@@ -92,7 +93,11 @@ export interface SendOptions {
   expireInSeconds?: number
 }
 
-export function createBoss(config: Pick<Config, 'database'>, role: 'producer' | 'worker', applicationName = 'kadai'): PgBoss {
+export function createBoss(
+  config: Pick<Config, 'database'>,
+  role: 'producer' | 'worker',
+  applicationName = 'kadai',
+): PgBoss {
   return new PgBoss({
     connectionString: config.database.systemUrl,
     schema: PGBOSS_SCHEMA,
@@ -153,9 +158,17 @@ export class JobQueue {
     const role = this.opts.appRole
     if (!/^[a-z_][a-z0-9_]{0,62}$/.test(role)) throw new Error('invalid app role name')
     try {
-      await this.opts.systemDb.executeQuery(CompiledQuery.raw(`GRANT USAGE ON SCHEMA ${PGBOSS_SCHEMA} TO ${role}`))
-      await this.opts.systemDb.executeQuery(CompiledQuery.raw(`GRANT SELECT ON ${PGBOSS_SCHEMA}.queue TO ${role}`))
-      await this.opts.systemDb.executeQuery(CompiledQuery.raw(`GRANT INSERT ON ${PGBOSS_SCHEMA}.job TO ${role}`))
+      await this.opts.systemDb.executeQuery(
+        CompiledQuery.raw(`GRANT USAGE ON SCHEMA ${PGBOSS_SCHEMA} TO ${role}`),
+      )
+      await this.opts.systemDb.executeQuery(
+        CompiledQuery.raw(`GRANT SELECT ON ${PGBOSS_SCHEMA}.queue TO ${role}`),
+      )
+      // INSERT … RETURNING id needs SELECT on the returned column only: the runtime role can
+      // create jobs but never read other tenants' job payloads.
+      await this.opts.systemDb.executeQuery(
+        CompiledQuery.raw(`GRANT INSERT, SELECT (id) ON ${PGBOSS_SCHEMA}.job TO ${role}`),
+      )
     } catch (err) {
       // Same role for both pools (development) or grant not permitted: transactional enqueue
       // then only works when the app role already has access.
@@ -164,8 +177,13 @@ export class JobQueue {
   }
 
   /** Sends a job to a registered queue; returns the job id (null when deduplicated). */
-  async enqueue(name: string, data: object = {}, options: SendOptions = {}): Promise<string | null> {
-    if (!this.known.has(name)) throw new Error(`unknown job "${name}" (add it to a module's jobs.ts)`)
+  async enqueue(
+    name: string,
+    data: object = {},
+    options: SendOptions = {},
+  ): Promise<string | null> {
+    if (!this.known.has(name))
+      throw new Error(`unknown job "${name}" (add it to a module's jobs.ts)`)
     await this.start()
     const { tx, startAfter, ...rest } = options
     const sendOptions: PgBoss.SendOptions = { ...rest }
@@ -205,7 +223,11 @@ export function setJobQueue(queue: JobQueue | null): void {
 }
 
 /** Enqueues a registered job from anywhere (request handlers, services, other jobs). */
-export function enqueue(name: string, data: object = {}, options: SendOptions = {}): Promise<string | null> {
+export function enqueue(
+  name: string,
+  data: object = {},
+  options: SendOptions = {},
+): Promise<string | null> {
   if (!currentQueue) throw new Error('job queue is not initialised (buildApp/startWorker sets it)')
   return currentQueue.enqueue(name, data, options)
 }

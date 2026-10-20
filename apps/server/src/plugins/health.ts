@@ -39,15 +39,23 @@ async function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<
   }
 }
 
-export function registerHealth(app: FastifyInstance, deps: KadaiDeps, opts: HealthOptions = {}): void {
+export function registerHealth(
+  app: FastifyInstance,
+  deps: KadaiDeps,
+  opts: HealthOptions = {},
+): void {
   const started = Date.now()
-  const requireWorker = opts.requireWorker ?? (deps.config.embeddedWorker || deps.config.healthRequireWorker)
+  const requireWorker =
+    opts.requireWorker ?? (deps.config.embeddedWorker || deps.config.healthRequireWorker)
   let shuttingDown = false
   let files: Promise<MigrationFile[]> | null = null
-  const migrationFiles = () => (files ??= readMigrationFiles(opts.migrationsDir ?? defaultMigrationsDir()).catch((err: unknown) => {
-    files = null
-    throw err
-  }))
+  const migrationFiles = () =>
+    (files ??= readMigrationFiles(opts.migrationsDir ?? defaultMigrationsDir()).catch(
+      (err: unknown) => {
+        files = null
+        throw err
+      },
+    ))
 
   app.addHook('preClose', async () => {
     shuttingDown = true
@@ -68,7 +76,10 @@ export function registerHealth(app: FastifyInstance, deps: KadaiDeps, opts: Heal
     const t0 = Date.now()
     try {
       await withTimeout(
-        Promise.all([sql`select 1`.execute(deps.db.appDb), sql`select 1`.execute(deps.db.systemDb)]),
+        Promise.all([
+          sql`select 1`.execute(deps.db.appDb),
+          sql`select 1`.execute(deps.db.systemDb),
+        ]),
         3000,
         'database ping',
       )
@@ -85,7 +96,9 @@ export function registerHealth(app: FastifyInstance, deps: KadaiDeps, opts: Heal
         ])
         const appliedMap = new Map(applied.map((a) => [a.name, a.checksum]))
         const pending = onDisk.filter((f) => !appliedMap.has(f.name)).map((f) => f.name)
-        const modified = onDisk.filter((f) => appliedMap.has(f.name) && appliedMap.get(f.name) !== f.checksum).map((f) => f.name)
+        const modified = onDisk
+          .filter((f) => appliedMap.has(f.name) && appliedMap.get(f.name) !== f.checksum)
+          .map((f) => f.name)
         checks.migrations = {
           status: pending.length || modified.length ? 'error' : 'ok',
           applied: applied.length,
@@ -93,7 +106,10 @@ export function registerHealth(app: FastifyInstance, deps: KadaiDeps, opts: Heal
           ...(modified.length ? { modified } : {}),
         }
       } catch (err) {
-        checks.migrations = { status: 'error', error: err instanceof Error ? err.message : String(err) }
+        checks.migrations = {
+          status: 'error',
+          error: err instanceof Error ? err.message : String(err),
+        }
       }
 
       if (requireWorker) {
@@ -102,7 +118,11 @@ export function registerHealth(app: FastifyInstance, deps: KadaiDeps, opts: Heal
           // clock skew between API and worker hosts does not matter.
           const row = await deps.db.systemDb
             .selectFrom('system_settings')
-            .select(['value', 'updated_at', sql<number>`extract(epoch from (now() - updated_at)) * 1000`.as('age_ms')])
+            .select([
+              'value',
+              'updated_at',
+              sql<number>`extract(epoch from (now() - updated_at)) * 1000`.as('age_ms'),
+            ])
             .where('key', '=', opts.heartbeatKey ?? WORKER_HEARTBEAT_KEY)
             .executeTakeFirst()
           const at = row?.updated_at ?? null
@@ -113,7 +133,10 @@ export function registerHealth(app: FastifyInstance, deps: KadaiDeps, opts: Heal
             ...(row?.value && typeof row.value === 'object' ? { info: row.value } : {}),
           }
         } catch (err) {
-          checks.worker = { status: 'error', error: err instanceof Error ? err.message : String(err) }
+          checks.worker = {
+            status: 'error',
+            error: err instanceof Error ? err.message : String(err),
+          }
         }
       } else {
         checks.worker = { status: 'skipped' }

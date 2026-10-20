@@ -89,7 +89,10 @@ export function parsePublicKey(text: string): KeyObject {
 }
 
 /** Keys trusted by this process: the override when configured, else the embedded list. */
-export function trustedLicenseKeys(override: string | null, embedded: readonly LicensePublicKey[] = LICENSE_PUBLIC_KEYS): TrustedKey[] {
+export function trustedLicenseKeys(
+  override: string | null,
+  embedded: readonly LicensePublicKey[] = LICENSE_PUBLIC_KEYS,
+): TrustedKey[] {
   if (override) return [{ kid: null, key: parsePublicKey(override), devOnly: false }]
   return embedded.map((k) => ({ kid: k.kid, key: parsePublicKey(k.pem), devOnly: k.dev_only }))
 }
@@ -107,38 +110,74 @@ export interface VerifyLicenseOptions {
 /** Verifies structure, signature, key policy, validity window and installation binding. */
 export function verifyLicense(doc: unknown, opts: VerifyLicenseOptions): LicenseVerification {
   const envelope = SignedLicenseSchema.safeParse(doc)
-  if (!envelope.success) return { ok: false, reason: 'malformed', message: 'Not a Kadai license file' }
+  if (!envelope.success)
+    return { ok: false, reason: 'malformed', message: 'Not a Kadai license file' }
   const { kid, license: raw, signature } = envelope.data
   const trusted = opts.keys.find((k) => k.kid === null || k.kid === kid)
-  if (!trusted) return { ok: false, reason: 'unknown_key', message: `License signed with unknown key "${kid}"` }
+  if (!trusted)
+    return { ok: false, reason: 'unknown_key', message: `License signed with unknown key "${kid}"` }
   if (trusted.devOnly && opts.production) {
-    return { ok: false, reason: 'dev_key_in_production', message: 'License was signed with a development key' }
+    return {
+      ok: false,
+      reason: 'dev_key_in_production',
+      message: 'License was signed with a development key',
+    }
   }
   let sigOk = false
   try {
-    sigOk = verify(null, Buffer.from(canonicalJson(raw), 'utf8'), trusted.key, Buffer.from(signature, 'base64'))
+    sigOk = verify(
+      null,
+      Buffer.from(canonicalJson(raw), 'utf8'),
+      trusted.key,
+      Buffer.from(signature, 'base64'),
+    )
   } catch {
     sigOk = false
   }
-  if (!sigOk) return { ok: false, reason: 'bad_signature', message: 'License signature is invalid (file was modified)' }
+  if (!sigOk)
+    return {
+      ok: false,
+      reason: 'bad_signature',
+      message: 'License signature is invalid (file was modified)',
+    }
   const payload = LicensePayloadSchema.safeParse(raw)
-  if (!payload.success) return { ok: false, reason: 'malformed', message: 'License payload is invalid' }
+  if (!payload.success)
+    return { ok: false, reason: 'malformed', message: 'License payload is invalid' }
   const license = payload.data
   const today = opts.today ?? todayIn('Asia/Kolkata')
   if (today < license.valid_from) {
-    return { ok: false, reason: 'not_yet_valid', message: `License is valid from ${license.valid_from}`, license }
+    return {
+      ok: false,
+      reason: 'not_yet_valid',
+      message: `License is valid from ${license.valid_from}`,
+      license,
+    }
   }
   if (license.valid_until !== null && today > license.valid_until) {
-    return { ok: false, reason: 'expired', message: `License expired on ${license.valid_until}`, license }
+    return {
+      ok: false,
+      reason: 'expired',
+      message: `License expired on ${license.valid_until}`,
+      license,
+    }
   }
   if (license.installation_id && license.installation_id !== opts.installationId) {
-    return { ok: false, reason: 'installation_mismatch', message: 'License belongs to another installation', license }
+    return {
+      ok: false,
+      reason: 'installation_mismatch',
+      message: 'License belongs to another installation',
+      license,
+    }
   }
   return { ok: true, license, kid }
 }
 
 /** Signs a license payload (vendor side: scripts/issue-license.ts). */
-export function signLicense(payload: LicensePayload, privateKeyPem: string, kid: string): SignedLicense {
+export function signLicense(
+  payload: LicensePayload,
+  privateKeyPem: string,
+  kid: string,
+): SignedLicense {
   const parsed = LicensePayloadSchema.parse(payload)
   const key = createPrivateKey(privateKeyPem)
   if (key.asymmetricKeyType !== 'ed25519') throw new Error('license signing key must be Ed25519')
@@ -170,8 +209,15 @@ export async function getInstallationId(systemDb: Kysely<DB>): Promise<string> {
 }
 
 /** The stored license document (unverified), or null. */
-export async function loadStoredLicense(systemDb: Kysely<DB>, key: string = LICENSE_SETTINGS_KEY): Promise<unknown> {
-  const row = await systemDb.selectFrom('system_settings').select('value').where('key', '=', key).executeTakeFirst()
+export async function loadStoredLicense(
+  systemDb: Kysely<DB>,
+  key: string = LICENSE_SETTINGS_KEY,
+): Promise<unknown> {
+  const row = await systemDb
+    .selectFrom('system_settings')
+    .select('value')
+    .where('key', '=', key)
+    .executeTakeFirst()
   return row?.value ?? null
 }
 
@@ -179,7 +225,11 @@ export async function loadStoredLicense(systemDb: Kysely<DB>, key: string = LICE
  * Stores a license document (callers verify first, and call EntitlementsService.invalidate() /
  * notifyEntitlementsChanged() afterwards).
  */
-export async function storeLicense(systemDb: Kysely<DB>, doc: SignedLicense, key: string = LICENSE_SETTINGS_KEY): Promise<void> {
+export async function storeLicense(
+  systemDb: Kysely<DB>,
+  doc: SignedLicense,
+  key: string = LICENSE_SETTINGS_KEY,
+): Promise<void> {
   await systemDb
     .insertInto('system_settings')
     .values({ key, value: jsonb(doc) })

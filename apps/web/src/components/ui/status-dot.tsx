@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/cn'
-import type { Tone } from './badge'
+import type { Tone } from './variants'
 
 const colors: Record<Tone, string> = {
   neutral: 'bg-muted-foreground',

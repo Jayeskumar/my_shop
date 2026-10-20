@@ -46,7 +46,11 @@ function run(cmd: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { stdio: ['ignore', 'inherit', 'inherit'] })
     child.on('error', reject)
-    child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${path.basename(args[0] ?? cmd)} exited with ${code}`))))
+    child.on('exit', (code) =>
+      code === 0
+        ? resolve()
+        : reject(new Error(`${path.basename(args[0] ?? cmd)} exited with ${code}`)),
+    )
   })
 }
 
@@ -90,7 +94,10 @@ export function postProcess(source: string): string {
   out = out.replace(/export type Json(Array|Object|Primitive|Value) = [\s\S]*?;\n\n/g, (m) =>
     m.startsWith('export type JsonValue = unknown') ? m : '',
   )
-  if (/export type Timestamp = /.test(out) && !/export type Timestamp = ColumnType<Date, Date \| string, Date \| string>;/.test(out)) {
+  if (
+    /export type Timestamp = /.test(out) &&
+    !/export type Timestamp = ColumnType<Date, Date \| string, Date \| string>;/.test(out)
+  ) {
     throw new Error('db-types: unexpected Timestamp mapping in kysely-codegen output')
   }
   return `${HEADER}\n${out.trimEnd()}\n`
@@ -99,11 +106,15 @@ export function postProcess(source: string): string {
 async function generate(): Promise<string> {
   const config = loadConfig()
   const scratch = process.env.KADAI_CODEGEN_DB ?? 'kadai_codegen'
-  if (!/^[a-z_][a-z0-9_]*$/.test(scratch)) throw new Error('KADAI_CODEGEN_DB must be a plain identifier')
+  if (!/^[a-z_][a-z0-9_]*$/.test(scratch))
+    throw new Error('KADAI_CODEGEN_DB must be a plain identifier')
   const systemUrl = config.database.systemUrl
   const scratchUrl = withDatabase(systemUrl, scratch)
   const tmp = await mkdtemp(path.join(os.tmpdir(), 'kadai-codegen-'))
-  await admin(systemUrl, [`DROP DATABASE IF EXISTS ${scratch} WITH (FORCE)`, `CREATE DATABASE ${scratch}`])
+  await admin(systemUrl, [
+    `DROP DATABASE IF EXISTS ${scratch} WITH (FORCE)`,
+    `CREATE DATABASE ${scratch}`,
+  ])
   try {
     await migrate({
       connectionString: scratchUrl,
@@ -112,8 +123,13 @@ async function generate(): Promise<string> {
     })
     const require = createRequire(import.meta.url)
     const pkgPath = require.resolve('kysely-codegen/package.json')
-    const pkg = JSON.parse(await readFile(pkgPath, 'utf8')) as { bin: string | Record<string, string> }
-    const binRel = typeof pkg.bin === 'string' ? pkg.bin : (pkg.bin['kysely-codegen'] ?? Object.values(pkg.bin)[0])
+    const pkg = JSON.parse(await readFile(pkgPath, 'utf8')) as {
+      bin: string | Record<string, string>
+    }
+    const binRel =
+      typeof pkg.bin === 'string'
+        ? pkg.bin
+        : (pkg.bin['kysely-codegen'] ?? Object.values(pkg.bin)[0])
     if (!binRel) throw new Error('kysely-codegen bin not found')
     const raw = path.join(tmp, 'schema.ts')
     await run(process.execPath, [
@@ -139,7 +155,9 @@ async function main(): Promise<void> {
   if (values.check) {
     const current = await readFile(OUT_FILE, 'utf8').catch(() => '')
     if (current !== next) {
-      console.error('src/db/schema.generated.ts is out of date: run `pnpm --filter @kadai/server db:types`')
+      console.error(
+        'src/db/schema.generated.ts is out of date: run `pnpm --filter @kadai/server db:types`',
+      )
       process.exit(1)
     }
     console.warn('schema.generated.ts is up to date')
@@ -149,7 +167,8 @@ async function main(): Promise<void> {
   console.warn(`wrote ${path.relative(process.cwd(), OUT_FILE)}`)
 }
 
-const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+const invokedDirectly =
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 if (invokedDirectly) {
   main().catch((err: unknown) => {
     console.error(err)

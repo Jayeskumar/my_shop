@@ -23,7 +23,10 @@ async function main(): Promise<void> {
     await migrate({
       connectionString: config.database.systemUrl,
       appRole: config.database.appRole,
-      logger: { info: (m) => logger.info(`[migrate] ${m}`), warn: (m) => logger.warn(`[migrate] ${m}`) },
+      logger: {
+        info: (m) => logger.info(`[migrate] ${m}`),
+        warn: (m) => logger.warn(`[migrate] ${m}`),
+      },
     })
   }
 
@@ -46,7 +49,8 @@ async function main(): Promise<void> {
   })
 
   await app.listen({ port: config.port, host: config.host })
-  logger.info({ mode: config.mode, port: config.port, version: VERSION, embedded_worker: config.embeddedWorker }, 'Kadai server started')
+  // mode and version are already on every log line (logger base fields).
+  logger.info({ port: config.port, embedded_worker: config.embeddedWorker }, 'Kadai server started')
   if (config.embeddedWorker) worker = await startWorker(deps, JOB_DEFINITIONS)
 }
 

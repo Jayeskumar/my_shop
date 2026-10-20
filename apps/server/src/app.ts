@@ -8,11 +8,21 @@
  */
 import multipart from '@fastify/multipart'
 import Fastify, { type FastifyBaseLogger, type FastifyInstance, LogController } from 'fastify'
-import { type ZodTypeProvider, serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod'
+import {
+  type ZodTypeProvider,
+  serializerCompiler,
+  validatorCompiler,
+} from 'fastify-type-provider-zod'
 import type { Config } from './config'
 import { MAX_UPLOAD_BYTES } from './core/files'
 import type { KadaiInstance } from './core/http'
-import { type CreateDepsOptions, type KadaiDeps, createDeps, destroyDeps, installRuntime } from './core/runtime'
+import {
+  type CreateDepsOptions,
+  type KadaiDeps,
+  createDeps,
+  destroyDeps,
+  installRuntime,
+} from './core/runtime'
 import { JOB_DEFINITIONS } from './jobs/registry'
 import type { KadaiJob } from './jobs/types'
 import { MODULES, type KadaiModule, registerModules } from './modules'
@@ -62,9 +72,13 @@ export async function buildApp(config: Config, options: BuildAppOptions = {}): P
     genReqId: genRequestId,
     requestIdHeader: false,
     // One access-log line per request is written by plugins/request-context.ts instead.
-    logController: new LogController({ requestIdLogLabel: 'request_id', disableRequestLogging: true }),
+    logController: new LogController({
+      requestIdLogLabel: 'request_id',
+      disableRequestLogging: true,
+    }),
     // A hop count is expressed as a function (Fastify's types omit the numeric form).
-    trustProxy: typeof config.trustProxy === 'number' ? trustHops(config.trustProxy) : config.trustProxy,
+    trustProxy:
+      typeof config.trustProxy === 'number' ? trustHops(config.trustProxy) : config.trustProxy,
     bodyLimit: config.bodyLimitBytes,
     routerOptions: { ignoreTrailingSlash: true, maxParamLength: 200 },
     return503OnClosing: true,

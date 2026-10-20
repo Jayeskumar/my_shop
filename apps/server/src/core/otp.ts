@@ -57,9 +57,15 @@ export function createLogOtpSender(logger: OtpLogger, opts: { revealCode: boolea
     name: 'log',
     async send(m) {
       if (opts.revealCode) {
-        logger.info({ phone: maskPhone(m.phone), purpose: m.purpose, otp_code: m.code }, 'OTP (development: not sent)')
+        logger.info(
+          { phone: maskPhone(m.phone), purpose: m.purpose, otp_code: m.code },
+          'OTP (development: not sent)',
+        )
       } else {
-        logger.warn({ phone: maskPhone(m.phone), purpose: m.purpose }, 'OTP not delivered: SMS_PROVIDER=log')
+        logger.warn(
+          { phone: maskPhone(m.phone), purpose: m.purpose },
+          'OTP not delivered: SMS_PROVIDER=log',
+        )
       }
     },
   }
@@ -93,8 +99,12 @@ export function createMemoryOtpSender(): MemoryOtpSender {
  * MSG91 OTP delivery via the Flow API with a DLT-registered template that has a `##otp##`
  * (variable `otp`) placeholder.
  */
-export function createMsg91OtpSender(cfg: Config['sms']['msg91'], fetchImpl: typeof fetch = fetch): OtpSender {
-  if (!cfg.authKey || !cfg.otpTemplateId) throw new Error('MSG91_AUTH_KEY and MSG91_OTP_TEMPLATE_ID are required')
+export function createMsg91OtpSender(
+  cfg: Config['sms']['msg91'],
+  fetchImpl: typeof fetch = fetch,
+): OtpSender {
+  if (!cfg.authKey || !cfg.otpTemplateId)
+    throw new Error('MSG91_AUTH_KEY and MSG91_OTP_TEMPLATE_ID are required')
   const authKey = cfg.authKey
   const templateId = cfg.otpTemplateId
   return {
@@ -102,11 +112,21 @@ export function createMsg91OtpSender(cfg: Config['sms']['msg91'], fetchImpl: typ
     async send(m) {
       const res = await fetchImpl('https://control.msg91.com/api/v5/flow', {
         method: 'POST',
-        headers: { authkey: authKey, 'content-type': 'application/json', accept: 'application/json' },
+        headers: {
+          authkey: authKey,
+          'content-type': 'application/json',
+          accept: 'application/json',
+        },
         body: JSON.stringify({
           template_id: templateId,
           short_url: '0',
-          recipients: [{ mobiles: m.phone.replace(/^\+/, ''), otp: m.code, minutes: String(Math.round(m.expiresInSeconds / 60)) }],
+          recipients: [
+            {
+              mobiles: m.phone.replace(/^\+/, ''),
+              otp: m.code,
+              minutes: String(Math.round(m.expiresInSeconds / 60)),
+            },
+          ],
         }),
         signal: AbortSignal.timeout(10_000),
       })
@@ -117,7 +137,10 @@ export function createMsg91OtpSender(cfg: Config['sms']['msg91'], fetchImpl: typ
   }
 }
 
-export function createOtpSender(config: Pick<Config, 'sms' | 'isProduction'>, logger: OtpLogger): OtpSender {
+export function createOtpSender(
+  config: Pick<Config, 'sms' | 'isProduction'>,
+  logger: OtpLogger,
+): OtpSender {
   return config.sms.provider === 'msg91'
     ? createMsg91OtpSender(config.sms.msg91)
     : createLogOtpSender(logger, { revealCode: !config.isProduction })
@@ -157,12 +180,19 @@ export class OtpService {
    * Issues and sends a code. @throws RATE_LIMITED (with retry_after_seconds) when the phone asked
    * too recently or too often. If delivery fails the code is deleted and the error propagates.
    */
-  async request(input: { phone: string; purpose: OtpPurpose; ip?: string | null; locale?: 'ta' | 'en' }): Promise<OtpRequestResult> {
+  async request(input: {
+    phone: string
+    purpose: OtpPurpose
+    ip?: string | null
+    locale?: 'ta' | 'en'
+  }): Promise<OtpRequestResult> {
     const now = this.now()
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
     const id = await withSystemTx(this.opts.systemDb, async (tx) => {
       // Serialise requests per phone so the throttle check cannot be raced.
-      await sql`select pg_advisory_xact_lock(hashtextextended(${`kadai_otp:${input.phone}`}, 0))`.execute(tx)
+      await sql`select pg_advisory_xact_lock(hashtextextended(${`kadai_otp:${input.phone}`}, 0))`.execute(
+        tx,
+      )
       const recent = await tx
         .selectFrom('otp_codes')
         .select(['created_at'])
@@ -173,7 +203,8 @@ export class OtpService {
       const last = recent[0]
       if (last) {
         const since = (now.getTime() - last.created_at.getTime()) / 1000
-        if (since < OTP_RESEND_AFTER_SECONDS) throw rateLimited(Math.ceil(OTP_RESEND_AFTER_SECONDS - since))
+        if (since < OTP_RESEND_AFTER_SECONDS)
+          throw rateLimited(Math.ceil(OTP_RESEND_AFTER_SECONDS - since))
       }
       if (recent.length >= OTP_MAX_PER_WINDOW) {
         const oldest = recent[recent.length - 1]!
@@ -205,7 +236,14 @@ export class OtpService {
       })
     } catch (err) {
       await this.opts.systemDb.deleteFrom('otp_codes').where('id', '=', id).execute()
-      throw err instanceof AppError ? err : new AppError('PROVIDER_ERROR', 'Could not send the OTP', { provider: this.opts.sender.name }, { cause: err })
+      throw err instanceof AppError
+        ? err
+        : new AppError(
+            'PROVIDER_ERROR',
+            'Could not send the OTP',
+            { provider: this.opts.sender.name },
+            { cause: err },
+          )
     }
     return { otp_id: id, expires_in: OTP_TTL_SECONDS, resend_after: OTP_RESEND_AFTER_SECONDS }
   }
@@ -215,7 +253,11 @@ export class OtpService {
    * @throws OTP_INVALID (wrong code; details.attempts_left) / OTP_EXPIRED (expired, consumed,
    *         attempts exhausted or no code requested).
    */
-  async verify(input: { phone: string; purpose: OtpPurpose; code: string }): Promise<{ otp_id: string }> {
+  async verify(input: {
+    phone: string
+    purpose: OtpPurpose
+    code: string
+  }): Promise<{ otp_id: string }> {
     const now = this.now()
     const outcome = await withSystemTx(this.opts.systemDb, async (tx) => {
       const row = await tx
@@ -227,20 +269,41 @@ export class OtpService {
         .limit(1)
         .forUpdate()
         .executeTakeFirst()
-      if (!row || row.consumed_at || row.expires_at.getTime() <= now.getTime() || row.attempts >= row.max_attempts) {
-        return { ok: false as const, error: new AppError('OTP_EXPIRED', 'The OTP has expired; request a new one') }
+      if (
+        !row ||
+        row.consumed_at ||
+        row.expires_at.getTime() <= now.getTime() ||
+        row.attempts >= row.max_attempts
+      ) {
+        return {
+          ok: false as const,
+          error: new AppError('OTP_EXPIRED', 'The OTP has expired; request a new one'),
+        }
       }
-      const valid = /^\d{6}$/.test(input.code) && timingSafeEqualStr(row.code_hash, this.hash(input.phone, input.purpose, input.code))
+      const valid =
+        /^\d{6}$/.test(input.code) &&
+        timingSafeEqualStr(row.code_hash, this.hash(input.phone, input.purpose, input.code))
       if (!valid) {
         // Recorded even though the request fails (returned, not thrown, so the update commits).
-        await tx.updateTable('otp_codes').set({ attempts: row.attempts + 1 }).where('id', '=', row.id).execute()
+        await tx
+          .updateTable('otp_codes')
+          .set({ attempts: row.attempts + 1 })
+          .where('id', '=', row.id)
+          .execute()
         const left = row.max_attempts - row.attempts - 1
         return {
           ok: false as const,
-          error: left > 0 ? new AppError('OTP_INVALID', 'The OTP is incorrect', { attempts_left: left }) : new AppError('OTP_EXPIRED', 'Too many wrong attempts; request a new OTP'),
+          error:
+            left > 0
+              ? new AppError('OTP_INVALID', 'The OTP is incorrect', { attempts_left: left })
+              : new AppError('OTP_EXPIRED', 'Too many wrong attempts; request a new OTP'),
         }
       }
-      await tx.updateTable('otp_codes').set({ consumed_at: now, attempts: row.attempts + 1 }).where('id', '=', row.id).execute()
+      await tx
+        .updateTable('otp_codes')
+        .set({ consumed_at: now, attempts: row.attempts + 1 })
+        .where('id', '=', row.id)
+        .execute()
       return { ok: true as const, id: row.id }
     })
     if (!outcome.ok) throw outcome.error
@@ -248,7 +311,11 @@ export class OtpService {
   }
 
   /** Short-lived proof that `phone` passed OTP verification for `purpose` (signup / reset). */
-  async issueOtpToken(phone: string, purpose: OtpPurpose, otpId: string): Promise<{ otp_token: string; expires_in: number }> {
+  async issueOtpToken(
+    phone: string,
+    purpose: OtpPurpose,
+    otpId: string,
+  ): Promise<{ otp_token: string; expires_in: number }> {
     const iat = Math.floor(this.now().getTime() / 1000)
     const token = await new SignJWT({ phone, purpose })
       .setProtectedHeader({ alg: 'HS256' })
@@ -262,7 +329,10 @@ export class OtpService {
   }
 
   /** Validates an otp_token for the expected purpose; returns the verified phone and OTP id. */
-  async verifyOtpToken(token: string, purpose: OtpPurpose): Promise<{ phone: string; otp_id: string }> {
+  async verifyOtpToken(
+    token: string,
+    purpose: OtpPurpose,
+  ): Promise<{ phone: string; otp_id: string }> {
     try {
       const { payload } = await jwtVerify(token, this.tokenKey, {
         issuer: 'kadai',
@@ -270,7 +340,11 @@ export class OtpService {
         algorithms: ['HS256'],
         currentDate: this.now(),
       })
-      if (payload.purpose !== purpose || typeof payload.phone !== 'string' || typeof payload.jti !== 'string') {
+      if (
+        payload.purpose !== purpose ||
+        typeof payload.phone !== 'string' ||
+        typeof payload.jti !== 'string'
+      ) {
         throw new Error('wrong purpose')
       }
       return { phone: payload.phone, otp_id: payload.jti }

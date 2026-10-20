@@ -49,7 +49,10 @@ const SCOPES: ReadonlyArray<[Scope, string]> = [
 ]
 
 /** Registers every module's route plugins under /api/v1, /public/v1 and /webhooks. */
-export async function registerModules(app: FastifyInstance, modules: readonly KadaiModule[] = MODULES): Promise<void> {
+export async function registerModules(
+  app: FastifyInstance,
+  modules: readonly KadaiModule[] = MODULES,
+): Promise<void> {
   const names = new Set<string>()
   for (const m of modules) {
     if (names.has(m.name)) throw new Error(`module "${m.name}" is registered twice`)

@@ -42,7 +42,10 @@ interface TxHooks {
 
 const hooks = new WeakMap<Tx, TxHooks>()
 
-let hookErrorHandler: (err: unknown, phase: 'afterCommit' | 'afterRollback') => void = (err, phase) => {
+let hookErrorHandler: (err: unknown, phase: 'afterCommit' | 'afterRollback') => void = (
+  err,
+  phase,
+) => {
   console.error(`[kadai] ${phase} hook failed`, err)
 }
 
@@ -67,7 +70,8 @@ export function afterCommit(tx: Tx, fn: Hook): void {
 /** Runs `fn` after the transaction ROLLED BACK (e.g. delete an object uploaded to storage). */
 export function afterRollback(tx: Tx, fn: Hook): void {
   const h = hooks.get(tx)
-  if (!h) throw new Error('afterRollback() requires a transaction opened by withTenant/withSystemTx')
+  if (!h)
+    throw new Error('afterRollback() requires a transaction opened by withTenant/withSystemTx')
   h.afterRollback.push(fn)
 }
 
@@ -139,13 +143,19 @@ export function withTenant<T>(
  * Opens a transaction WITHOUT tenant context — for the system (owner) database: migrations-like
  * maintenance, cross-tenant lookups, onboarding. On the app database it sees no tenant rows.
  */
-export function withSystemTx<T>(db: Kysely<DB>, fn: (tx: Tx) => Promise<T>, opts: TxOptions = {}): Promise<T> {
+export function withSystemTx<T>(
+  db: Kysely<DB>,
+  fn: (tx: Tx) => Promise<T>,
+  opts: TxOptions = {},
+): Promise<T> {
   return runTx(
     db,
     opts,
     async (tx) => {
       if (opts.statementTimeoutMs) {
-        await sql`select set_config('statement_timeout', ${String(opts.statementTimeoutMs)}, true)`.execute(tx)
+        await sql`select set_config('statement_timeout', ${String(opts.statementTimeoutMs)}, true)`.execute(
+          tx,
+        )
       }
     },
     fn,

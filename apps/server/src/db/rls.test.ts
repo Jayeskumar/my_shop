@@ -28,7 +28,9 @@ describe('row-level security coverage', () => {
   it('tenants and users have their own policies', async () => {
     const { systemDb } = testDb()
     const res = await sql<{ tablename: string; policyname: string }>`
-      SELECT tablename, policyname FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('tenants', 'users') ORDER BY 1, 2`.execute(systemDb)
+      SELECT tablename, policyname FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('tenants', 'users') ORDER BY 1, 2`.execute(
+      systemDb,
+    )
     expect(res.rows).toEqual([
       { tablename: 'tenants', policyname: 'tenant_self' },
       { tablename: 'users', policyname: 'users_self_update' },
@@ -38,9 +40,20 @@ describe('row-level security coverage', () => {
 
   it('the runtime role cannot read secrets or system-only tables', async () => {
     const { appDb } = testDb()
-    await expect(sql`SELECT password_hash FROM users LIMIT 1`.execute(appDb)).rejects.toMatchObject({ code: '42501' })
-    for (const table of ['auth_sessions', 'otp_codes', 'system_settings', 'schema_migrations', 'payment_webhook_events']) {
-      await expect(sql`SELECT 1 FROM ${sql.table(table)} LIMIT 1`.execute(appDb), table).rejects.toMatchObject({ code: '42501' })
+    await expect(sql`SELECT password_hash FROM users LIMIT 1`.execute(appDb)).rejects.toMatchObject(
+      { code: '42501' },
+    )
+    for (const table of [
+      'auth_sessions',
+      'otp_codes',
+      'system_settings',
+      'schema_migrations',
+      'payment_webhook_events',
+    ]) {
+      await expect(
+        sql`SELECT 1 FROM ${sql.table(table)} LIMIT 1`.execute(appDb),
+        table,
+      ).rejects.toMatchObject({ code: '42501' })
     }
   })
 })
@@ -60,12 +73,18 @@ describe('tenant isolation through withTenant', () => {
 
   it('sees only its own rows', async () => {
     const { appDb } = testDb()
-    const storesA = await withTenant(appDb, ctxOf(a), (tx) => tx.selectFrom('stores').select(['id', 'tenant_id']).execute())
+    const storesA = await withTenant(appDb, ctxOf(a), (tx) =>
+      tx.selectFrom('stores').select(['id', 'tenant_id']).execute(),
+    )
     expect(storesA.map((s) => s.id)).toEqual([a.store.id])
     // Even an explicit filter on the other tenant returns nothing.
-    const leak = await withTenant(appDb, ctxOf(a), (tx) => tx.selectFrom('stores').select('id').where('tenant_id', '=', b.tenant.id).execute())
+    const leak = await withTenant(appDb, ctxOf(a), (tx) =>
+      tx.selectFrom('stores').select('id').where('tenant_id', '=', b.tenant.id).execute(),
+    )
     expect(leak).toEqual([])
-    const tenants = await withTenant(appDb, ctxOf(a), (tx) => tx.selectFrom('tenants').select('id').execute())
+    const tenants = await withTenant(appDb, ctxOf(a), (tx) =>
+      tx.selectFrom('tenants').select('id').execute(),
+    )
     expect(tenants.map((t) => t.id)).toEqual([a.tenant.id])
   })
 
@@ -78,7 +97,12 @@ describe('tenant isolation through withTenant', () => {
   it('rejects writes into another tenant (WITH CHECK)', async () => {
     const { appDb } = testDb()
     await expect(
-      withTenant(appDb, ctxOf(a), (tx) => tx.insertInto('brands').values({ id: newId(), tenant_id: b.tenant.id, name: 'Intruder' }).execute()),
+      withTenant(appDb, ctxOf(a), (tx) =>
+        tx
+          .insertInto('brands')
+          .values({ id: newId(), tenant_id: b.tenant.id, name: 'Intruder' })
+          .execute(),
+      ),
     ).rejects.toMatchObject({ code: '42501' })
   })
 
@@ -86,7 +110,16 @@ describe('tenant isolation through withTenant', () => {
     const { appDb } = testDb()
     await expect(
       withTenant(appDb, ctxOf(a), (tx) =>
-        tx.insertInto('registers').values({ id: newId(), tenant_id: a.tenant.id, store_id: b.store.id, code: 'Z', name: 'Bad' }).execute(),
+        tx
+          .insertInto('registers')
+          .values({
+            id: newId(),
+            tenant_id: a.tenant.id,
+            store_id: b.store.id,
+            code: 'Z',
+            name: 'Bad',
+          })
+          .execute(),
       ),
     ).rejects.toMatchObject({ code: '23503' })
   })
@@ -94,13 +127,19 @@ describe('tenant isolation through withTenant', () => {
   it('does not leak context to the next transaction on the same pool', async () => {
     const { appDb } = testDb()
     await withTenant(appDb, ctxOf(a), async (tx) => tx.selectFrom('stores').select('id').execute())
-    const after = await sql<{ t: string | null }>`SELECT current_setting('app.tenant_id', true) AS t`.execute(appDb)
+    const after = await sql<{
+      t: string | null
+    }>`SELECT current_setting('app.tenant_id', true) AS t`.execute(appDb)
     expect(after.rows[0]?.t ?? '').toBe('')
   })
 
   it('applies a per-transaction statement timeout', async () => {
     const { appDb } = testDb()
-    await expect(withTenant(appDb, ctxOf(a), (tx) => sql`SELECT pg_sleep(1)`.execute(tx), { statementTimeoutMs: 100 })).rejects.toMatchObject({
+    await expect(
+      withTenant(appDb, ctxOf(a), (tx) => sql`SELECT pg_sleep(1)`.execute(tx), {
+        statementTimeoutMs: 100,
+      }),
+    ).rejects.toMatchObject({
       code: '57014',
     })
   })
@@ -124,6 +163,8 @@ describe('tenant isolation through withTenant', () => {
 
   it('rejects malformed tenant ids before touching the database', async () => {
     const { appDb } = testDb()
-    expect(() => withTenant(appDb, { tenantId: 'nope', userId: null }, async () => 1)).toThrow(TypeError)
+    expect(() => withTenant(appDb, { tenantId: 'nope', userId: null }, async () => 1)).toThrow(
+      TypeError,
+    )
   })
 })

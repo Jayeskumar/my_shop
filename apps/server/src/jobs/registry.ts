@@ -23,12 +23,17 @@ export function buildRegistry(groups: ReadonlyArray<readonly KadaiJob[]>): reado
   const all = groups.flat()
   const seen = new Set<string>()
   for (const job of all) {
-    if (!JOB_NAME_RE.test(job.name)) throw new Error(`invalid job name "${job.name}" (expected module.job-name)`)
+    if (!JOB_NAME_RE.test(job.name))
+      throw new Error(`invalid job name "${job.name}" (expected module.job-name)`)
     if (seen.has(job.name)) throw new Error(`duplicate job name "${job.name}"`)
-    if (job.intervalSeconds !== undefined && (job.intervalSeconds < 5 || job.intervalSeconds > 3600)) {
+    if (
+      job.intervalSeconds !== undefined &&
+      (job.intervalSeconds < 5 || job.intervalSeconds > 3600)
+    ) {
       throw new Error(`job "${job.name}": intervalSeconds must be 5..3600`)
     }
-    if (job.cron && job.intervalSeconds) throw new Error(`job "${job.name}": use cron or intervalSeconds, not both`)
+    if (job.cron && job.intervalSeconds)
+      throw new Error(`job "${job.name}": use cron or intervalSeconds, not both`)
     seen.add(job.name)
   }
   return Object.freeze(all)

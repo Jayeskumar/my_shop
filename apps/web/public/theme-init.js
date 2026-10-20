@@ -1,3 +1,4 @@
+/* global document, localStorage, window */
 // Runs synchronously in <head> before the app bundle: applies the colour theme and document
 // language saved by the app (src/lib/theme.ts, src/lib/i18n.ts) so the first paint is correct.
 ;(function () {

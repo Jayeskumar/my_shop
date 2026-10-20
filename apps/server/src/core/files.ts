@@ -14,7 +14,12 @@ import { createReadStream } from 'node:fs'
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { Readable } from 'node:stream'
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3'
 import { type FilePurpose, newId } from '@kadai/shared'
 import type { Config, S3Config } from '../config'
 import type { Selectable } from 'kysely'
@@ -48,7 +53,8 @@ export class LocalFileStorage implements FileStorage {
   private pathOf(key: string): string {
     assertKey(key)
     const full = path.resolve(this.baseDir, key)
-    if (!full.startsWith(path.resolve(this.baseDir) + path.sep)) throw new Error('storage key escapes base dir')
+    if (!full.startsWith(path.resolve(this.baseDir) + path.sep))
+      throw new Error('storage key escapes base dir')
     return full
   }
 
@@ -117,7 +123,9 @@ export class S3FileStorage implements FileStorage {
   private async body(key: string) {
     assertKey(key)
     try {
-      const res = await this.client.send(new GetObjectCommand({ Bucket: this.cfg.bucket, Key: key }))
+      const res = await this.client.send(
+        new GetObjectCommand({ Bucket: this.cfg.bucket, Key: key }),
+      )
       if (!res.Body) throw notFound('file content')
       return res.Body
     } catch (err) {
@@ -143,7 +151,9 @@ export class S3FileStorage implements FileStorage {
 }
 
 export function createFileStorage(config: Pick<Config, 's3' | 'dataDir'>): FileStorage {
-  return config.s3 ? new S3FileStorage(config.s3) : new LocalFileStorage(path.join(config.dataDir, 'files'))
+  return config.s3
+    ? new S3FileStorage(config.s3)
+    : new LocalFileStorage(path.join(config.dataDir, 'files'))
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -170,7 +180,10 @@ export const FILE_RULES: Readonly<Record<FilePurpose, FileRule>> = {
   product_image: { maxBytes: 5 * MB, contentTypes: IMAGES },
   prescription: { maxBytes: 10 * MB, contentTypes: [...IMAGES, 'application/pdf'] },
   import: { maxBytes: 20 * MB, contentTypes: SHEETS },
-  export: { maxBytes: 200 * MB, contentTypes: [...SHEETS, 'application/json', 'application/pdf', 'application/zip'] },
+  export: {
+    maxBytes: 200 * MB,
+    contentTypes: [...SHEETS, 'application/json', 'application/pdf', 'application/zip'],
+  },
   attachment: { maxBytes: 10 * MB, contentTypes: [...IMAGES, 'application/pdf'] },
 }
 
@@ -216,18 +229,37 @@ export class FileService {
   constructor(readonly storage: FileStorage) {}
 
   /** Validates, stores and records a file; returns the `files` row. */
-  async saveFile(tx: Tx, ctx: Pick<RequestContext, 'tenantId' | 'userId'>, input: SaveFileInput): Promise<FileRow> {
+  async saveFile(
+    tx: Tx,
+    ctx: Pick<RequestContext, 'tenantId' | 'userId'>,
+    input: SaveFileInput,
+  ): Promise<FileRow> {
     const rule = FILE_RULES[input.purpose]
     const contentType = input.content_type.split(';')[0]!.trim().toLowerCase()
     if (!rule.contentTypes.includes(contentType)) {
-      throw validationError([{ path: 'file', message: `File type ${contentType} is not allowed for ${input.purpose}`, code: 'file_type' }])
+      throw validationError([
+        {
+          path: 'file',
+          message: `File type ${contentType} is not allowed for ${input.purpose}`,
+          code: 'file_type',
+        },
+      ])
     }
-    if (input.data.length === 0) throw validationError([{ path: 'file', message: 'File is empty', code: 'file_empty' }])
+    if (input.data.length === 0)
+      throw validationError([{ path: 'file', message: 'File is empty', code: 'file_empty' }])
     if (input.data.length > rule.maxBytes) {
-      throw validationError([{ path: 'file', message: `File is larger than ${Math.round(rule.maxBytes / MB)} MB`, code: 'file_too_large' }])
+      throw validationError([
+        {
+          path: 'file',
+          message: `File is larger than ${Math.round(rule.maxBytes / MB)} MB`,
+          code: 'file_too_large',
+        },
+      ])
     }
     if (!contentMatchesType(input.data, contentType)) {
-      throw validationError([{ path: 'file', message: 'File content does not match its type', code: 'file_content' }])
+      throw validationError([
+        { path: 'file', message: 'File content does not match its type', code: 'file_content' },
+      ])
     }
     const id = newId()
     const key = `${ctx.tenantId}/${id}`
@@ -251,8 +283,17 @@ export class FileService {
       .executeTakeFirstOrThrow()
   }
 
-  async getFileRow(tx: Tx, ctx: Pick<RequestContext, 'tenantId'>, fileId: string): Promise<FileRow> {
-    const row = await tx.selectFrom('files').selectAll().where('tenant_id', '=', ctx.tenantId).where('id', '=', fileId).executeTakeFirst()
+  async getFileRow(
+    tx: Tx,
+    ctx: Pick<RequestContext, 'tenantId'>,
+    fileId: string,
+  ): Promise<FileRow> {
+    const row = await tx
+      .selectFrom('files')
+      .selectAll()
+      .where('tenant_id', '=', ctx.tenantId)
+      .where('id', '=', fileId)
+      .executeTakeFirst()
     if (!row) throw notFound('file', fileId)
     return row
   }
@@ -270,7 +311,10 @@ export class FileService {
 
   private assertBackend(row: FileRow): void {
     if (row.storage !== this.storage.kind) {
-      throw new AppError('INTERNAL', `File ${row.id} is stored in ${row.storage}, but this server uses ${this.storage.kind}`)
+      throw new AppError(
+        'INTERNAL',
+        `File ${row.id} is stored in ${row.storage}, but this server uses ${this.storage.kind}`,
+      )
     }
   }
 }

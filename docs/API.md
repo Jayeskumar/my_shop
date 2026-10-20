@@ -15,7 +15,7 @@ Legend: **C** create, **L** list (paginated, filterable), **G** get one, **U** p
 
 | Method & path | Purpose |
 |---|---|
-| `POST /auth/signup` | cloud only. `{business_name, business_type, owner_name, phone, password, email?, state_code, gstin?, locale}` → tenant + owner + store `S1` + register `A` + presets; returns session |
+| `POST /auth/signup` | cloud only. `{business_name, business_name_ta?, business_type, owner_name, phone, password, email?, state_code, gstin?, gst_scheme?, locale, otp_token?}` → tenant + owner + store `S1` + register `A` + presets; returns session |
 | `POST /auth/login` | `{identifier, password}` → session `{access_token, token_type, expires_in, user, memberships[], tenant_id}` (`SessionResponseSchema`) + refresh cookie |
 | `POST /auth/otp/request` | `{phone, purpose: login\|signup\|reset_password}` |
 | `POST /auth/otp/verify` | `{phone, code, purpose}` → session (login) or `{otp_token}` (signup/reset) |

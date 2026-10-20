@@ -18,10 +18,17 @@ import { notFound } from './errors'
 // Settings are read many times per transaction (pricing, posting); memoise per transaction.
 const memo = new WeakMap<Tx, TenantSettings>()
 
-export async function getSettings(tx: Tx, ctx: Pick<RequestContext, 'tenantId'>): Promise<TenantSettings> {
+export async function getSettings(
+  tx: Tx,
+  ctx: Pick<RequestContext, 'tenantId'>,
+): Promise<TenantSettings> {
   const cached = memo.get(tx)
   if (cached) return cached
-  const row = await tx.selectFrom('tenants').select('settings').where('id', '=', ctx.tenantId).executeTakeFirst()
+  const row = await tx
+    .selectFrom('tenants')
+    .select('settings')
+    .where('id', '=', ctx.tenantId)
+    .executeTakeFirst()
   if (!row) throw notFound('tenant', ctx.tenantId)
   const settings = readSettings(row.settings)
   memo.set(tx, settings)
@@ -49,7 +56,11 @@ export async function updateSettings(
   const after = mergeSettings(before, patch)
   const changes = diffChanges(before, after)
   if (changes) {
-    await tx.updateTable('tenants').set({ settings: jsonb(after) }).where('id', '=', ctx.tenantId).execute()
+    await tx
+      .updateTable('tenants')
+      .set({ settings: jsonb(after) })
+      .where('id', '=', ctx.tenantId)
+      .execute()
     await audit(tx, ctx, {
       action: 'settings.update',
       entity_type: 'tenant',

@@ -14,7 +14,10 @@ const RESERVED_PREFIXES = ['/api/', '/api', '/webhooks', '/public/', '/health', 
 export type SpaFallback = (req: FastifyRequest, reply: FastifyReply) => Promise<boolean>
 
 /** Registers static serving; returns the SPA fallback for the not-found handler (or null). */
-export async function registerStaticWeb(app: FastifyInstance, webDistDir: string): Promise<SpaFallback | null> {
+export async function registerStaticWeb(
+  app: FastifyInstance,
+  webDistDir: string,
+): Promise<SpaFallback | null> {
   const indexHtml = path.join(webDistDir, 'index.html')
   if (!existsSync(indexHtml)) {
     app.log.warn({ webDistDir }, 'web app not built: static serving disabled')
@@ -28,16 +31,23 @@ export async function registerStaticWeb(app: FastifyInstance, webDistDir: string
     decorateReply: true,
     setHeaders(reply, filePath) {
       const rel = path.relative(webDistDir, filePath).split(path.sep).join('/')
-      reply.header('cache-control', rel.startsWith('assets/') ? 'public, max-age=31536000, immutable' : 'no-cache')
+      reply.header(
+        'cache-control',
+        rel.startsWith('assets/') ? 'public, max-age=31536000, immutable' : 'no-cache',
+      )
     },
   })
   return async (req, reply) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return false
     const url = req.url.split('?')[0]!
-    if (RESERVED_PREFIXES.some((p) => url === p || url.startsWith(p.endsWith('/') ? p : `${p}/`))) return false
+    if (RESERVED_PREFIXES.some((p) => url === p || url.startsWith(p.endsWith('/') ? p : `${p}/`)))
+      return false
     // Missing assets (a file extension) are real 404s, not app routes.
     if (/\.[a-z0-9]{1,8}$/i.test(url) && !url.endsWith('.html')) return false
-    await reply.header('cache-control', 'no-cache').type('text/html; charset=utf-8').sendFile('index.html')
+    await reply
+      .header('cache-control', 'no-cache')
+      .type('text/html; charset=utf-8')
+      .sendFile('index.html')
     return true
   }
 }

@@ -26,8 +26,18 @@ export interface WorkerOptions {
   heartbeatKey?: string
 }
 
-export async function writeHeartbeat(deps: KadaiDeps, jobs: number, key: string = WORKER_HEARTBEAT_KEY): Promise<void> {
-  const value = jsonb({ pid: process.pid, hostname: os.hostname(), version: deps.version, jobs, at: new Date().toISOString() })
+export async function writeHeartbeat(
+  deps: KadaiDeps,
+  jobs: number,
+  key: string = WORKER_HEARTBEAT_KEY,
+): Promise<void> {
+  const value = jsonb({
+    pid: process.pid,
+    hostname: os.hostname(),
+    version: deps.version,
+    jobs,
+    at: new Date().toISOString(),
+  })
   await deps.db.systemDb
     .insertInto('system_settings')
     .values({ key, value })
@@ -35,7 +45,11 @@ export async function writeHeartbeat(deps: KadaiDeps, jobs: number, key: string 
     .execute()
 }
 
-export async function startWorker(deps: KadaiDeps, definitions: readonly KadaiJob[], opts: WorkerOptions = {}): Promise<RunningWorker> {
+export async function startWorker(
+  deps: KadaiDeps,
+  definitions: readonly KadaiJob[],
+  opts: WorkerOptions = {},
+): Promise<RunningWorker> {
   const { logger, metrics } = deps
   const log = logger.child({ component: 'worker' })
   await deps.jobs.start()
@@ -48,12 +62,19 @@ export async function startWorker(deps: KadaiDeps, definitions: readonly KadaiJo
     for (let i = 0; i < concurrency; i++) {
       const id = await boss.work<Record<string, unknown>>(
         def.name,
-        { batchSize: 1, includeMetadata: true, pollingIntervalSeconds: def.work?.pollingIntervalSeconds ?? 2 },
+        {
+          batchSize: 1,
+          includeMetadata: true,
+          pollingIntervalSeconds: def.work?.pollingIntervalSeconds ?? 2,
+        },
         async (jobs) => {
           for (const job of jobs) {
             const end = metrics.jobDuration.startTimer({ name: def.name })
             try {
-              await def.handler({ id: job.id, name: job.name, data: job.data, retryCount: job.retryCount }, deps)
+              await def.handler(
+                { id: job.id, name: job.name, data: job.data, retryCount: job.retryCount },
+                deps,
+              )
               metrics.jobsProcessed.inc({ name: def.name, status: 'completed' })
             } catch (err) {
               metrics.jobsProcessed.inc({ name: def.name, status: 'failed' })
@@ -76,10 +97,12 @@ export async function startWorker(deps: KadaiDeps, definitions: readonly KadaiJo
   for (const s of await boss.getSchedules()) {
     const def = known.get(s.name)
     if (def && !def.cron) await boss.unschedule(s.name)
-    else if (!def) log.warn({ job: s.name }, 'schedule for a job unknown to this build left in place')
+    else if (!def)
+      log.warn({ job: s.name }, 'schedule for a job unknown to this build left in place')
   }
   for (const def of definitions) {
-    if (def.cron) await boss.schedule(def.name, def.cron, def.data ?? {}, { tz: def.tz ?? 'Asia/Kolkata' })
+    if (def.cron)
+      await boss.schedule(def.name, def.cron, def.data ?? {}, { tz: def.tz ?? 'Asia/Kolkata' })
   }
 
   // Sub-minute periodic jobs: every worker sends; the singleton window lets only one through.
@@ -97,7 +120,10 @@ export async function startWorker(deps: KadaiDeps, definitions: readonly KadaiJo
     timers.push(t)
   }
 
-  const beat = () => writeHeartbeat(deps, definitions.length, opts.heartbeatKey).catch((err: unknown) => log.warn({ err }, 'heartbeat failed'))
+  const beat = () =>
+    writeHeartbeat(deps, definitions.length, opts.heartbeatKey).catch((err: unknown) =>
+      log.warn({ err }, 'heartbeat failed'),
+    )
   await beat()
   const hb = setInterval(() => void beat(), HEARTBEAT_INTERVAL_MS)
   hb.unref()

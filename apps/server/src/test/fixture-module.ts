@@ -23,7 +23,10 @@ import {
 import { defineModule } from '../modules/module'
 
 const BrandSchema = z.object({ id: zId, name: z.string(), is_active: z.boolean() })
-const BrandCreateSchema = z.object({ name: z.string().trim().min(1).max(80), client_ref: z.string().min(8).max(200).optional() })
+const BrandCreateSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  client_ref: z.string().min(8).max(200).optional(),
+})
 
 export const fixtureRoutes = defineRoutes({
   echo: {
@@ -33,8 +36,18 @@ export const fixtureRoutes = defineRoutes({
     body: z.object({ text: z.string().min(1) }),
     response: dataOf(z.object({ text: z.string(), tenant_id: zId })),
   },
-  onpremOnly: { method: 'GET', path: '/__test/onprem-only', mode: 'onprem', response: dataOf(z.object({ ok: z.boolean() })) },
-  noContent: { method: 'DELETE', path: '/__test/nothing/:id', params: z.object({ id: zId }), permission: 'catalog.write' },
+  onpremOnly: {
+    method: 'GET',
+    path: '/__test/onprem-only',
+    mode: 'onprem',
+    response: dataOf(z.object({ ok: z.boolean() })),
+  },
+  noContent: {
+    method: 'DELETE',
+    path: '/__test/nothing/:id',
+    params: z.object({ id: zId }),
+    permission: 'catalog.write',
+  },
 })
 
 const routes: KadaiPlugin = async (app) => {
@@ -53,13 +66,19 @@ const routes: KadaiPlugin = async (app) => {
   app.get(
     '/__test/brands',
     {
-      schema: { querystring: PageQuerySchema.extend({ q: z.string().optional() }), response: { 200: listOf(BrandSchema) } },
+      schema: {
+        querystring: PageQuerySchema.extend({ q: z.string().optional() }),
+        response: { 200: listOf(BrandSchema) },
+      },
       preHandler: [requirePermission('catalog.read')],
     },
     async (req) => {
       const page = parsePage(req.query)
       return req.tx((tx) => {
-        let q = tx.selectFrom('brands').select(['id', 'name', 'is_active']).where('tenant_id', '=', req.ctx.tenantId)
+        let q = tx
+          .selectFrom('brands')
+          .select(['id', 'name', 'is_active'])
+          .where('tenant_id', '=', req.ctx.tenantId)
         if (req.query.q) q = q.where('name', 'ilike', `%${req.query.q}%`)
         return paginate(q.orderBy('name'), page)
       })
@@ -84,12 +103,16 @@ const routes: KadaiPlugin = async (app) => {
   )
 
   app.get('/__test/brands/:id', { schema: { params: z.object({ id: zId }) } }, async (req) => {
-    const row = await req.tx((tx) => tx.selectFrom('brands').selectAll().where('id', '=', req.params.id).executeTakeFirst())
+    const row = await req.tx((tx) =>
+      tx.selectFrom('brands').selectAll().where('id', '=', req.params.id).executeTakeFirst(),
+    )
     if (!row) throw notFound('brand', req.params.id)
     return { data: row }
   })
 
-  app.get('/__test/api-feature', { preHandler: [requireFeature('api_access')] }, async () => ({ data: { ok: true } }))
+  app.get('/__test/api-feature', { preHandler: [requireFeature('api_access')] }, async () => ({
+    data: { ok: true },
+  }))
 
   app.get(
     '/__test/scoped/:store_id',
@@ -100,7 +123,11 @@ const routes: KadaiPlugin = async (app) => {
     async (req) => ({ data: { store_id: req.params.store_id } }),
   )
 
-  app.get('/__test/limited', { config: { rateLimit: { max: 2, timeWindow: '1 minute' } } }, async () => ({ data: { ok: true } }))
+  app.get(
+    '/__test/limited',
+    { config: { rateLimit: { max: 2, timeWindow: '1 minute' } } },
+    async () => ({ data: { ok: true } }),
+  )
 
   app.get('/__test/boom', async () => {
     throw new Error('kaboom: internal detail')
@@ -116,11 +143,17 @@ const routes: KadaiPlugin = async (app) => {
     data: { user_id: req.auth?.kind === 'user' ? req.auth.userId : null, has_ctx: req.hasCtx },
   }))
 
-  route(app, fixtureRoutes.echo, async (req) => ({ data: { text: req.body.text, tenant_id: req.ctx.tenantId } }))
+  route(app, fixtureRoutes.echo, async (req) => ({
+    data: { text: req.body.text, tenant_id: req.ctx.tenantId },
+  }))
   route(app, fixtureRoutes.onpremOnly, async () => ({ data: { ok: true } }))
   route(app, fixtureRoutes.noContent, async () => app.kadai.logger.debug('nothing deleted'))
 
-  app.get('/__test/public-login', { config: { public: true, rateLimit: RATE_LIMITS.login } }, async () => ({ data: { ok: true } }))
+  app.get(
+    '/__test/public-login',
+    { config: { public: true, rateLimit: RATE_LIMITS.login } },
+    async () => ({ data: { ok: true } }),
+  )
 }
 
 const publicRoutes: KadaiPlugin = async (app) => {

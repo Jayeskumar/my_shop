@@ -1,6 +1,6 @@
 import { forwardRef, type TextareaHTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
-import { useFormFieldControl } from './form-field'
+import { useFormFieldControl } from './form-field-context'
 
 export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement>
 

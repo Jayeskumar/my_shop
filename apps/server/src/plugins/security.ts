@@ -31,7 +31,10 @@ function rateLimitKey(req: FastifyRequest): string {
   return `ip:${req.ip}`
 }
 
-export async function registerSecurity(app: FastifyInstance, config: Config): Promise<SecurityHandles> {
+export async function registerSecurity(
+  app: FastifyInstance,
+  config: Config,
+): Promise<SecurityHandles> {
   const https = config.publicBaseUrl.startsWith('https://')
   await app.register(helmet, {
     global: true,
@@ -77,11 +80,21 @@ export async function registerSecurity(app: FastifyInstance, config: Config): Pr
       'x-api-key',
       'x-locale',
     ],
-    exposedHeaders: ['x-request-id', 'idempotent-replayed', 'retry-after', 'x-ratelimit-limit', 'x-ratelimit-remaining', 'x-ratelimit-reset', 'content-disposition'],
+    exposedHeaders: [
+      'x-request-id',
+      'idempotent-replayed',
+      'retry-after',
+      'x-ratelimit-limit',
+      'x-ratelimit-remaining',
+      'x-ratelimit-reset',
+      'content-disposition',
+    ],
     maxAge: 600,
   })
 
-  await app.register(cookie, { secret: deriveKey(config.auth.jwtSecret, 'cookie').toString('base64url') })
+  await app.register(cookie, {
+    secret: deriveKey(config.auth.jwtSecret, 'cookie').toString('base64url'),
+  })
 
   let redis: Redis | null = null
   if (config.redisUrl) {

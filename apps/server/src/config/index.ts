@@ -177,7 +177,9 @@ const postgresUrl = z
 
 const EnvSchema = z.object({
   KADAI_MODE: optionalString.pipe(z.enum(['cloud', 'onprem']).default('cloud')),
-  NODE_ENV: optionalString.pipe(z.enum(['development', 'test', 'production']).default('development')),
+  NODE_ENV: optionalString.pipe(
+    z.enum(['development', 'test', 'production']).default('development'),
+  ),
   PORT: envInt(8080, 1, 65_535),
   HOST: optionalString.transform((v) => v ?? '0.0.0.0'),
   LOG_LEVEL: optionalString.pipe(
@@ -203,7 +205,9 @@ const EnvSchema = z.object({
   REFRESH_TOKEN_TTL_DAYS: envInt(30, 1, 365),
   KADAI_ENCRYPTION_KEYS: optionalString,
 
-  PUBLIC_BASE_URL: optionalString.transform((v) => (v ?? 'http://localhost:8080').replace(/\/+$/, '')),
+  PUBLIC_BASE_URL: optionalString.transform((v) =>
+    (v ?? 'http://localhost:8080').replace(/\/+$/, ''),
+  ),
   CORS_ORIGINS: optionalString,
   REDIS_URL: optionalString,
   KADAI_DATA_DIR: optionalString.transform((v) => v ?? './data'),
@@ -250,17 +254,27 @@ const EnvSchema = z.object({
 export function parseEncryptionKeys(raw: string): EncryptionKey[] {
   const keys: EncryptionKey[] = []
   const seen = new Set<string>()
-  for (const part of raw.split(',').map((p) => p.trim()).filter(Boolean)) {
+  for (const part of raw
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean)) {
     const idx = part.indexOf(':')
-    if (idx <= 0) throw new ConfigError(`KADAI_ENCRYPTION_KEYS: entry "${part.slice(0, 8)}…" must be kid:base64key`)
+    if (idx <= 0)
+      throw new ConfigError(
+        `KADAI_ENCRYPTION_KEYS: entry "${part.slice(0, 8)}…" must be kid:base64key`,
+      )
     const kid = part.slice(0, idx)
     if (!/^[A-Za-z0-9_-]{1,32}$/.test(kid)) {
-      throw new ConfigError(`KADAI_ENCRYPTION_KEYS: invalid key id "${kid}" (use A-Z a-z 0-9 _ -, max 32)`)
+      throw new ConfigError(
+        `KADAI_ENCRYPTION_KEYS: invalid key id "${kid}" (use A-Z a-z 0-9 _ -, max 32)`,
+      )
     }
     if (seen.has(kid)) throw new ConfigError(`KADAI_ENCRYPTION_KEYS: duplicate key id "${kid}"`)
     const key = Buffer.from(part.slice(idx + 1), 'base64')
     if (key.length !== 32) {
-      throw new ConfigError(`KADAI_ENCRYPTION_KEYS: key "${kid}" must be 32 bytes (got ${key.length})`)
+      throw new ConfigError(
+        `KADAI_ENCRYPTION_KEYS: key "${kid}" must be 32 bytes (got ${key.length})`,
+      )
     }
     seen.add(kid)
     keys.push({ kid, key })
@@ -275,11 +289,16 @@ function parseTrustProxy(raw: string | undefined): boolean | number | string[] {
   if (s === 'true') return true
   if (s === 'false') return false
   if (/^\d+$/.test(s)) return Number(s)
-  return raw.split(',').map((v) => v.trim()).filter(Boolean)
+  return raw
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean)
 }
 
 /** Repository root (directory holding pnpm-workspace.yaml) found by walking up from `start`. */
-export function findRepoRoot(start: string = path.dirname(fileURLToPath(import.meta.url))): string | null {
+export function findRepoRoot(
+  start: string = path.dirname(fileURLToPath(import.meta.url)),
+): string | null {
   let dir = path.resolve(start)
   for (let i = 0; i < 8; i++) {
     if (existsSync(path.join(dir, 'pnpm-workspace.yaml'))) return dir
@@ -334,10 +353,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   // Production guards: refuse to boot with development secrets or test-only features.
   if (isProduction) {
     if (!e.JWT_SECRET) issues.push('JWT_SECRET is required in production')
-    else if (Buffer.byteLength(e.JWT_SECRET) < 32) issues.push('JWT_SECRET must be at least 32 bytes')
-    else if (e.JWT_SECRET === DEV_JWT_SECRET) issues.push('JWT_SECRET must not be the development default')
+    else if (Buffer.byteLength(e.JWT_SECRET) < 32)
+      issues.push('JWT_SECRET must be at least 32 bytes')
+    else if (e.JWT_SECRET === DEV_JWT_SECRET)
+      issues.push('JWT_SECRET must not be the development default')
     if (!e.KADAI_ENCRYPTION_KEYS) issues.push('KADAI_ENCRYPTION_KEYS is required in production')
-    if (e.KADAI_ENABLE_MOCK_PAYMENTS) issues.push('KADAI_ENABLE_MOCK_PAYMENTS must be false in production')
+    if (e.KADAI_ENABLE_MOCK_PAYMENTS)
+      issues.push('KADAI_ENABLE_MOCK_PAYMENTS must be false in production')
   } else if (e.JWT_SECRET && Buffer.byteLength(e.JWT_SECRET) < 32) {
     issues.push('JWT_SECRET must be at least 32 bytes')
   }

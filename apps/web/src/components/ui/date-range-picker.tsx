@@ -12,7 +12,7 @@ import { DEFAULT_DATE_PRESETS, matchPreset, presetRange, type DatePresetKey } fr
 import { Button } from './button'
 import { DatePicker } from './date-picker'
 import { Popover, PopoverContent, PopoverTrigger } from './popover'
-import type { FieldSize } from './input'
+import type { FieldSize } from './variants'
 
 export interface DateRangePickerProps {
   value: DateRange | null | undefined

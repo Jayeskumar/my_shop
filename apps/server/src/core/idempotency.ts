@@ -51,9 +51,13 @@ export function requestHash(body: unknown, extra: Record<string, unknown> = {}):
 
 export function assertIdempotencyKey(key: string): void {
   if (key.length < 8 || key.length > 200 || !/^[\x21-\x7e]+$/.test(key)) {
-    throw new AppError('VALIDATION_ERROR', 'Idempotency-Key must be 8-200 visible ASCII characters', {
-      issues: [{ path: 'Idempotency-Key', message: 'must be 8-200 visible ASCII characters' }],
-    })
+    throw new AppError(
+      'VALIDATION_ERROR',
+      'Idempotency-Key must be 8-200 visible ASCII characters',
+      {
+        issues: [{ path: 'Idempotency-Key', message: 'must be 8-200 visible ASCII characters' }],
+      },
+    )
   }
 }
 
@@ -106,15 +110,27 @@ export async function runIdempotent<T>(
       .where('tenant_id', '=', ctx.tenantId)
       .where('key', '=', req.key)
       .executeTakeFirstOrThrow()
-    if (existing.request_hash !== req.requestHash || existing.method !== req.method || existing.path !== req.path) {
-      throw new AppError('IDEMPOTENCY_MISMATCH', 'Idempotency-Key was already used with a different request', {
-        key: req.key,
-      })
+    if (
+      existing.request_hash !== req.requestHash ||
+      existing.method !== req.method ||
+      existing.path !== req.path
+    ) {
+      throw new AppError(
+        'IDEMPOTENCY_MISMATCH',
+        'Idempotency-Key was already used with a different request',
+        {
+          key: req.key,
+        },
+      )
     }
     if (existing.status !== 'completed' || existing.response_status === null) {
-      throw new AppError('IDEMPOTENCY_IN_PROGRESS', 'A request with this Idempotency-Key is still being processed', {
-        key: req.key,
-      })
+      throw new AppError(
+        'IDEMPOTENCY_IN_PROGRESS',
+        'A request with this Idempotency-Key is still being processed',
+        {
+          key: req.key,
+        },
+      )
     }
     return { status: existing.response_status, body: existing.response_body as T, replayed: true }
   }

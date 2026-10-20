@@ -32,7 +32,12 @@ describe('events (LISTEN/NOTIFY)', () => {
     const marker = `commit-${Date.now()}`
     const { got, unsubscribe } = collect(marker)
     await withTenant(testDb().appDb, systemContext(shop.tenant.id), async (tx) => {
-      await notify(tx, CHANNELS.paymentIntents, { tenant_id: shop.tenant.id, intent_id: 'i1', status: 'paid', marker })
+      await notify(tx, CHANNELS.paymentIntents, {
+        tenant_id: shop.tenant.id,
+        intent_id: 'i1',
+        status: 'paid',
+        marker,
+      })
       await wait(100)
       // Not delivered before COMMIT.
       expect(got).toHaveLength(0)
@@ -68,8 +73,12 @@ describe('events (LISTEN/NOTIFY)', () => {
   })
 
   it('rejects oversized payloads and unknown channels', async () => {
-    await expect(notify(testDb().systemDb, CHANNELS.cache, { big: 'x'.repeat(9000) })).rejects.toThrow(RangeError)
-    await expect(notify(testDb().systemDb, 'nope' as typeof CHANNELS.cache, {})).rejects.toThrow(/unknown event channel/)
+    await expect(
+      notify(testDb().systemDb, CHANNELS.cache, { big: 'x'.repeat(9000) }),
+    ).rejects.toThrow(RangeError)
+    await expect(notify(testDb().systemDb, 'nope' as typeof CHANNELS.cache, {})).rejects.toThrow(
+      /unknown event channel/,
+    )
   })
 
   it('reconnects after the LISTEN connection drops', async () => {

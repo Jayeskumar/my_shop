@@ -93,11 +93,25 @@ function readLimits(raw: unknown, base: PlanLimits): PlanLimits {
   return out
 }
 
-const UNLIMITED: PlanLimits = { stores: null, users: null, registers: null, products: null, invoices_per_month: null }
-const ZERO_LIMITS: PlanLimits = { stores: 0, users: 0, registers: 0, products: 0, invoices_per_month: 0 }
+const UNLIMITED: PlanLimits = {
+  stores: null,
+  users: null,
+  registers: null,
+  products: null,
+  invoices_per_month: null,
+}
+const ZERO_LIMITS: PlanLimits = {
+  stores: 0,
+  users: 0,
+  registers: 0,
+  products: 0,
+  invoices_per_month: 0,
+}
 
 /** usage_counters.metric used for a limit (only invoices are counted, the rest are row counts). */
-export const USAGE_METRIC_FOR_LIMIT: Partial<Record<LimitMetric, string>> = { invoices_per_month: 'invoices' }
+export const USAGE_METRIC_FOR_LIMIT: Partial<Record<LimitMetric, string>> = {
+  invoices_per_month: 'invoices',
+}
 
 export interface EntitlementsServiceOptions {
   config: Pick<Config, 'mode' | 'isProduction' | 'licensePublicKey'>
@@ -125,7 +139,8 @@ export class EntitlementsService {
   }
 
   get(tenantId: string): Promise<ResolvedEntitlements> {
-    if (this.opts.config.mode === 'onprem') return this.licenseCache.getOrLoad('license', () => this.loadLicense())
+    if (this.opts.config.mode === 'onprem')
+      return this.licenseCache.getOrLoad('license', () => this.loadLicense())
     return this.cache.getOrLoad(tenantId, () => this.loadCloud(tenantId))
   }
 
@@ -155,13 +170,22 @@ export class EntitlementsService {
 
   private planFallback(code: string): PlanRow {
     const known = isPlanCode(code) ? code : 'free'
-    return { code: known, features: [...DEFAULT_PLAN_FEATURES[known]], limits: DEFAULT_PLAN_LIMITS[known] }
+    return {
+      code: known,
+      features: [...DEFAULT_PLAN_FEATURES[known]],
+      limits: DEFAULT_PLAN_LIMITS[known],
+    }
   }
 
   private async loadCloud(tenantId: string): Promise<ResolvedEntitlements> {
     const db = this.opts.systemDb
-    const tenant = await db.selectFrom('tenants').select(['plan_code']).where('id', '=', tenantId).executeTakeFirst()
-    if (!tenant) throw new AppError('NOT_FOUND', 'Tenant not found', { entity: 'tenant', id: tenantId })
+    const tenant = await db
+      .selectFrom('tenants')
+      .select(['plan_code'])
+      .where('id', '=', tenantId)
+      .executeTakeFirst()
+    if (!tenant)
+      throw new AppError('NOT_FOUND', 'Tenant not found', { entity: 'tenant', id: tenantId })
     const now = new Date()
     const sub = await db
       .selectFrom('subscriptions')
@@ -172,7 +196,11 @@ export class EntitlementsService {
       .executeTakeFirst()
     // A live subscription counts until its period (or trial) ends; the renewals job moves it to
     // expired, this only guards against a late job run.
-    const subEnd = sub ? (sub.status === 'trialing' ? (sub.trial_ends_at ?? sub.current_period_end) : sub.current_period_end) : null
+    const subEnd = sub
+      ? sub.status === 'trialing'
+        ? (sub.trial_ends_at ?? sub.current_period_end)
+        : sub.current_period_end
+      : null
     const live = sub && subEnd && subEnd.getTime() > now.getTime() ? sub : null
     const planCode = live?.plan_code ?? tenant.plan_code
     const plan = (await this.plan(planCode)) ?? this.planFallback(planCode)
@@ -190,7 +218,11 @@ export class EntitlementsService {
   private async loadLicense(): Promise<ResolvedEntitlements> {
     const db = this.opts.systemDb
     const doc = await loadStoredLicense(db, this.opts.licenseSettingsKey)
-    const free = async (status: LicenseStatus, readOnly: boolean, license?: LicensePayload): Promise<ResolvedEntitlements> => {
+    const free = async (
+      status: LicenseStatus,
+      readOnly: boolean,
+      license?: LicensePayload,
+    ): Promise<ResolvedEntitlements> => {
       const plan = (await this.plan('free')) ?? this.planFallback('free')
       return {
         plan_code: plan.code,
@@ -236,7 +268,11 @@ export class EntitlementsService {
 
 /** Tell every process to drop cached entitlements (call inside the changing transaction). */
 export function notifyEntitlementsChanged(tx: Tx | Kysely<DB>, tenantId?: string): Promise<void> {
-  return notify(tx, CHANNELS.cache, tenantId ? { scope: 'entitlements', tenant_id: tenantId } : { scope: 'entitlements' })
+  return notify(
+    tx,
+    CHANNELS.cache,
+    tenantId ? { scope: 'entitlements', tenant_id: tenantId } : { scope: 'entitlements' },
+  )
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -251,34 +287,60 @@ export function setEntitlementsService(service: EntitlementsService | null): voi
 }
 
 function service(): EntitlementsService {
-  if (!current) throw new Error('entitlements service is not initialised (buildApp/startWorker sets it)')
+  if (!current)
+    throw new Error('entitlements service is not initialised (buildApp/startWorker sets it)')
   return current
 }
 
-export function getEntitlements(ctx: Pick<RequestContext, 'tenantId'>): Promise<ResolvedEntitlements> {
+export function getEntitlements(
+  ctx: Pick<RequestContext, 'tenantId'>,
+): Promise<ResolvedEntitlements> {
   return service().get(ctx.tenantId)
 }
 
 /** Throws 402 FEATURE_NOT_IN_PLAN when the tenant's plan/license lacks `feature`. */
-export async function assertFeature(ctx: Pick<RequestContext, 'tenantId'>, feature: Feature): Promise<void> {
+export async function assertFeature(
+  ctx: Pick<RequestContext, 'tenantId'>,
+  feature: Feature,
+): Promise<void> {
   const ent = await getEntitlements(ctx)
   if (!ent.features.has(feature)) throw featureNotInPlan(feature, ent.plan_code)
 }
 
 /** Current count for a limit metric, read inside the tenant transaction. */
-export async function countForLimit(tx: Tx, ctx: Pick<RequestContext, 'tenantId'>, metric: LimitMetric, tz = 'Asia/Kolkata'): Promise<number> {
+export async function countForLimit(
+  tx: Tx,
+  ctx: Pick<RequestContext, 'tenantId'>,
+  metric: LimitMetric,
+  tz = 'Asia/Kolkata',
+): Promise<number> {
   const t = ctx.tenantId
   switch (metric) {
     case 'stores': {
-      const r = await tx.selectFrom('stores').select((eb) => eb.fn.countAll<number>().as('n')).where('tenant_id', '=', t).where('is_active', '=', true).executeTakeFirstOrThrow()
+      const r = await tx
+        .selectFrom('stores')
+        .select((eb) => eb.fn.countAll<number>().as('n'))
+        .where('tenant_id', '=', t)
+        .where('is_active', '=', true)
+        .executeTakeFirstOrThrow()
       return Number(r.n)
     }
     case 'users': {
-      const r = await tx.selectFrom('memberships').select((eb) => eb.fn.countAll<number>().as('n')).where('tenant_id', '=', t).where('status', 'in', ['active', 'invited']).executeTakeFirstOrThrow()
+      const r = await tx
+        .selectFrom('memberships')
+        .select((eb) => eb.fn.countAll<number>().as('n'))
+        .where('tenant_id', '=', t)
+        .where('status', 'in', ['active', 'invited'])
+        .executeTakeFirstOrThrow()
       return Number(r.n)
     }
     case 'registers': {
-      const r = await tx.selectFrom('registers').select((eb) => eb.fn.countAll<number>().as('n')).where('tenant_id', '=', t).where('is_active', '=', true).executeTakeFirstOrThrow()
+      const r = await tx
+        .selectFrom('registers')
+        .select((eb) => eb.fn.countAll<number>().as('n'))
+        .where('tenant_id', '=', t)
+        .where('is_active', '=', true)
+        .executeTakeFirstOrThrow()
       return Number(r.n)
     }
     case 'products': {
@@ -318,9 +380,12 @@ export async function assertWithinLimit(
   const ent = await getEntitlements(ctx)
   const limit = ent.limits[metric]
   if (limit === null) return
-  await sql`select pg_advisory_xact_lock(hashtextextended(${`kadai_limit:${ctx.tenantId}:${metric}`}, 0))`.execute(tx)
+  await sql`select pg_advisory_xact_lock(hashtextextended(${`kadai_limit:${ctx.tenantId}:${metric}`}, 0))`.execute(
+    tx,
+  )
   const current = await countForLimit(tx, ctx, metric)
-  if (current + (opts.adding ?? 1) > limit) throw planLimitReached(metric, limit, current, ent.plan_code)
+  if (current + (opts.adding ?? 1) > limit)
+    throw planLimitReached(metric, limit, current, ent.plan_code)
 }
 
 /**

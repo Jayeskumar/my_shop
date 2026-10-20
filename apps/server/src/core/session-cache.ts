@@ -95,7 +95,9 @@ export class SessionCache {
       const p = payload as Partial<SessionChange> & { scope?: unknown }
       if (p.scope !== 'session') return
       this.invalidate({
-        sessionIds: Array.isArray(p.session_ids) ? p.session_ids.filter((s): s is string => typeof s === 'string') : undefined,
+        sessionIds: Array.isArray(p.session_ids)
+          ? p.session_ids.filter((s): s is string => typeof s === 'string')
+          : undefined,
         userId: typeof p.user_id === 'string' ? p.user_id : undefined,
       })
     })
@@ -103,7 +105,10 @@ export class SessionCache {
 }
 
 /** Broadcast a revocation (inside the revoking transaction when there is one). */
-export async function notifySessionsRevoked(db: Kysely<DB> | Tx, change: { session_ids?: string[]; user_id?: string }): Promise<void> {
+export async function notifySessionsRevoked(
+  db: Kysely<DB> | Tx,
+  change: { session_ids?: string[]; user_id?: string },
+): Promise<void> {
   const ids = change.session_ids ?? []
   // Large id lists would exceed NOTIFY's payload limit: fall back to a user-wide invalidation.
   if (!change.user_id && ids.length === 0) return

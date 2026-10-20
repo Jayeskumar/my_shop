@@ -15,7 +15,8 @@ export function jsonb(value: unknown): string {
       }
       return Number(v)
     }
-    if (typeof v === 'number' && !Number.isFinite(v)) throw new RangeError('jsonb(): non-finite number')
+    if (typeof v === 'number' && !Number.isFinite(v))
+      throw new RangeError('jsonb(): non-finite number')
     return v
   })
   if (text === undefined) throw new TypeError('jsonb(): value is not JSON-serialisable')

@@ -29,7 +29,12 @@ import type { FastifyPluginAsyncZod, ZodTypeProvider } from 'fastify-type-provid
 import { type SelectQueryBuilder, sql } from 'kysely'
 import type { z } from 'zod'
 import { type Feature, type Permission, hasPermission } from '@kadai/shared'
-import { ROUTE_SCOPE_PREFIX, type RouteDef, type RouteResponse, routePermissions } from '@kadai/shared/api/common'
+import {
+  ROUTE_SCOPE_PREFIX,
+  type RouteDef,
+  type RouteResponse,
+  routePermissions,
+} from '@kadai/shared/api/common'
 import type { DB } from '../db/schema.generated'
 import type { Tx } from '../db/tenant'
 import { type RequestContext, canAccessStore } from './context'
@@ -37,10 +42,17 @@ import { AppError, featureNotInPlan, forbidden } from './errors'
 import { assertIdempotencyKey, requestHash, runIdempotent } from './idempotency'
 
 /** Fastify instance with the zod type provider (what module plugins receive). */
-export type KadaiInstance = FastifyInstance<RawServerDefault, IncomingMessage, ServerResponse, FastifyBaseLogger, ZodTypeProvider>
+export type KadaiInstance = FastifyInstance<
+  RawServerDefault,
+  IncomingMessage,
+  ServerResponse,
+  FastifyBaseLogger,
+  ZodTypeProvider
+>
 
 /** A module route plugin (`export const routes: KadaiPlugin = async (app) => { … }`). */
-export type KadaiPlugin<Options extends Record<string, unknown> = Record<never, never>> = FastifyPluginAsyncZod<Options>
+export type KadaiPlugin<Options extends Record<string, unknown> = Record<never, never>> =
+  FastifyPluginAsyncZod<Options>
 
 // ---------------------------------------------------------------------------------------------
 // Guards (use as `preHandler: [...]`)
@@ -66,14 +78,17 @@ export function requireFeature(feature: Feature): preHandlerAsyncHookHandler {
 
 /** Throws 403 FORBIDDEN when the member's store scope excludes `storeId`. */
 export function assertStoreAccess(ctx: Pick<RequestContext, 'storeIds'>, storeId: string): void {
-  if (!canAccessStore(ctx, storeId)) throw forbidden('You do not have access to this store', { store_id: storeId })
+  if (!canAccessStore(ctx, storeId))
+    throw forbidden('You do not have access to this store', { store_id: storeId })
 }
 
 /**
  * Store scoping guard: `requireStoreAccess((req) => (req.query as { store_id?: string }).store_id)`. A missing store id
  * passes (list endpoints then filter by `ctx.storeIds` themselves).
  */
-export function requireStoreAccess(getStoreId: (req: FastifyRequest) => string | null | undefined): preHandlerAsyncHookHandler {
+export function requireStoreAccess(
+  getStoreId: (req: FastifyRequest) => string | null | undefined,
+): preHandlerAsyncHookHandler {
   return async (req) => {
     const storeId = getStoreId(req)
     if (storeId) assertStoreAccess(req.ctx, storeId)
@@ -84,13 +99,15 @@ export function requireStoreAccess(getStoreId: (req: FastifyRequest) => string |
 export function requirePlatformAdmin(): preHandlerAsyncHookHandler {
   return async (req) => {
     const auth = req.auth
-    if (!auth || auth.kind !== 'user') throw new AppError('UNAUTHENTICATED', 'Authentication required')
+    if (!auth || auth.kind !== 'user')
+      throw new AppError('UNAUTHENTICATED', 'Authentication required')
     const row = await req.server.kadai.db.systemDb
       .selectFrom('users')
       .select(['is_platform_admin', 'status'])
       .where('id', '=', auth.userId)
       .executeTakeFirst()
-    if (!row?.is_platform_admin || row.status !== 'active') throw forbidden('Platform administrators only')
+    if (!row?.is_platform_admin || row.status !== 'active')
+      throw forbidden('Platform administrators only')
   }
 }
 
@@ -101,9 +118,17 @@ export const RATE_LIMITS = {
   /** OTP request: 10 per 10 minutes per IP (per-phone limits are enforced by OtpService). */
   otp: { max: 10, timeWindow: '10 minutes', keyGenerator: (req: FastifyRequest) => `ip:${req.ip}` },
   /** Provider webhooks: 300 per minute per IP. */
-  webhook: { max: 300, timeWindow: '1 minute', keyGenerator: (req: FastifyRequest) => `ip:${req.ip}` },
+  webhook: {
+    max: 300,
+    timeWindow: '1 minute',
+    keyGenerator: (req: FastifyRequest) => `ip:${req.ip}`,
+  },
   /** Public pages (invoice links): 120 per minute per IP. */
-  public: { max: 120, timeWindow: '1 minute', keyGenerator: (req: FastifyRequest) => `ip:${req.ip}` },
+  public: {
+    max: 120,
+    timeWindow: '1 minute',
+    keyGenerator: (req: FastifyRequest) => `ip:${req.ip}`,
+  },
 } as const
 
 // ---------------------------------------------------------------------------------------------
@@ -120,7 +145,9 @@ export interface PageEnvelope<T> {
   page: { limit: number; offset: number; total: number }
 }
 
-export function parsePage(query: { limit?: number | string | null; offset?: number | string | null } = {}): PageParams {
+export function parsePage(
+  query: { limit?: number | string | null; offset?: number | string | null } = {},
+): PageParams {
   const limit = Number(query.limit ?? 50)
   const offset = Number(query.offset ?? 0)
   return {
@@ -137,7 +164,10 @@ export function pageResult<T>(data: T[], page: PageParams, total: number): PageE
  * Executes a list query with `count(*) over()` (one round trip) and returns the list envelope.
  * Apply filters and ORDER BY before calling; limit/offset are added here.
  */
-export async function paginate<TB extends keyof DB, O>(qb: SelectQueryBuilder<DB, TB, O>, page: PageParams): Promise<PageEnvelope<O>> {
+export async function paginate<TB extends keyof DB, O>(
+  qb: SelectQueryBuilder<DB, TB, O>,
+  page: PageParams,
+): Promise<PageEnvelope<O>> {
   const rows = (await qb
     .select(sql<number>`count(*) over()`.as('__total'))
     .limit(page.limit)
@@ -148,7 +178,11 @@ export async function paginate<TB extends keyof DB, O>(qb: SelectQueryBuilder<DB
     total = Number(rows[0]!.__total)
   } else if (page.offset > 0) {
     // Past the end: count separately so the client can jump back.
-    const c = (await qb.clearSelect().clearOrderBy().select(sql<number>`count(*)`.as('n')).executeTakeFirst()) as { n: number | string } | undefined
+    const c = (await qb
+      .clearSelect()
+      .clearOrderBy()
+      .select(sql<number>`count(*)`.as('n'))
+      .executeTakeFirst()) as { n: number | string } | undefined
     total = Number(c?.n ?? 0)
   } else {
     total = 0
@@ -178,7 +212,8 @@ export function idempotencyKeyOf(req: FastifyRequest): string | null {
 }
 
 function responseSchemaFor(req: FastifyRequest, status: number): z.ZodType | null {
-  const response = (req.routeOptions.schema as { response?: Record<string, unknown> } | undefined)?.response
+  const response = (req.routeOptions.schema as { response?: Record<string, unknown> } | undefined)
+    ?.response
   const s = response?.[String(status)] ?? response?.[`${String(status)[0]}xx`]
   return s && typeof (s as z.ZodType).parse === 'function' ? (s as z.ZodType) : null
 }
@@ -207,12 +242,22 @@ export async function idempotentTx<T>(
     runIdempotent(
       tx,
       req.ctx,
-      { key, method: req.method, path, requestHash: requestHash(req.body, { query: req.query ?? null, params: req.params ?? null }) },
+      {
+        key,
+        method: req.method,
+        path,
+        requestHash: requestHash(req.body, {
+          query: req.query ?? null,
+          params: req.params ?? null,
+        }),
+      },
       async () => {
         const body = await work(tx)
         const schema = responseSchemaFor(req, status)
         // Store exactly what the client receives (schema output, JSON round-tripped).
-        const serialised = JSON.parse(JSON.stringify(schema ? schema.parse(body) : body) ?? 'null') as unknown
+        const serialised = JSON.parse(
+          JSON.stringify(schema ? schema.parse(body) : body) ?? 'null',
+        ) as unknown
         return { status, body: serialised }
       },
     ),
@@ -259,12 +304,19 @@ export interface RouteExtras {
  * permission (any-of) and feature guards, `auth`/scope → `config.public`, and the deployment
  * `mode` (the route is not registered — 404 — in the other mode).
  */
-export function route<R extends RouteDef>(app: KadaiInstance, def: R, handler: RouteHandlerFor<R>, extras: RouteExtras = {}): void {
+export function route<R extends RouteDef>(
+  app: KadaiInstance,
+  def: R,
+  handler: RouteHandlerFor<R>,
+  extras: RouteExtras = {},
+): void {
   const scope = def.scope ?? 'api'
   if (def.mode && def.mode !== app.kadai.config.mode) return
   const expected = ROUTE_SCOPE_PREFIX[scope]
   if (app.prefix !== expected) {
-    throw new Error(`route ${def.method} ${def.path} has scope "${scope}" but was registered under "${app.prefix || '/'}"`)
+    throw new Error(
+      `route ${def.method} ${def.path} has scope "${scope}" but was registered under "${app.prefix || '/'}"`,
+    )
   }
   const perms = routePermissions(def)
   const preHandler: preHandlerAsyncHookHandler[] = []

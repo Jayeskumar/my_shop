@@ -84,7 +84,7 @@ export function UpgradePage({ feature }: { feature: Feature }) {
 /** errorElement of the root route: unexpected render/loader errors and thrown responses. */
 export function RouteErrorPage() {
   const error = useRouteError()
-  const { t } = useTranslation('errors')
+  const { t } = useTranslation(['errors', 'common'])
   if (isRouteErrorResponse(error) && error.status === 404) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background p-6">

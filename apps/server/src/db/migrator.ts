@@ -108,7 +108,9 @@ export async function readMigrationFiles(dir: string): Promise<MigrationFile[]> 
   const names = entries.filter((f) => f.endsWith('.sql')).sort()
   const bad = names.filter((n) => !MIGRATION_FILE_RE.test(n))
   if (bad.length) {
-    throw new MigrationError(`Invalid migration file name(s): ${bad.join(', ')} (expected NNNN_snake_case.sql)`)
+    throw new MigrationError(
+      `Invalid migration file name(s): ${bad.join(', ')} (expected NNNN_snake_case.sql)`,
+    )
   }
   const numbers = new Map<string, string>()
   const files: MigrationFile[] = []
@@ -133,7 +135,9 @@ async function ensureTable(client: pg.Client): Promise<void> {
 }
 
 async function readApplied(client: pg.Client): Promise<AppliedMigration[]> {
-  const exists = await client.query<{ t: string | null }>(`SELECT to_regclass('public.schema_migrations')::text AS t`)
+  const exists = await client.query<{ t: string | null }>(
+    `SELECT to_regclass('public.schema_migrations')::text AS t`,
+  )
   if (!exists.rows[0]?.t) return []
   const res = await client.query<AppliedMigration>(
     'SELECT name, checksum, applied_at FROM schema_migrations ORDER BY name',
@@ -183,13 +187,19 @@ export async function migrate(opts: MigrateOptions): Promise<MigrateResult> {
       const p = plan(files, applied)
       if (p.mismatched.length) throw new ChecksumMismatchError(p.mismatched.map((f) => f.name))
       for (const name of p.missingFiles) {
-        log.warn(`migration ${name} is applied but its file is missing (database is newer than this build?)`)
+        log.warn(
+          `migration ${name} is applied but its file is missing (database is newer than this build?)`,
+        )
       }
       for (const name of p.outOfOrder) {
         log.warn(`applying ${name} out of order (it sorts before an already-applied migration)`)
       }
       if (opts.dryRun) {
-        return { applied: p.pending.map((f) => f.name), outOfOrder: p.outOfOrder, missingFiles: p.missingFiles }
+        return {
+          applied: p.pending.map((f) => f.name),
+          outOfOrder: p.outOfOrder,
+          missingFiles: p.missingFiles,
+        }
       }
 
       const done: string[] = []
@@ -206,7 +216,9 @@ export async function migrate(opts: MigrateOptions): Promise<MigrateResult> {
         } catch (err) {
           await client.query('ROLLBACK').catch(() => undefined)
           const msg = err instanceof Error ? err.message : String(err)
-          throw new MigrationError(`migration ${file.name} failed: ${msg}`, file.name, { cause: err })
+          throw new MigrationError(`migration ${file.name} failed: ${msg}`, file.name, {
+            cause: err,
+          })
         }
         done.push(file.name)
         log.info(`applied ${file.name} (${Date.now() - started} ms)`)
@@ -235,7 +247,9 @@ export async function migrate(opts: MigrateOptions): Promise<MigrateResult> {
       if (done.length === 0) log.info('database is up to date')
       return { applied: done, outOfOrder: p.outOfOrder, missingFiles: p.missingFiles }
     } finally {
-      await client.query('SELECT pg_advisory_unlock($1)', [MIGRATION_LOCK_KEY.toString()]).catch(() => undefined)
+      await client
+        .query('SELECT pg_advisory_unlock($1)', [MIGRATION_LOCK_KEY.toString()])
+        .catch(() => undefined)
     }
   } finally {
     await client.end()

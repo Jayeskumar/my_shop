@@ -29,11 +29,17 @@ export const MAX_PAYLOAD_BYTES = 7900
 export type EventHandler = (payload: unknown) => void | Promise<void>
 
 /** Sends a notification as part of `tx` (delivered on commit). Payload must be a small JSON object. */
-export async function notify(tx: Tx | Kysely<DB>, channel: EventChannel, payload: Record<string, unknown>): Promise<void> {
+export async function notify(
+  tx: Tx | Kysely<DB>,
+  channel: EventChannel,
+  payload: Record<string, unknown>,
+): Promise<void> {
   if (!ALL_CHANNELS.includes(channel)) throw new Error(`unknown event channel ${channel}`)
   const text = JSON.stringify(payload)
   if (Buffer.byteLength(text) > MAX_PAYLOAD_BYTES) {
-    throw new RangeError(`event payload for ${channel} exceeds ${MAX_PAYLOAD_BYTES} bytes; send ids, not documents`)
+    throw new RangeError(
+      `event payload for ${channel} exceeds ${MAX_PAYLOAD_BYTES} bytes; send ids, not documents`,
+    )
   }
   await sql`select pg_notify(${channel}, ${text})`.execute(tx)
 }
@@ -91,7 +97,10 @@ export class EventBus {
   waitUntilConnected(timeoutMs = 10_000): Promise<void> {
     if (this.client) return Promise.resolve()
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('event bus did not connect in time')), timeoutMs)
+      const timer = setTimeout(
+        () => reject(new Error('event bus did not connect in time')),
+        timeoutMs,
+      )
       this.readyWaiters.push(() => {
         clearTimeout(timer)
         resolve()
@@ -192,7 +201,9 @@ export class EventBus {
       try {
         const r = handler(payload)
         if (r instanceof Promise) {
-          r.catch((err: unknown) => this.opts.logger?.error({ err, channel }, 'event handler failed'))
+          r.catch((err: unknown) =>
+            this.opts.logger?.error({ err, channel }, 'event handler failed'),
+          )
         }
       } catch (err) {
         this.opts.logger?.error({ err, channel }, 'event handler failed')

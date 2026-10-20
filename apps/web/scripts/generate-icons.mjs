@@ -1,9 +1,11 @@
 // Renders public/favicon.svg into the PNG/ICO icons referenced by index.html and the PWA
 // manifest. Run after changing the artwork: `pnpm --filter @kadai/web icons`.
 // Uses Playwright's Chromium (PLAYWRIGHT_BROWSERS_PATH, e.g. /opt/pw-browsers).
+/* global document -- used inside page.waitForFunction (browser context) */
 import { Buffer } from 'node:buffer'
+import console from 'node:console'
 import { readFile, writeFile } from 'node:fs/promises'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, URL } from 'node:url'
 import { chromium } from '@playwright/test'
 
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url))
