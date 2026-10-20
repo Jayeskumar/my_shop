@@ -207,6 +207,33 @@ describe('logout', () => {
     expect(events).toEqual(['signed_out'])
   })
 
+  it('does not ask the server for a refresh on the next start after signing out', async () => {
+    const refreshes = vi.fn()
+    server.use(
+      meHandler(),
+      http.post(apiPath('/auth/refresh'), () => {
+        refreshes()
+        return HttpResponse.json({ data: makeSession() })
+      }),
+    )
+    await acceptSession(makeSession())
+    await logout()
+
+    // Next start of the app (reload): known signed out → no POST /auth/refresh (and no 401).
+    const { _resetAuthForTests } = await import('./auth')
+    _resetAuthForTests()
+    await bootstrap()
+    expect(refreshes).not.toHaveBeenCalled()
+    expect(authStore.getState().status).toBe('unauthenticated')
+
+    // Signing in again restores the normal restore-on-start behaviour.
+    await acceptSession(makeSession())
+    _resetAuthForTests()
+    await bootstrap()
+    expect(refreshes).toHaveBeenCalledTimes(1)
+    expect(authStore.getState().status).toBe('authenticated')
+  })
+
   it('still signs out locally when the server is unreachable', async () => {
     server.use(
       meHandler(),

@@ -108,6 +108,14 @@ describe('loadConfig', () => {
     expect(c.encryptionKeys[0]?.key).toHaveLength(32)
     expect(configWarnings(c).some((w) => /JWT_SECRET/.test(w))).toBe(true)
   })
+
+  it('warns that an OTLP endpoint is not exported by this build', () => {
+    const quiet = loadConfig({ ...base })
+    expect(configWarnings(quiet).some((w) => /OTEL/.test(w))).toBe(false)
+    const c = loadConfig({ ...base, OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel:4318' })
+    expect(c.otelEndpoint).toBe('http://otel:4318')
+    expect(configWarnings(c).some((w) => /OTEL_EXPORTER_OTLP_ENDPOINT/.test(w))).toBe(true)
+  })
 })
 
 describe('parseEncryptionKeys', () => {

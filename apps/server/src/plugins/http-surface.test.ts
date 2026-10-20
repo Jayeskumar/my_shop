@@ -97,6 +97,11 @@ describe('OpenAPI docs', () => {
     expect(doc.paths['/metrics']).toBeUndefined()
     const ui = await t.app.inject({ method: 'GET', url: '/api/docs/' })
     expect(ui.statusCode).toBe(200)
+    // Swagger UI needs inline styles; scripts stay same-origin only.
+    const csp = String(ui.headers['content-security-policy'])
+    expect(csp).toContain("style-src 'self' 'unsafe-inline'")
+    expect(csp).toMatch(/script-src 'self'\s*;/)
+    expect(csp).not.toContain('upgrade-insecure-requests')
   })
 })
 

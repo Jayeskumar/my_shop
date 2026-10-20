@@ -35,6 +35,7 @@ serves both.
 | Concern | cloud | onprem |
 |---|---|---|
 | Tenancy | many tenants, self-signup | exactly one tenant, created by the first-run **setup wizard** (`/setup`) |
+| `GET /api/v1/setup/status` (public probe) | `{mode: 'cloud', setup_required: false}` | `{mode: 'onprem', setup_required, token_required}`; `POST /setup` exists only here |
 | Entitlements | plan + subscription (`plans`, `subscriptions`) | signed **license file** (Ed25519) uploaded in settings |
 | Signup / platform admin | enabled | disabled (404) |
 | Payment webhooks | public HTTPS endpoint | usually unreachable → **status polling** reconciles UPI |
@@ -276,12 +277,15 @@ app.post('/products', {
 * `requireAuth` (default for `/api/v1`, except routes marked `config: { public: true }`).
 * `requirePermission(...perms)` — any-of; 403 `FORBIDDEN`.
 * `requireFeature(feature)` — 402 `FEATURE_NOT_IN_PLAN` with `{feature, plan}` details.
-* `requireStoreAccess(storeId)` — membership store scoping (403).
+* `requireStoreAccess((req) => storeId)` / `assertStoreAccess(ctx, storeId)` — membership store
+  scoping (403); a route without a store id filters by `ctx.storeIds` itself.
 * `assertWithinLimit(tx, ctx, 'products')` — plan limits (402 `PLAN_LIMIT_REACHED`).
 
 ### 7.3 API conventions
 
-* Base path `/api/v1`; JSON; snake_case.
+* Base path `/api/v1`; JSON; snake_case. Responses under `/api`, `/public` and `/webhooks` carry
+  `Cache-Control: no-store` unless a route sets its own caching. A body that the contract allows to
+  be omitted (e.g. `POST /auth/refresh`) may be sent with no body / Content-Type at all.
 * Success envelope: single → `{ "data": {...} }`; list → `{ "data": [...], "page": { "limit", "offset", "total" } }`.
 * Error envelope: `{ "error": { "code": "VALIDATION_ERROR", "message": "…", "details": {...}, "request_id": "…" } }`.
   Codes: `VALIDATION_ERROR`(400) `UNAUTHENTICATED`(401) `FEATURE_NOT_IN_PLAN`/`PLAN_LIMIT_REACHED`(402)
@@ -373,7 +377,8 @@ provider changes, discount/price overrides beyond limits, data exports.
 * prom-client metrics: HTTP histograms by route, DB pool stats, job counts/failures, invoices
   created, payment intent outcomes.
 * `/health/live` (process), `/health/ready` (DB reachable, migrations current, worker heartbeat).
-* Optional OpenTelemetry export (`OTEL_EXPORTER_OTLP_ENDPOINT`).
+* Optional OpenTelemetry export (`OTEL_EXPORTER_OTLP_ENDPOINT`) — the variable is reserved and parsed;
+  the current build bundles no exporter and logs a boot warning when it is set.
 
 ---
 
@@ -385,9 +390,9 @@ of their tables.
 ### 8.1 Numbering — `core/numbering.ts`
 
 ```ts
-nextNumber(tx, ctx, { docType, storeId, registerId?, date }): Promise<{ number: string; fy: string; seq: number }>
-peekSeries(tx, ctx, {...}): Promise<{ prefix, next_number, padding, fy }>
-acceptOfflineNumber(tx, ctx, { docType, storeId, registerId, date, number }): Promise<{ number, fy, renumbered: boolean }>
+nextNumber(tx, ctx, { docType, storeId, registerId?, date }): Promise<{ number: string; fy: string; seq: number; series_id: string }>
+peekSeries(tx, ctx, {...}): Promise<{ series_id: string | null; prefix; next_number; padding; fy; next: string }>
+acceptOfflineNumber(tx, ctx, { docType, storeId, registerId, date, number }): Promise<{ number, fy, seq, series_id, renumbered: boolean, offline_number }>
 ```
 
 * Series row is created on first use for the FY with the default prefix template and locked
@@ -513,7 +518,7 @@ recordPayment(tx, ctx, {
   direction: 'in' | 'out', store_id, register_id?, shift_id?, method, amount_paise,
   payment_date, party?: { type, id }, reference?, payment_intent_id?, account_id?,
   allocations: Array<{ target_type, target_id, amount_paise }>, notes?, client_ref?, number?: boolean,
-}): Promise<Payment>
+}): Promise<PaymentRecord>   // payments row + allocations[] + replayed (client_ref retry)
 cancelPayment(tx, ctx, { payment_id, reason, date? }): Promise<{ reversal_entry_id: string | null }>
 ```
 
@@ -742,8 +747,11 @@ settings, sample units). Vertical-specific product attributes are validated by
 ## 14. Background jobs (pg-boss)
 
 Registered in `apps/server/src/jobs/registry.ts` from each module's `jobs.ts`
-(`export const jobs: JobDefinition[]`). Every handler receives `{ tenant_id, ... }` and runs inside
-`withTenant`. Cron jobs fan out per tenant using `systemDb`.
+(`export const jobs: readonly KadaiJob[] = [defineJob({ name: 'module.job-name', cron? | intervalSeconds?,
+options?, handler(job, deps) })]`, `jobs/types.ts`; names are validated and unique). Every handler
+receives `{ tenant_id, ... }` and runs inside `withTenant`. Cron jobs fan out per tenant using
+`systemDb`; `intervalSeconds` (5–3600) covers sub-minute schedules. Enqueue with `enqueue(name,
+data, { tx })` (`core/jobs.ts`) so a job exists only if the business transaction commits.
 
 | Job | Schedule | Module |
 |---|---|---|
@@ -775,9 +783,12 @@ sends the public invoice link `/i/<share_token>` (+ UPI pay link when due).
   Route objects carry `handle: { permission?, feature?, title }` for guards and breadcrumbs.
 * **State** — server state in TanStack Query (keys `[module, resource, params]`); auth/session in
   a small store (`lib/auth`); POS cart in a reducer + IndexedDB persistence.
-* **API client** — `lib/api.ts`: `api.get/post/patch/del<T>(path, body?, {idempotencyKey})`,
-  automatic access-token refresh on 401 (single-flight), error → `ApiError{code, message,
-  details}`; module hooks in `features/<m>/api.ts`.
+* **API client** — `lib/api.ts`: `api.get<T>(path, {query, signal})`, `api.post/put/patch<T>(path,
+  body, {idempotencyKey})`, `api.del`, and `api.call(route, {params, query, body})` for the shared
+  route catalogues (response validated). Automatic access-token refresh on 401 (single-flight,
+  serialised across tabs with Web Locks + BroadcastChannel), error → `ApiError{code, message,
+  details, requestId}`; module hooks in `features/<m>/api.ts`. A non-secret `session_hint` in
+  localStorage lets a signed-out browser skip the start-up refresh request.
 * **UI kit** — `components/ui`: Button, IconButton, Input, MoneyInput (₹ with paise), QtyInput
   (unit-aware), Select, Combobox (async search), DatePicker, Dialog, Drawer, Tabs, Table
   (TanStack Table with server pagination), Badge, Card, EmptyState, Skeleton, Toast (sonner),

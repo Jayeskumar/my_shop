@@ -39,8 +39,12 @@ export async function registerSwagger(
   await app.register(swaggerUi, {
     routePrefix: API_DOCS_PREFIX,
     staticCSP: true,
-    transformStaticCSP: (header) =>
-      https ? header : header.replace(/\s*upgrade-insecure-requests;?/, ''),
+    transformStaticCSP: (header) => {
+      // Swagger UI sets inline styles (scripts stay 'self' only); no remote stylesheets needed.
+      const csp = header.replace(/style-src [^;]*/, "style-src 'self' 'unsafe-inline'")
+      // Plain-http (LAN / dev) installs must not upgrade asset requests to https.
+      return https ? csp : csp.replace(/\s*upgrade-insecure-requests;?/, '')
+    },
     uiConfig: { docExpansion: 'list', deepLinking: true, persistAuthorization: false },
   })
 }

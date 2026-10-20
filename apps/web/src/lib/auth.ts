@@ -4,8 +4,8 @@
  * settings, stores, registers, mode), the deployment info, and the current store/register.
  *
  *  - bootstrap(): on app start, exchanges the refresh cookie for a session and loads /me, while
- *    probing GET /setup/status to learn the deployment mode (servers before v0.1 answered 404
- *    in cloud; that is still read as cloud).
+ *    probing GET /setup/status to learn the deployment mode (earlier builds answered 404 in
+ *    cloud; that is still read as cloud).
  *  - Offline boot: when the server cannot be reached at start-up but this device has a snapshot
  *    of the last /me, the app opens in `offline` mode (POS keeps billing into the outbox); the
  *    session is re-validated as soon as the server is reachable again.
@@ -23,7 +23,15 @@ import {
 import type { DeploymentMode } from '@kadai/shared/enums'
 import { hasFeature as entitlementHasFeature, type Feature } from '@kadai/shared/features'
 import { expandPermissions, hasPermission, type Permission } from '@kadai/shared/permissions'
-import { api, clearSession, isApiError, onAuthEvent, refreshSession, setSession } from './api'
+import {
+  api,
+  clearSession,
+  isApiError,
+  knownSignedOut,
+  onAuthEvent,
+  refreshSession,
+  setSession,
+} from './api'
 import { getSavedLanguage, setLanguage } from './i18n'
 import { storage, isRecord } from './storage'
 
@@ -392,7 +400,8 @@ export async function probeDeployment(): Promise<DeploymentInfo> {
 async function runBootstrap(): Promise<void> {
   const deployment = probeDeployment()
   try {
-    const session = await refreshSession()
+    // A browser that signed out has no refresh cookie worth presenting (see api.ts).
+    const session = knownSignedOut() ? null : await refreshSession()
     if (!session) {
       resetToSignedOut()
     } else {

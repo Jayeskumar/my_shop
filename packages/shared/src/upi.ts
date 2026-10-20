@@ -5,7 +5,7 @@
 import { assertSafeInt } from './math'
 import { paiseToRupeesString, tryParseRupees } from './money'
 
-/** Same rule as payment_provider_accounts.vpa CHECK (migration 0006): handle@psp. */
+/** Same rule as the payment_provider_accounts.vpa CHECK (migration 0006, re-created by 0009): handle@psp. */
 const VPA_RE = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z][a-zA-Z0-9]{1,64}$/
 
 export function isValidVpa(vpa: unknown): vpa is string {

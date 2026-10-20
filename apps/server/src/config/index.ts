@@ -493,6 +493,12 @@ export function configWarnings(config: Config): string[] {
   if (config.isProduction && config.sms.provider === 'log') {
     warnings.push('SMS_PROVIDER=log in production: OTP messages are not delivered')
   }
+  if (config.otelEndpoint) {
+    warnings.push(
+      'OTEL_EXPORTER_OTLP_ENDPOINT is set but this build bundles no OpenTelemetry exporter: ' +
+        'traces are not exported (use /metrics and the JSON logs)',
+    )
+  }
   return warnings
 }
 

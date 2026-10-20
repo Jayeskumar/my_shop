@@ -17,6 +17,7 @@ import type { Page, RouteBody, RouteDef, RouteQuery, RouteResponse } from '@kada
 import { routeUrl } from '@kadai/shared/api/common'
 import type { ErrorCode, ValidationIssue } from '@kadai/shared/errors'
 import { reportNetworkFailure, reportNetworkSuccess } from './online'
+import { storage } from './storage'
 
 export const API_BASE = '/api/v1'
 
@@ -196,18 +197,39 @@ function emit(event: AuthEvent): void {
   }
 }
 
+/**
+ * Non-secret hint (localStorage, shared by tabs) of whether this browser holds a session. The
+ * refresh cookie is httpOnly, so without it every signed-out start would POST /auth/refresh just
+ * to get a 401. Only a definite 'signed_out' (logout, or a refused refresh) skips that request;
+ * a missing hint (first visit, storage unavailable) still asks the server.
+ */
+const SESSION_HINT_KEY = 'session_hint'
+type SessionHint = 'signed_in' | 'signed_out'
+const isSessionHint = (v: unknown): v is SessionHint => v === 'signed_in' || v === 'signed_out'
+
+/** True when this browser signed out (or its refresh was refused) since it last had a session. */
+export function knownSignedOut(): boolean {
+  return storage.get<SessionHint | null>(SESSION_HINT_KEY, null, isSessionHint) === 'signed_out'
+}
+
 function applySession(session: SessionResponse): void {
   accessToken = session.access_token
   tokenExpiresAt = Date.now() + session.expires_in * 1000
   lastSession = session
   tokenVersion++
+  storage.set(SESSION_HINT_KEY, 'signed_in')
 }
 
-function clearTokens(): void {
+function forgetTokens(): void {
   accessToken = null
   tokenExpiresAt = null
   lastSession = null
   tokenVersion++
+}
+
+function clearTokens(): void {
+  forgetTokens()
+  storage.set(SESSION_HINT_KEY, 'signed_out')
 }
 
 /** Subscribe to session changes made by the client (refresh, other tabs, forced logout). */
@@ -839,7 +861,8 @@ export function subscribeSse(path: string, options: SseOptions): SseSubscription
 
 /** Test helper: reset module state between tests. */
 export function _resetApiStateForTests(): void {
-  clearTokens()
+  forgetTokens()
+  storage.remove(SESSION_HINT_KEY)
   refreshInFlight = null
   listeners.clear()
   if (channel) {

@@ -143,6 +143,12 @@ export default defineConfig({
     sourcemap: true,
     chunkSizeWarningLimit: 900,
     rollupOptions: {
+      onwarn(warning, warn) {
+        // Third-party annotation comments Rollup drops (zod's regexes.js): harmless and not ours
+        // to fix; keep every other warning visible.
+        if (warning.code === 'INVALID_ANNOTATION' && warning.id?.includes('node_modules')) return
+        warn(warning)
+      },
       output: {
         // Stable vendor chunks: app deploys don't invalidate the cached libraries.
         manualChunks(id) {
