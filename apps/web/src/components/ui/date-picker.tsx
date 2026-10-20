@@ -33,13 +33,28 @@ function inRange(date: string, min?: string, max?: string): boolean {
 }
 
 export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(function DatePicker(
-  { value, onChange, min, max, placeholder, size = 'md', disabled, id, name, className, onBlur, ...aria },
+  {
+    value,
+    onChange,
+    min,
+    max,
+    placeholder,
+    size = 'md',
+    disabled,
+    id,
+    name,
+    className,
+    onBlur,
+    ...aria
+  },
   ref,
 ) {
   const { t } = useTranslation()
   const control = useFormFieldControl({ id })
   const nativeRef = useRef<HTMLInputElement>(null)
-  const [text, setText] = useState(() => (value && isDateStr(value) ? formatDateDisplay(value) : ''))
+  const [text, setText] = useState(() =>
+    value && isDateStr(value) ? formatDateDisplay(value) : '',
+  )
   const [invalid, setInvalid] = useState(false)
 
   useEffect(() => {

@@ -25,4 +25,3 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   area.remove()
   return ok
 }
-

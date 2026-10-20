@@ -9,7 +9,8 @@ import { storage } from './storage'
 export type ThemePreference = 'system' | 'light' | 'dark'
 const KEY = 'theme'
 
-const isPreference = (v: unknown): v is ThemePreference => v === 'system' || v === 'light' || v === 'dark'
+const isPreference = (v: unknown): v is ThemePreference =>
+  v === 'system' || v === 'light' || v === 'dark'
 
 let preference: ThemePreference = storage.get<ThemePreference>(KEY, 'system', isPreference)
 const listeners = new Set<() => void>()

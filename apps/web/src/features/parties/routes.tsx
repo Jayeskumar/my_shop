@@ -15,7 +15,11 @@ export const routes: FeatureRoutes = {
     },
     {
       path: 'parties/customers/:id',
-      handle: { title: 'nav:titles.customer', permission: 'customers.read', parent: { title: 'nav:titles.customers', to: '/parties/customers' } },
+      handle: {
+        title: 'nav:titles.customer',
+        permission: 'customers.read',
+        parent: { title: 'nav:titles.customers', to: '/parties/customers' },
+      },
       Component: ModulePlaceholder,
     },
     {
@@ -25,12 +29,20 @@ export const routes: FeatureRoutes = {
     },
     {
       path: 'parties/suppliers/:id',
-      handle: { title: 'nav:titles.supplier', permission: 'suppliers.read', parent: { title: 'nav:titles.suppliers', to: '/parties/suppliers' } },
+      handle: {
+        title: 'nav:titles.supplier',
+        permission: 'suppliers.read',
+        parent: { title: 'nav:titles.suppliers', to: '/parties/suppliers' },
+      },
       Component: ModulePlaceholder,
     },
     {
       path: 'parties/doctors',
-      handle: { title: 'nav:titles.doctors', permission: 'customers.read', businessTypes: ['pharmacy'] },
+      handle: {
+        title: 'nav:titles.doctors',
+        permission: 'customers.read',
+        businessTypes: ['pharmacy'],
+      },
       Component: ModulePlaceholder,
     },
   ],

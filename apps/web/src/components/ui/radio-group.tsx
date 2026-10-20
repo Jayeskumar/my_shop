@@ -1,5 +1,11 @@
 import * as RadioGroupPrimitive from '@radix-ui/react-radio-group'
-import { forwardRef, useId, type ComponentPropsWithoutRef, type ElementRef, type ReactNode } from 'react'
+import {
+  forwardRef,
+  useId,
+  type ComponentPropsWithoutRef,
+  type ElementRef,
+  type ReactNode,
+} from 'react'
 import { cn } from '@/lib/cn'
 
 export const RadioGroupRoot = forwardRef<
@@ -72,7 +78,10 @@ export function RadioGroup<V extends string = string>({
       orientation={orientation}
       className={cn(
         'grid gap-2',
-        orientation === 'horizontal' && (variant === 'cards' ? 'sm:grid-flow-col sm:auto-cols-fr' : 'grid-flow-col auto-cols-max gap-6'),
+        orientation === 'horizontal' &&
+          (variant === 'cards'
+            ? 'sm:grid-flow-col sm:auto-cols-fr'
+            : 'grid-flow-col auto-cols-max gap-6'),
         className,
       )}
       {...aria}
@@ -94,7 +103,9 @@ export function RadioGroup<V extends string = string>({
               {o.icon ? <span className="text-primary [&_svg]:size-5">{o.icon}</span> : null}
               <span className="grid gap-0.5">
                 <span className="text-sm font-semibold leading-snug">{o.label}</span>
-                {o.description ? <span className="text-xs text-muted-foreground">{o.description}</span> : null}
+                {o.description ? (
+                  <span className="text-xs text-muted-foreground">{o.description}</span>
+                ) : null}
               </span>
             </label>
           )
@@ -104,7 +115,9 @@ export function RadioGroup<V extends string = string>({
             <RadioGroupItem id={id} value={o.value} disabled={o.disabled} className="mt-0.5" />
             <label htmlFor={id} className="grid cursor-pointer gap-0.5">
               <span className="text-sm font-medium leading-snug">{o.label}</span>
-              {o.description ? <span className="text-xs text-muted-foreground">{o.description}</span> : null}
+              {o.description ? (
+                <span className="text-xs text-muted-foreground">{o.description}</span>
+              ) : null}
             </label>
           </div>
         )

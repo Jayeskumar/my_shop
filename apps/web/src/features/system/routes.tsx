@@ -15,7 +15,11 @@ export const routes: FeatureRoutes = {
     },
     {
       path: 'settings/api-keys',
-      handle: { title: 'nav:titles.settings_api_keys', permission: 'settings.manage', feature: 'api_access' },
+      handle: {
+        title: 'nav:titles.settings_api_keys',
+        permission: 'settings.manage',
+        feature: 'api_access',
+      },
       Component: ModulePlaceholder,
     },
   ],

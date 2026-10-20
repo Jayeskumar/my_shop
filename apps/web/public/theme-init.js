@@ -7,7 +7,8 @@
   var lang = 'ta'
   try {
     var savedTheme = JSON.parse(localStorage.getItem('kadai.theme') || 'null')
-    if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') theme = savedTheme
+    if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system')
+      theme = savedTheme
     var savedLang = JSON.parse(localStorage.getItem('kadai.lang') || 'null')
     if (savedLang === 'ta' || savedLang === 'en') lang = savedLang
   } catch (_e) {
@@ -15,7 +16,9 @@
   }
   var dark =
     theme === 'dark' ||
-    (theme === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    (theme === 'system' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches)
   if (dark) root.classList.add('dark')
   root.style.colorScheme = dark ? 'dark' : 'light'
   root.lang = lang

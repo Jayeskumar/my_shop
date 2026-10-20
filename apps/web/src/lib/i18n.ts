@@ -97,7 +97,10 @@ export function getLanguage(): Language {
  * Switches the UI language. `persist: false` applies it without remembering the choice (e.g.
  * adopting a user's preferred_locale on sign-in when the device has no saved choice).
  */
-export async function setLanguage(lng: Language, options: { persist?: boolean } = {}): Promise<void> {
+export async function setLanguage(
+  lng: Language,
+  options: { persist?: boolean } = {},
+): Promise<void> {
   if (options.persist !== false) storage.set(STORAGE_KEY, lng)
   await i18next.changeLanguage(lng)
 }

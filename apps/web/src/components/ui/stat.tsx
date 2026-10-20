@@ -22,7 +22,17 @@ export interface StatProps {
   onClick?: () => void
 }
 
-export function Stat({ label, value, change, hint, icon, loading, tone = 'default', className, onClick }: StatProps) {
+export function Stat({
+  label,
+  value,
+  change,
+  hint,
+  icon,
+  loading,
+  tone = 'default',
+  className,
+  onClick,
+}: StatProps) {
   const up = (change?.bp ?? 0) > 0
   const down = (change?.bp ?? 0) < 0
   const good = change ? (change.goodWhen === 'down' ? down : up) : false
@@ -56,7 +66,9 @@ export function Stat({ label, value, change, hint, icon, loading, tone = 'defaul
       {loading ? (
         <Skeleton className="h-8 w-32" />
       ) : (
-        <div className="text-2xl font-bold tracking-tight tabular-nums sm:text-[1.75rem]">{value}</div>
+        <div className="text-2xl font-bold tracking-tight tabular-nums sm:text-[1.75rem]">
+          {value}
+        </div>
       )}
       {change || hint ? (
         <div className="flex flex-wrap items-center gap-2 text-xs">

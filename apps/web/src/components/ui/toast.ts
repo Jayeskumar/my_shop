@@ -41,7 +41,10 @@ export const notify = {
     })
   },
   /** Loading → success / error toast for a promise. */
-  promise<T>(promise: Promise<T>, messages: { loading: ReactNode; success: ReactNode | ((value: T) => ReactNode) }) {
+  promise<T>(
+    promise: Promise<T>,
+    messages: { loading: ReactNode; success: ReactNode | ((value: T) => ReactNode) },
+  ) {
     return toast.promise(promise, {
       loading: messages.loading,
       success: messages.success,

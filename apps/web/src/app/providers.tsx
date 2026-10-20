@@ -18,7 +18,9 @@ export interface AppProvidersProps {
 
 /** Every app-wide provider: i18n, TanStack Query, tooltips, confirm dialogs, toasts, auth boot. */
 export function AppProviders({ children, queryClient, bootstrapAuth = true }: AppProvidersProps) {
-  const [client] = useState(() => queryClient ?? createQueryClient({ onError: (error) => notify.error(error) }))
+  const [client] = useState(
+    () => queryClient ?? createQueryClient({ onError: (error) => notify.error(error) }),
+  )
 
   useEffect(() => {
     // Server state of one business must never be shown in another (or after sign-out).

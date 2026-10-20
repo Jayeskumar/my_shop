@@ -15,11 +15,19 @@ export interface PhoneLinkProps {
   className?: string
 }
 
-export function PhoneLink({ phone, whatsapp, message, showIcon = true, className }: PhoneLinkProps) {
+export function PhoneLink({
+  phone,
+  whatsapp,
+  message,
+  showIcon = true,
+  className,
+}: PhoneLinkProps) {
   const { t } = useTranslation()
   if (!phone) return <span className="text-muted-foreground">—</span>
   const wa = whatsapp ? toWhatsAppNumber(phone) : null
-  const waUrl = wa ? `https://wa.me/${wa}${message ? `?text=${encodeURIComponent(message)}` : ''}` : null
+  const waUrl = wa
+    ? `https://wa.me/${wa}${message ? `?text=${encodeURIComponent(message)}` : ''}`
+    : null
   return (
     <span className={cn('inline-flex items-center gap-2', className)}>
       <a

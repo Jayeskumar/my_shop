@@ -14,7 +14,15 @@ export interface EmptyStateProps {
   children?: ReactNode
 }
 
-export function EmptyState({ icon, title, description, action, compact, className, children }: EmptyStateProps) {
+export function EmptyState({
+  icon,
+  title,
+  description,
+  action,
+  compact,
+  className,
+  children,
+}: EmptyStateProps) {
   return (
     <div
       className={cn(
@@ -32,14 +40,23 @@ export function EmptyState({ icon, title, description, action, compact, classNam
       >
         {icon ?? <Inbox />}
       </span>
-      <h3 className={cn('font-semibold text-foreground', compact ? 'text-sm' : 'text-lg')}>{title}</h3>
+      <h3 className={cn('font-semibold text-foreground', compact ? 'text-sm' : 'text-lg')}>
+        {title}
+      </h3>
       {description ? (
-        <p className={cn('max-w-md text-muted-foreground', compact ? 'text-xs' : 'text-sm leading-relaxed')}>
+        <p
+          className={cn(
+            'max-w-md text-muted-foreground',
+            compact ? 'text-xs' : 'text-sm leading-relaxed',
+          )}
+        >
           {description}
         </p>
       ) : null}
       {children}
-      {action ? <div className="mt-2 flex flex-wrap items-center justify-center gap-2">{action}</div> : null}
+      {action ? (
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">{action}</div>
+      ) : null}
     </div>
   )
 }

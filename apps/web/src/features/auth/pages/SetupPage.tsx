@@ -27,7 +27,11 @@ export default function SetupPage() {
 
   const form = useForm<BusinessFormValues, unknown, SetupRequest>({
     // The shared schema's input type is a structural subset of the wizard's form values.
-    resolver: zodResolver(SetupRequestSchema) as unknown as Resolver<BusinessFormValues, unknown, SetupRequest>,
+    resolver: zodResolver(SetupRequestSchema) as unknown as Resolver<
+      BusinessFormValues,
+      unknown,
+      SetupRequest
+    >,
     defaultValues: {
       business_name: '',
       business_name_ta: '',
@@ -69,13 +73,16 @@ export default function SetupPage() {
 
   if (status.error) {
     // Cloud deployments have no setup endpoint (404).
-    if (isApiError(status.error) && status.error.status === 404) return <Navigate to="/login" replace />
+    if (isApiError(status.error) && status.error.status === 404)
+      return <Navigate to="/login" replace />
     return (
       <AuthLayout title={t('setup.title')}>
         <EmptyState
           icon={<ServerCrash />}
           title={describeError(status.error).title}
-          action={<Button onClick={() => void status.refetch()}>{t('common:actions.retry')}</Button>}
+          action={
+            <Button onClick={() => void status.refetch()}>{t('common:actions.retry')}</Button>
+          }
         />
       </AuthLayout>
     )

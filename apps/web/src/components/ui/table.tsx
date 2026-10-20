@@ -1,15 +1,25 @@
-import { forwardRef, type HTMLAttributes, type TdHTMLAttributes, type ThHTMLAttributes } from 'react'
+import {
+  forwardRef,
+  type HTMLAttributes,
+  type TdHTMLAttributes,
+  type ThHTMLAttributes,
+} from 'react'
 import { cn } from '@/lib/cn'
 
-export const Table = forwardRef<HTMLTableElement, HTMLAttributes<HTMLTableElement> & { wrapperClassName?: string }>(
-  function Table({ className, wrapperClassName, ...props }, ref) {
-    return (
-      <div className={cn('relative w-full overflow-x-auto scrollbar-thin', wrapperClassName)}>
-        <table ref={ref} className={cn('w-full caption-bottom border-collapse text-sm', className)} {...props} />
-      </div>
-    )
-  },
-)
+export const Table = forwardRef<
+  HTMLTableElement,
+  HTMLAttributes<HTMLTableElement> & { wrapperClassName?: string }
+>(function Table({ className, wrapperClassName, ...props }, ref) {
+  return (
+    <div className={cn('relative w-full overflow-x-auto scrollbar-thin', wrapperClassName)}>
+      <table
+        ref={ref}
+        className={cn('w-full caption-bottom border-collapse text-sm', className)}
+        {...props}
+      />
+    </div>
+  )
+})
 
 export function TableHeader({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
   return <thead className={cn('bg-surface-2/70 [&_tr]:border-b', className)} {...props} />
@@ -23,18 +33,20 @@ export function TableFooter({ className, ...props }: HTMLAttributes<HTMLTableSec
   return <tfoot className={cn('border-t bg-surface-2/70 font-semibold', className)} {...props} />
 }
 
-export const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTableRowElement>>(function TableRow(
-  { className, ...props },
-  ref,
-) {
-  return (
-    <tr
-      ref={ref}
-      className={cn('border-b border-border transition-colors data-[state=selected]:bg-primary-soft/50', className)}
-      {...props}
-    />
-  )
-})
+export const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTableRowElement>>(
+  function TableRow({ className, ...props }, ref) {
+    return (
+      <tr
+        ref={ref}
+        className={cn(
+          'border-b border-border transition-colors data-[state=selected]:bg-primary-soft/50',
+          className,
+        )}
+        {...props}
+      />
+    )
+  },
+)
 
 export function TableHead({ className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
   return (

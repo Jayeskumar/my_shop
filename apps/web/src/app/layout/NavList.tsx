@@ -51,7 +51,11 @@ function ItemLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void
 export function NavList({ groups, onNavigate }: { groups: NavGroup[]; onNavigate?: () => void }) {
   const { pathname } = useLocation()
   const [open, setOpen] = useState<string[]>(() =>
-    storage.get<string[]>(OPEN_KEY, DEFAULT_OPEN, (v): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string')),
+    storage.get<string[]>(
+      OPEN_KEY,
+      DEFAULT_OPEN,
+      (v): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string'),
+    ),
   )
   const toggle = (id: string): void => {
     const next = open.includes(id) ? open.filter((g) => g !== id) : [...open, id]
@@ -79,7 +83,10 @@ export function NavList({ groups, onNavigate }: { groups: NavGroup[]; onNavigate
               className="mt-2 flex h-8 items-center justify-between rounded-md px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
             >
               {translate(group.label)}
-              <ChevronDown className={cn('size-3.5 transition-transform', !expanded && '-rotate-90')} aria-hidden />
+              <ChevronDown
+                className={cn('size-3.5 transition-transform', !expanded && '-rotate-90')}
+                aria-hidden
+              />
             </button>
             {expanded ? (
               <div id={panelId} className="flex flex-col gap-0.5">
@@ -106,14 +113,21 @@ export function NavRail({ groups }: { groups: NavGroup[] }) {
         const Icon = group.icon
         const cls = cn(
           'flex size-11 items-center justify-center rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-ring',
-          active ? 'bg-sidebar-active text-sidebar-active-foreground' : 'text-sidebar-foreground hover:bg-surface-2',
+          active
+            ? 'bg-sidebar-active text-sidebar-active-foreground'
+            : 'text-sidebar-foreground hover:bg-surface-2',
         )
         if (group.items.length === 1) {
           const item = group.items[0]!
           const ItemIcon = item.icon
           return (
             <Tooltip key={group.id} content={translate(item.label)} side="right">
-              <NavLink to={item.to} end={item.end} className={cls} aria-label={translate(item.label)}>
+              <NavLink
+                to={item.to}
+                end={item.end}
+                className={cls}
+                aria-label={translate(item.label)}
+              >
                 <ItemIcon className="size-5" />
               </NavLink>
             </Tooltip>

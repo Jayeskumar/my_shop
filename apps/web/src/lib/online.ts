@@ -85,7 +85,8 @@ export function checkServer(): Promise<boolean> {
 function schedule(): void {
   if (timer) clearTimeout(timer)
   if (!started) return
-  const delay = state.browserOnline && state.serverReachable !== false ? POLL_ONLINE_MS : POLL_OFFLINE_MS
+  const delay =
+    state.browserOnline && state.serverReachable !== false ? POLL_ONLINE_MS : POLL_OFFLINE_MS
   timer = setTimeout(() => {
     timer = null
     const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
@@ -136,7 +137,11 @@ function subscribe(listener: () => void): () => void {
 
 /** Current connectivity; re-renders on change. */
 export function useOnline(): OnlineStatus {
-  return useSyncExternalStore(subscribe, () => snapshot, () => snapshot)
+  return useSyncExternalStore(
+    subscribe,
+    () => snapshot,
+    () => snapshot,
+  )
 }
 
 export function getOnlineStatus(): OnlineStatus {
@@ -145,7 +150,8 @@ export function getOnlineStatus(): OnlineStatus {
 
 /** Called by the API client when a request got no response at all. */
 export function reportNetworkFailure(): void {
-  if (state.serverReachable !== false) setState({ serverReachable: false, lastCheckedAt: Date.now() })
+  if (state.serverReachable !== false)
+    setState({ serverReachable: false, lastCheckedAt: Date.now() })
 }
 
 /** Called by the API client when a response arrived (any status). */

@@ -26,7 +26,9 @@ describe('buildQuery', () => {
     )
     expect(buildQuery({ ids: ['a', 'b'], active: true })).toBe('?ids=a&ids=b&active=true')
     expect(buildQuery({})).toBe('')
-    expect(buildQuery({ q: 'அரிசி 1kg' })).toBe('?q=%E0%AE%85%E0%AE%B0%E0%AE%BF%E0%AE%9A%E0%AE%BF+1kg')
+    expect(buildQuery({ q: 'அரிசி 1kg' })).toBe(
+      '?q=%E0%AE%85%E0%AE%B0%E0%AE%BF%E0%AE%9A%E0%AE%BF+1kg',
+    )
   })
 })
 
@@ -95,8 +97,9 @@ describe('api request basics', () => {
 
   it('maps non-envelope errors by status and reads Retry-After', async () => {
     server.use(
-      http.get(apiPath('/busy'), () =>
-        new HttpResponse('slow down', { status: 429, headers: { 'Retry-After': '7' } }),
+      http.get(
+        apiPath('/busy'),
+        () => new HttpResponse('slow down', { status: 429, headers: { 'Retry-After': '7' } }),
       ),
     )
     const e = (await api.get('/busy').catch((x: unknown) => x)) as ApiError
@@ -242,7 +245,9 @@ describe('callRoute', () => {
   it('returns the raw body (and logs) when the response drifts from the contract', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     server.use(
-      http.get(apiPath('/things/abc'), () => HttpResponse.json({ data: { id: 'abc', qty_milli: 'x' } })),
+      http.get(apiPath('/things/abc'), () =>
+        HttpResponse.json({ data: { id: 'abc', qty_milli: 'x' } }),
+      ),
     )
     const res = await callRoute(routes.getThing, { params: { id: 'abc' } })
     expect((res.data as { qty_milli: unknown }).qty_milli).toBe('x')

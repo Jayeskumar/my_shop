@@ -94,7 +94,8 @@ export function RouteErrorPage() {
   }
   // A chunk that fails to load after a deploy usually means the app was updated: reload once.
   const message = error instanceof Error ? error.message : ''
-  const staleChunk = /dynamically imported module|Importing a module script failed|Failed to fetch/i.test(message)
+  const staleChunk =
+    /dynamically imported module|Importing a module script failed|Failed to fetch/i.test(message)
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background p-6">
       {staleChunk ? (
@@ -102,7 +103,9 @@ export function RouteErrorPage() {
           icon={<ServerCrash />}
           title={t('pages.crash_title')}
           description={t('client.NETWORK_ERROR')}
-          action={<Button onClick={() => window.location.reload()}>{t('common:actions.reload')}</Button>}
+          action={
+            <Button onClick={() => window.location.reload()}>{t('common:actions.reload')}</Button>
+          }
         />
       ) : (
         <ErrorFallback error={error} />

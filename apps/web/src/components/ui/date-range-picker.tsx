@@ -8,7 +8,12 @@ import { useTranslation } from 'react-i18next'
 import { compareDates, formatDateDisplay, type DateRange } from '@kadai/shared/fy'
 import { cn } from '@/lib/cn'
 import { useAuth } from '@/lib/auth'
-import { DEFAULT_DATE_PRESETS, matchPreset, presetRange, type DatePresetKey } from '@/lib/date-presets'
+import {
+  DEFAULT_DATE_PRESETS,
+  matchPreset,
+  presetRange,
+  type DatePresetKey,
+} from '@/lib/date-presets'
 import { Button } from './button'
 import { DatePicker } from './date-picker'
 import { Popover, PopoverContent, PopoverTrigger } from './popover'
@@ -87,7 +92,8 @@ export function DateRangePicker({
                     type="button"
                     className={cn(
                       'w-full rounded-md px-3 py-2 text-start text-sm hover:bg-surface-2',
-                      active === key && 'bg-primary-soft font-semibold text-primary-soft-foreground',
+                      active === key &&
+                        'bg-primary-soft font-semibold text-primary-soft-foreground',
                     )}
                     onClick={() => {
                       onChange(range)
@@ -105,13 +111,27 @@ export function DateRangePicker({
               <p className="text-sm font-semibold">{t('dates.custom')}</p>
               <label className="grid gap-1 text-xs text-muted-foreground">
                 {t('dates.from')}
-                <DatePicker value={from} onChange={setFrom} min={min} max={to ?? max} aria-label={t('dates.from')} />
+                <DatePicker
+                  value={from}
+                  onChange={setFrom}
+                  min={min}
+                  max={to ?? max}
+                  aria-label={t('dates.from')}
+                />
               </label>
               <label className="grid gap-1 text-xs text-muted-foreground">
                 {t('dates.to')}
-                <DatePicker value={to} onChange={setTo} min={from ?? min} max={max} aria-label={t('dates.to')} />
+                <DatePicker
+                  value={to}
+                  onChange={setTo}
+                  min={from ?? min}
+                  max={max}
+                  aria-label={t('dates.to')}
+                />
               </label>
-              {customInvalid ? <p className="text-xs text-danger">{t('errors:validation.date_order')}</p> : null}
+              {customInvalid ? (
+                <p className="text-xs text-danger">{t('errors:validation.date_order')}</p>
+              ) : null}
               <Button
                 className="mt-1 self-end"
                 disabled={!from || !to || customInvalid}

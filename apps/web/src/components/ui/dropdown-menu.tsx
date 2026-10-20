@@ -33,43 +33,55 @@ export const DropdownMenuContent = forwardRef<
   )
 })
 
-export interface DropdownMenuItemProps extends ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> {
+export interface DropdownMenuItemProps extends ComponentPropsWithoutRef<
+  typeof DropdownMenuPrimitive.Item
+> {
   icon?: ReactNode
   shortcut?: ReactNode
   tone?: 'default' | 'danger'
 }
 
-export const DropdownMenuItem = forwardRef<ElementRef<typeof DropdownMenuPrimitive.Item>, DropdownMenuItemProps>(
-  function DropdownMenuItem({ className, icon, shortcut, tone = 'default', children, ...props }, ref) {
-    const classes = cn(itemClass, tone === 'danger' && 'text-danger [&_svg]:text-danger data-[highlighted]:bg-danger-soft', className)
-    // asChild (e.g. a router <Link>): the child is the item; icon/shortcut slots are not used.
-    if (props.asChild) {
-      return (
-        <DropdownMenuPrimitive.Item ref={ref} className={classes} {...props}>
-          {children}
-        </DropdownMenuPrimitive.Item>
-      )
-    }
+export const DropdownMenuItem = forwardRef<
+  ElementRef<typeof DropdownMenuPrimitive.Item>,
+  DropdownMenuItemProps
+>(function DropdownMenuItem(
+  { className, icon, shortcut, tone = 'default', children, ...props },
+  ref,
+) {
+  const classes = cn(
+    itemClass,
+    tone === 'danger' && 'text-danger [&_svg]:text-danger data-[highlighted]:bg-danger-soft',
+    className,
+  )
+  // asChild (e.g. a router <Link>): the child is the item; icon/shortcut slots are not used.
+  if (props.asChild) {
     return (
-      <DropdownMenuPrimitive.Item
-        ref={ref}
-        className={classes}
-        {...props}
-      >
-        {icon}
-        <span className="flex-1">{children}</span>
-        {shortcut ? <span className="ms-auto text-xs tracking-wide text-muted-foreground">{shortcut}</span> : null}
+      <DropdownMenuPrimitive.Item ref={ref} className={classes} {...props}>
+        {children}
       </DropdownMenuPrimitive.Item>
     )
-  },
-)
+  }
+  return (
+    <DropdownMenuPrimitive.Item ref={ref} className={classes} {...props}>
+      {icon}
+      <span className="flex-1">{children}</span>
+      {shortcut ? (
+        <span className="ms-auto text-xs tracking-wide text-muted-foreground">{shortcut}</span>
+      ) : null}
+    </DropdownMenuPrimitive.Item>
+  )
+})
 
 export const DropdownMenuCheckboxItem = forwardRef<
   ElementRef<typeof DropdownMenuPrimitive.CheckboxItem>,
   ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem>
 >(function DropdownMenuCheckboxItem({ className, children, ...props }, ref) {
   return (
-    <DropdownMenuPrimitive.CheckboxItem ref={ref} className={cn(itemClass, 'ps-8', className)} {...props}>
+    <DropdownMenuPrimitive.CheckboxItem
+      ref={ref}
+      className={cn(itemClass, 'ps-8', className)}
+      {...props}
+    >
       <span className="absolute start-2.5 flex size-4 items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
           <Check className="!text-primary" />
@@ -85,7 +97,11 @@ export const DropdownMenuRadioItem = forwardRef<
   ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem>
 >(function DropdownMenuRadioItem({ className, children, ...props }, ref) {
   return (
-    <DropdownMenuPrimitive.RadioItem ref={ref} className={cn(itemClass, 'ps-8', className)} {...props}>
+    <DropdownMenuPrimitive.RadioItem
+      ref={ref}
+      className={cn(itemClass, 'ps-8', className)}
+      {...props}
+    >
       <span className="absolute start-2.5 flex size-4 items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
           <Circle className="size-2 fill-primary !text-primary" />
@@ -113,7 +129,13 @@ export const DropdownMenuSeparator = forwardRef<
   ElementRef<typeof DropdownMenuPrimitive.Separator>,
   ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator>
 >(function DropdownMenuSeparator({ className, ...props }, ref) {
-  return <DropdownMenuPrimitive.Separator ref={ref} className={cn('-mx-1 my-1 h-px bg-border', className)} {...props} />
+  return (
+    <DropdownMenuPrimitive.Separator
+      ref={ref}
+      className={cn('-mx-1 my-1 h-px bg-border', className)}
+      {...props}
+    />
+  )
 })
 
 export const DropdownMenuSubTrigger = forwardRef<
@@ -121,7 +143,11 @@ export const DropdownMenuSubTrigger = forwardRef<
   ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger> & { icon?: ReactNode }
 >(function DropdownMenuSubTrigger({ className, children, icon, ...props }, ref) {
   return (
-    <DropdownMenuPrimitive.SubTrigger ref={ref} className={cn(itemClass, 'data-[state=open]:bg-surface-2', className)} {...props}>
+    <DropdownMenuPrimitive.SubTrigger
+      ref={ref}
+      className={cn(itemClass, 'data-[state=open]:bg-surface-2', className)}
+      {...props}
+    >
       {icon}
       <span className="flex-1">{children}</span>
       <ChevronRight className="ms-auto rtl:rotate-180" />

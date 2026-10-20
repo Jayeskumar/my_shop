@@ -31,11 +31,15 @@ export function isSessionResponse(value: OtpVerifyResponse): value is SessionRes
 
 export const authApi = {
   async requestOtp(body: OtpRequest): Promise<OtpRequestResponse> {
-    const res = await api.post<Envelope<OtpRequestResponse>>('/auth/otp/request', body, { auth: false })
+    const res = await api.post<Envelope<OtpRequestResponse>>('/auth/otp/request', body, {
+      auth: false,
+    })
     return res.data
   },
   async verifyOtp(body: OtpVerifyRequest): Promise<OtpVerifyResponse> {
-    const res = await api.post<Envelope<OtpVerifyResponse>>('/auth/otp/verify', body, { auth: false })
+    const res = await api.post<Envelope<OtpVerifyResponse>>('/auth/otp/verify', body, {
+      auth: false,
+    })
     return res.data
   },
   async resetPassword(body: PasswordResetRequest): Promise<void> {

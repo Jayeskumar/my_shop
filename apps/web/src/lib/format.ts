@@ -4,12 +4,7 @@
  * (default Asia/Kolkata). Numbers use Indian digit grouping.
  */
 import { formatDateDisplay, isDateStr, DEFAULT_TIMEZONE } from '@kadai/shared/fy'
-import {
-  formatINR,
-  formatINRCompact,
-  formatBp,
-  type FormatINROptions,
-} from '@kadai/shared/money'
+import { formatINR, formatINRCompact, formatBp, type FormatINROptions } from '@kadai/shared/money'
 import { formatPhoneDisplay } from '@kadai/shared/phone'
 import { formatPacksAndLoose, formatQty as sharedFormatQty } from '@kadai/shared/units'
 import { amountInWords as sharedAmountInWords } from '@kadai/shared/words'
@@ -39,7 +34,11 @@ export function formatPackQty(
 }
 
 const dateTimeFormatters = new Map<string, Intl.DateTimeFormat>()
-function dtf(key: string, options: Intl.DateTimeFormatOptions, locale = 'en-IN'): Intl.DateTimeFormat {
+function dtf(
+  key: string,
+  options: Intl.DateTimeFormatOptions,
+  locale = 'en-IN',
+): Intl.DateTimeFormat {
   const id = `${locale}|${key}|${options.timeZone ?? ''}`
   let f = dateTimeFormatters.get(id)
   if (!f) {
@@ -101,7 +100,10 @@ export function formatDateTime(
 }
 
 /** hh:mm AM/PM in the tenant timezone. */
-export function formatTime(value: string | Date | null | undefined, timeZone = DEFAULT_TIMEZONE): string {
+export function formatTime(
+  value: string | Date | null | undefined,
+  timeZone = DEFAULT_TIMEZONE,
+): string {
   if (!value) return ''
   const d = toDate(value)
   if (!d) return ''

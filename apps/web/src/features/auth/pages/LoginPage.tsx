@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { LoginRequestSchema, type LoginRequest } from '@kadai/shared/api/auth'
 import { normalizeIndianPhone } from '@kadai/shared/phone'
-import { safeNext } from '@/app/guards'
+import { safeNext } from '@/app/safe-next'
 import { Button, FormField, Input, notify, Separator } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { login, useDeployment } from '@/lib/auth'
@@ -38,12 +38,18 @@ export default function LoginPage() {
     try {
       const status = await login({ identifier, password: values.password })
       if (status === 'needs_tenant') {
-        void navigate(next ? `/select-business?next=${encodeURIComponent(next)}` : '/select-business', { replace: true })
+        void navigate(
+          next ? `/select-business?next=${encodeURIComponent(next)}` : '/select-business',
+          { replace: true },
+        )
       } else {
         void navigate(safeNext(next), { replace: true })
       }
     } catch (error) {
-      if (isApiError(error) && (error.code === 'INVALID_CREDENTIALS' || error.code === 'ACCOUNT_LOCKED')) {
+      if (
+        isApiError(error) &&
+        (error.code === 'INVALID_CREDENTIALS' || error.code === 'ACCOUNT_LOCKED')
+      ) {
         form.setError('password', { type: 'server', message: error.code })
         form.setValue('password', '')
         return
@@ -97,7 +103,10 @@ export default function LoginPage() {
             label={t('login.password')}
             required
             labelAction={
-              <Link to="/forgot-password" className="text-sm font-medium text-primary hover:underline">
+              <Link
+                to="/forgot-password"
+                className="text-sm font-medium text-primary hover:underline"
+              >
                 {t('login.forgot')}
               </Link>
             }
@@ -109,7 +118,13 @@ export default function LoginPage() {
               {...form.register('password')}
             />
           </FormField>
-          <Button type="submit" size="lg" fullWidth loading={form.formState.isSubmitting} leftIcon={<LogIn />}>
+          <Button
+            type="submit"
+            size="lg"
+            fullWidth
+            loading={form.formState.isSubmitting}
+            leftIcon={<LogIn />}
+          >
             {t('login.submit')}
           </Button>
         </form>

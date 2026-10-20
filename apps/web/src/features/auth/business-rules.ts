@@ -34,7 +34,15 @@ export type WizardStep = 'business_type' | 'business' | 'owner'
 
 export const STEP_FIELDS: Record<WizardStep, readonly (keyof BusinessFormValues)[]> = {
   business_type: ['business_type'],
-  business: ['business_name', 'business_name_ta', 'state_code', 'gstin', 'gst_scheme', 'legal_name', 'store_name'],
+  business: [
+    'business_name',
+    'business_name_ta',
+    'state_code',
+    'gstin',
+    'gst_scheme',
+    'legal_name',
+    'store_name',
+  ],
   owner: ['owner_name', 'phone', 'password', 'email', 'setup_token'],
 }
 
@@ -47,14 +55,18 @@ export function stepOfField(field: string): WizardStep | null {
 }
 
 /** Mirror of shared `refineBusiness` (see header). */
-export function businessGstIssues(values: Pick<BusinessFormValues, 'gstin' | 'gst_scheme' | 'state_code'>): {
+export function businessGstIssues(
+  values: Pick<BusinessFormValues, 'gstin' | 'gst_scheme' | 'state_code'>,
+): {
   field: 'gstin' | 'gst_scheme'
   key: ValidationKey
 }[] {
   const gstin = (values.gstin ?? '').trim().toUpperCase()
   const issues: { field: 'gstin' | 'gst_scheme'; key: ValidationKey }[] = []
-  if (gstin && gstin.slice(0, 2) !== values.state_code) issues.push({ field: 'gstin', key: 'gstin_state' })
-  if (values.gst_scheme === 'unregistered' && gstin) issues.push({ field: 'gst_scheme', key: 'gstin_unregistered' })
+  if (gstin && gstin.slice(0, 2) !== values.state_code)
+    issues.push({ field: 'gstin', key: 'gstin_state' })
+  if (values.gst_scheme === 'unregistered' && gstin)
+    issues.push({ field: 'gst_scheme', key: 'gstin_unregistered' })
   if ((values.gst_scheme === 'regular' || values.gst_scheme === 'composition') && !gstin)
     issues.push({ field: 'gstin', key: 'gstin_required' })
   return issues

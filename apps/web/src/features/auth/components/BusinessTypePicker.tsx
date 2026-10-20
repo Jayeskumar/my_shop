@@ -54,7 +54,10 @@ export function BusinessTypePicker({ value, onChange, invalid, ...aria }: Busine
     <RadioGroupPrimitive.Root
       value={value}
       onValueChange={(v) => onChange(v as BusinessType)}
-      className={cn('grid grid-cols-1 gap-3 min-[420px]:grid-cols-2', invalid && 'rounded-xl ring-2 ring-danger/40 ring-offset-4 ring-offset-background')}
+      className={cn(
+        'grid grid-cols-1 gap-3 min-[420px]:grid-cols-2',
+        invalid && 'rounded-xl ring-2 ring-danger/40 ring-offset-4 ring-offset-background',
+      )}
       {...aria}
     >
       {BUSINESS_TYPES.map((b, i) => {
@@ -70,11 +73,19 @@ export function BusinessTypePicker({ value, onChange, invalid, ...aria }: Busine
               selected ? 'border-primary bg-primary-soft/50 ring-1 ring-primary' : 'border-border',
             )}
           >
-            <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-xl', TINTS[i % TINTS.length])}>
+            <span
+              className={cn(
+                'flex size-11 shrink-0 items-center justify-center rounded-xl',
+                TINTS[i % TINTS.length],
+              )}
+            >
               <Icon className="size-6" aria-hidden />
             </span>
             <span className="flex min-w-0 flex-col gap-0.5 pe-5">
-              <span lang="ta" className="font-tamil text-[15px] font-semibold leading-snug text-foreground">
+              <span
+                lang="ta"
+                className="font-tamil text-[15px] font-semibold leading-snug text-foreground"
+              >
                 {b.name_ta}
               </span>
               <span lang="en" className="text-xs font-medium text-muted-foreground">

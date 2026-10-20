@@ -24,7 +24,6 @@ export function parseMoneyText(text: string, allowNegative = false): number | nu
   return tryParseRupees(compact, { allowNegative })
 }
 
-
 const ZERO_RE = /^0*(\.0*)?$/
 
 /** Parses quantity text; '0' is accepted when the minimum allows it. */
@@ -39,9 +38,13 @@ export function parseQtyText(
   return tryParseQty(trimmed, unit, { allowDecimal: options.allowDecimal })
 }
 
-
 /** "12.5" with scale 100 → 1250 (string arithmetic, no float error). */
-export function parseScaled(text: string, scale: number, decimals: number, allowNegative: boolean): number | null {
+export function parseScaled(
+  text: string,
+  scale: number,
+  decimals: number,
+  allowNegative: boolean,
+): number | null {
   const trimmed = text.trim()
   const m = /^(-)?(\d*)(?:\.(\d*))?$/.exec(trimmed)
   if (!m || trimmed === '' || trimmed === '-' || trimmed === '.') return null
@@ -73,4 +76,3 @@ export function formatScaled(value: number, scale: number): string {
   const fracText = frac === 0 ? '' : `.${String(frac).padStart(digits, '0').replace(/0+$/, '')}`
   return `${value < 0 ? '-' : ''}${whole}${fracText}`
 }
-

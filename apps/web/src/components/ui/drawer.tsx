@@ -18,8 +18,7 @@ const sheetVariants = cva(
       side: {
         right:
           'inset-y-0 end-0 h-full w-[min(28rem,100vw)] border-s border-border data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right',
-        left:
-          'inset-y-0 start-0 h-full w-[min(20rem,88vw)] border-e border-border data-[state=open]:animate-slide-in-left data-[state=closed]:animate-slide-out-left',
+        left: 'inset-y-0 start-0 h-full w-[min(20rem,88vw)] border-e border-border data-[state=open]:animate-slide-in-left data-[state=closed]:animate-slide-out-left',
         bottom:
           'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-2xl border-t border-border pb-safe data-[state=open]:animate-slide-in-bottom data-[state=closed]:animate-slide-out-bottom',
       },
@@ -73,7 +72,10 @@ export function Drawer({
         >
           <DrawerScope />
           {side === 'bottom' ? (
-            <div className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-surface-3" aria-hidden />
+            <div
+              className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-surface-3"
+              aria-hidden
+            />
           ) : null}
           <div
             className={cn(
@@ -82,7 +84,9 @@ export function Drawer({
             )}
           >
             <div className="grid gap-1">
-              <DialogPrimitive.Title className="text-lg font-semibold leading-snug">{title}</DialogPrimitive.Title>
+              <DialogPrimitive.Title className="text-lg font-semibold leading-snug">
+                {title}
+              </DialogPrimitive.Title>
               {description ? (
                 <DialogPrimitive.Description className="text-sm text-muted-foreground">
                   {description}
@@ -96,7 +100,9 @@ export function Drawer({
               <X className="size-5" />
             </DialogPrimitive.Close>
           </div>
-          <div className={cn('min-h-0 flex-1 overflow-y-auto px-5 py-4', bodyClassName)}>{children}</div>
+          <div className={cn('min-h-0 flex-1 overflow-y-auto px-5 py-4', bodyClassName)}>
+            {children}
+          </div>
           {footer ? (
             <div className="flex flex-col-reverse gap-2 border-t border-border px-5 py-4 sm:flex-row sm:justify-end">
               {footer}

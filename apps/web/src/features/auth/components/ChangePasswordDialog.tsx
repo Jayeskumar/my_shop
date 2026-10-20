@@ -10,10 +10,12 @@ import { useChangePassword } from '../api'
 import { applyServerFieldErrors } from '../form-errors'
 import { PasswordInput } from './PasswordInput'
 
-const FormSchema = PasswordChangeRequestSchema.and(z.object({ confirm_password: z.string() })).refine(
-  (v) => v.new_password === v.confirm_password,
-  { path: ['confirm_password'], message: validationToken('password_mismatch') },
-)
+const FormSchema = PasswordChangeRequestSchema.and(
+  z.object({ confirm_password: z.string() }),
+).refine((v) => v.new_password === v.confirm_password, {
+  path: ['confirm_password'],
+  message: validationToken('password_mismatch'),
+})
 type FormInput = z.input<typeof FormSchema>
 type FormOutput = z.output<typeof FormSchema>
 
@@ -34,7 +36,10 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await mutation.mutateAsync({ current_password: values.current_password, new_password: values.new_password })
+      await mutation.mutateAsync({
+        current_password: values.current_password,
+        new_password: values.new_password,
+      })
       notify.success(t('change_password.success'))
       form.reset()
       onOpenChange(false)
@@ -44,7 +49,8 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
         notify.error(error)
         return
       }
-      if (!applyServerFieldErrors(error, form.setError, ['current_password', 'new_password'])) notify.error(error)
+      if (!applyServerFieldErrors(error, form.setError, ['current_password', 'new_password']))
+        notify.error(error)
     }
   })
 
@@ -65,14 +71,23 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
           <FormField name="current_password" label={t('change_password.current')} required>
             <PasswordInput autoComplete="current-password" {...form.register('current_password')} />
           </FormField>
-          <FormField name="new_password" label={t('change_password.new')} hint={t('signup.password_hint')} required>
+          <FormField
+            name="new_password"
+            label={t('change_password.new')}
+            hint={t('signup.password_hint')}
+            required
+          >
             <PasswordInput autoComplete="new-password" {...form.register('new_password')} />
           </FormField>
           <FormField name="confirm_password" label={t('change_password.confirm')} required>
             <PasswordInput autoComplete="new-password" {...form.register('confirm_password')} />
           </FormField>
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mutation.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={mutation.isPending}
+            >
               {t('common:actions.cancel')}
             </Button>
             <Button type="submit" loading={mutation.isPending}>

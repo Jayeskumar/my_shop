@@ -8,11 +8,10 @@ import { cn } from '@/lib/cn'
 import { formatScaled, parseScaled } from './input-parsing'
 import { Input, type InputProps } from './input'
 
-export interface NumberInputProps
-  extends Omit<
-    InputProps,
-    'value' | 'defaultValue' | 'onChange' | 'type' | 'min' | 'max' | 'inputMode' | 'prefix'
-  > {
+export interface NumberInputProps extends Omit<
+  InputProps,
+  'value' | 'defaultValue' | 'onChange' | 'type' | 'min' | 'max' | 'inputMode' | 'prefix'
+> {
   value: number | null | undefined
   onChange: (value: number | null) => void
   /** Fraction digits the user may type (default 0). */
@@ -27,7 +26,20 @@ export interface NumberInputProps
 }
 
 export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(function NumberInput(
-  { value, onChange, decimals = 0, scale = 1, min, max, allowNegative = false, suffix, prefix, className, onBlur, ...props },
+  {
+    value,
+    onChange,
+    decimals = 0,
+    scale = 1,
+    min,
+    max,
+    allowNegative = false,
+    suffix,
+    prefix,
+    className,
+    onBlur,
+    ...props
+  },
   ref,
 ) {
   const [text, setText] = useState(() => (value == null ? '' : formatScaled(value, scale)))
@@ -49,8 +61,11 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
     setText(raw)
     const parsed = parseScaled(raw, scale, decimals, allowNegative)
     const bad =
-      raw !== '' && raw !== '-' &&
-      (parsed === null || (min !== undefined && parsed < min) || (max !== undefined && parsed > max))
+      raw !== '' &&
+      raw !== '-' &&
+      (parsed === null ||
+        (min !== undefined && parsed < min) ||
+        (max !== undefined && parsed > max))
     setInvalid(bad)
     if (parsed !== lastEmitted.current) {
       lastEmitted.current = parsed

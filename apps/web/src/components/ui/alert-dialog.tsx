@@ -112,13 +112,17 @@ export function ConfirmDialog({
             <Icon className="size-5" />
           </span>
           <div className="grid gap-1.5">
-            <AlertDialogPrimitive.Title className="text-lg font-semibold leading-snug">{title}</AlertDialogPrimitive.Title>
+            <AlertDialogPrimitive.Title className="text-lg font-semibold leading-snug">
+              {title}
+            </AlertDialogPrimitive.Title>
             {description ? (
               <AlertDialogPrimitive.Description className="text-sm text-muted-foreground">
                 {description}
               </AlertDialogPrimitive.Description>
             ) : (
-              <AlertDialogPrimitive.Description className="sr-only">{title}</AlertDialogPrimitive.Description>
+              <AlertDialogPrimitive.Description className="sr-only">
+                {title}
+              </AlertDialogPrimitive.Description>
             )}
           </div>
         </div>
@@ -144,7 +148,6 @@ export function ConfirmDialog({
     </AlertDialogPrimitive.Root>
   )
 }
-
 
 /** Mount once near the root; provides `useConfirm()`. */
 export function ConfirmProvider({ children }: { children: ReactNode }) {

@@ -26,7 +26,9 @@ import { OtpFlow } from '../components/OtpFlow'
 function needsPhoneVerification(error: unknown): boolean {
   if (!isApiError(error)) return false
   if (error.code === 'OTP_INVALID' || error.code === 'OTP_EXPIRED') return true
-  return error.code === 'VALIDATION_ERROR' && error.validationIssues.some((i) => i.path === 'otp_token')
+  return (
+    error.code === 'VALIDATION_ERROR' && error.validationIssues.some((i) => i.path === 'otp_token')
+  )
 }
 
 export default function SignupPage() {
@@ -37,7 +39,11 @@ export default function SignupPage() {
 
   const form = useForm<BusinessFormValues, unknown, SignupRequest>({
     // The shared schema's input type is a structural subset of the wizard's form values.
-    resolver: zodResolver(SignupRequestSchema) as unknown as Resolver<BusinessFormValues, unknown, SignupRequest>,
+    resolver: zodResolver(SignupRequestSchema) as unknown as Resolver<
+      BusinessFormValues,
+      unknown,
+      SignupRequest
+    >,
     defaultValues: {
       business_name: '',
       business_name_ta: '',
@@ -95,7 +101,11 @@ export default function SignupPage() {
 
   if (verifyPhone) {
     return (
-      <AuthLayout title={t('signup.verify_phone_title')} subtitle={t('signup.verify_phone_hint')} footer={footer}>
+      <AuthLayout
+        title={t('signup.verify_phone_title')}
+        subtitle={t('signup.verify_phone_hint')}
+        footer={footer}
+      >
         <div className="flex flex-col gap-4">
           <OtpFlow
             purpose="signup"
@@ -117,7 +127,11 @@ export default function SignupPage() {
               }
             }}
           />
-          <Button variant="ghost" leftIcon={<ArrowLeft className="rtl:rotate-180" />} onClick={() => setVerifyPhone(null)}>
+          <Button
+            variant="ghost"
+            leftIcon={<ArrowLeft className="rtl:rotate-180" />}
+            onClick={() => setVerifyPhone(null)}
+          >
             {t('common:actions.back')}
           </Button>
         </div>
@@ -154,7 +168,9 @@ export default function SignupPage() {
           }
           return false
         }}
-        finalNote={<p className="text-xs leading-relaxed text-muted-foreground">{t('signup.terms')}</p>}
+        finalNote={
+          <p className="text-xs leading-relaxed text-muted-foreground">{t('signup.terms')}</p>
+        }
       />
     </AuthLayout>
   )

@@ -181,8 +181,12 @@ export const offlineDb = new KadaiOfflineDb()
 const nowIso = (): string => new Date().toISOString()
 
 /** Lower-cased search words (Latin and Tamil) for the multi-entry index. */
-export function searchTokens(p: Pick<CachedProduct, 'name' | 'name_ta' | 'sku' | 'aliases'>): string[] {
-  const text = [p.name, p.name_ta ?? '', p.sku ?? '', ...p.aliases].join(' ').toLocaleLowerCase('en-IN')
+export function searchTokens(
+  p: Pick<CachedProduct, 'name' | 'name_ta' | 'sku' | 'aliases'>,
+): string[] {
+  const text = [p.name, p.name_ta ?? '', p.sku ?? '', ...p.aliases]
+    .join(' ')
+    .toLocaleLowerCase('en-IN')
   const words = text.split(/[\s,./()[\]{}+\-_*&|:;"'!?#]+/u).filter((w) => w.length > 0)
   return [...new Set(words)]
 }
@@ -213,7 +217,8 @@ export interface OfflineSeriesState {
 }
 
 export const metaKeys = {
-  catalogCursor: (tenantId: string, registerId: string) => `catalog.cursor.${tenantId}.${registerId}`,
+  catalogCursor: (tenantId: string, registerId: string) =>
+    `catalog.cursor.${tenantId}.${registerId}`,
   catalogSyncedAt: (tenantId: string) => `catalog.synced_at.${tenantId}`,
   series: (tenantId: string, registerId: string, docType: string) =>
     `series.${tenantId}.${registerId}.${docType}`,
@@ -243,35 +248,51 @@ export interface CatalogDelta extends Partial<CatalogSnapshot> {
 
 const withTokens = (p: CachedProduct): CachedProduct => ({ ...p, search_tokens: searchTokens(p) })
 
-const catalogTables = (): Table<unknown, unknown>[] => [
-  offlineDb.products,
-  offlineDb.barcodes,
-  offlineDb.batches,
-  offlineDb.promotions,
-  offlineDb.tax_slab_rules,
-  offlineDb.store_prices,
-  offlineDb.meta,
-] as unknown as Table<unknown, unknown>[]
+const catalogTables = (): Table<unknown, unknown>[] =>
+  [
+    offlineDb.products,
+    offlineDb.barcodes,
+    offlineDb.batches,
+    offlineDb.promotions,
+    offlineDb.tax_slab_rules,
+    offlineDb.store_prices,
+    offlineDb.meta,
+  ] as unknown as Table<unknown, unknown>[]
 
 export const catalogCache = {
   /** Removes every cached catalogue row of a tenant (not the outbox / held carts). */
   async clearTenant(tenantId: string): Promise<void> {
     await offlineDb.transaction('rw', catalogTables(), async () => {
       await offlineDb.products.where('tenant_id').equals(tenantId).delete()
-      await offlineDb.barcodes.where('[tenant_id+barcode]').between([tenantId, Dexie.minKey], [tenantId, Dexie.maxKey]).delete()
-      await offlineDb.batches.where('[tenant_id+id]').between([tenantId, Dexie.minKey], [tenantId, Dexie.maxKey]).delete()
+      await offlineDb.barcodes
+        .where('[tenant_id+barcode]')
+        .between([tenantId, Dexie.minKey], [tenantId, Dexie.maxKey])
+        .delete()
+      await offlineDb.batches
+        .where('[tenant_id+id]')
+        .between([tenantId, Dexie.minKey], [tenantId, Dexie.maxKey])
+        .delete()
       await offlineDb.promotions.where('tenant_id').equals(tenantId).delete()
       await offlineDb.tax_slab_rules.where('tenant_id').equals(tenantId).delete()
       await offlineDb.store_prices
         .where('[tenant_id+store_id+product_id]')
         .between([tenantId, Dexie.minKey, Dexie.minKey], [tenantId, Dexie.maxKey, Dexie.maxKey])
         .delete()
-      await offlineDb.meta.where('key').startsWith(`catalog.`).filter((m) => m.key.includes(tenantId)).delete()
+      await offlineDb.meta
+        .where('key')
+        .startsWith(`catalog.`)
+        .filter((m) => m.key.includes(tenantId))
+        .delete()
     })
   },
 
   /** Full load (first bootstrap or cursor reset): replaces the tenant's catalogue atomically. */
-  async replaceAll(tenantId: string, registerId: string, snapshot: CatalogSnapshot, cursor: string | null): Promise<void> {
+  async replaceAll(
+    tenantId: string,
+    registerId: string,
+    snapshot: CatalogSnapshot,
+    cursor: string | null,
+  ): Promise<void> {
     await offlineDb.transaction('rw', catalogTables(), async () => {
       await catalogCache.clearTenant(tenantId)
       await offlineDb.products.bulkPut(snapshot.products.map(withTokens))
@@ -286,7 +307,12 @@ export const catalogCache = {
   },
 
   /** Incremental update from GET /pos/bootstrap?since=<cursor>. */
-  async applyDelta(tenantId: string, registerId: string, delta: CatalogDelta, cursor: string | null): Promise<void> {
+  async applyDelta(
+    tenantId: string,
+    registerId: string,
+    delta: CatalogDelta,
+    cursor: string | null,
+  ): Promise<void> {
     await offlineDb.transaction('rw', catalogTables(), async () => {
       if (delta.products?.length) await offlineDb.products.bulkPut(delta.products.map(withTokens))
       if (delta.barcodes?.length) await offlineDb.barcodes.bulkPut(delta.barcodes)
@@ -295,13 +321,21 @@ export const catalogCache = {
       if (delta.tax_slab_rules?.length) await offlineDb.tax_slab_rules.bulkPut(delta.tax_slab_rules)
       if (delta.store_prices?.length) await offlineDb.store_prices.bulkPut(delta.store_prices)
       if (delta.removed_product_ids?.length)
-        await offlineDb.products.bulkDelete(delta.removed_product_ids.map((id) => [tenantId, id] as [string, string]))
+        await offlineDb.products.bulkDelete(
+          delta.removed_product_ids.map((id) => [tenantId, id] as [string, string]),
+        )
       if (delta.removed_barcodes?.length)
-        await offlineDb.barcodes.bulkDelete(delta.removed_barcodes.map((b) => [tenantId, b] as [string, string]))
+        await offlineDb.barcodes.bulkDelete(
+          delta.removed_barcodes.map((b) => [tenantId, b] as [string, string]),
+        )
       if (delta.removed_batch_ids?.length)
-        await offlineDb.batches.bulkDelete(delta.removed_batch_ids.map((id) => [tenantId, id] as [string, string]))
+        await offlineDb.batches.bulkDelete(
+          delta.removed_batch_ids.map((id) => [tenantId, id] as [string, string]),
+        )
       if (delta.removed_promotion_ids?.length)
-        await offlineDb.promotions.bulkDelete(delta.removed_promotion_ids.map((id) => [tenantId, id] as [string, string]))
+        await offlineDb.promotions.bulkDelete(
+          delta.removed_promotion_ids.map((id) => [tenantId, id] as [string, string]),
+        )
       await meta.set(metaKeys.catalogCursor(tenantId, registerId), cursor)
       await meta.set(metaKeys.catalogSyncedAt(tenantId), nowIso())
     })
@@ -316,7 +350,10 @@ export const catalogCache = {
   },
 
   /** Exact barcode → product and the quantity the scan represents. */
-  async findByBarcode(tenantId: string, code: string): Promise<{ product: CachedProduct; qty_milli: number } | null> {
+  async findByBarcode(
+    tenantId: string,
+    code: string,
+  ): Promise<{ product: CachedProduct; qty_milli: number } | null> {
     const bc = await offlineDb.barcodes.get([tenantId, code.trim()])
     if (!bc) return null
     const product = await offlineDb.products.get([tenantId, bc.product_id])
@@ -336,7 +373,10 @@ export const catalogCache = {
 
   /** Scale PLU (already normalised with shared `normalizePlu`). */
   async findByScalePlu(tenantId: string, plu: string): Promise<CachedProduct | null> {
-    const hit = await offlineDb.products.where('[tenant_id+scale_plu]').equals([tenantId, plu]).first()
+    const hit = await offlineDb.products
+      .where('[tenant_id+scale_plu]')
+      .equals([tenantId, plu])
+      .first()
     return hit?.is_active ? hit : null
   },
 
@@ -377,7 +417,11 @@ export const catalogCache = {
     return offlineDb.tax_slab_rules.where('tenant_id').equals(tenantId).toArray()
   },
 
-  getStorePrice(tenantId: string, storeId: string, productId: string): Promise<CachedStorePrice | undefined> {
+  getStorePrice(
+    tenantId: string,
+    storeId: string,
+    productId: string,
+  ): Promise<CachedStorePrice | undefined> {
     return offlineDb.store_prices.get([tenantId, storeId, productId])
   },
 
@@ -419,12 +463,15 @@ export const outbox = {
 
   /** Documents to upload, oldest first (failed ones are retried in their original order). */
   async pending(tenantId: string, registerId?: string): Promise<OutboxEntry[]> {
-    const rows = await offlineDb.outbox.orderBy('seq').filter(
-      (r) =>
-        r.tenant_id === tenantId &&
-        (r.status === 'pending' || r.status === 'failed' || r.status === 'syncing') &&
-        (registerId === undefined || r.register_id === registerId),
-    ).toArray()
+    const rows = await offlineDb.outbox
+      .orderBy('seq')
+      .filter(
+        (r) =>
+          r.tenant_id === tenantId &&
+          (r.status === 'pending' || r.status === 'failed' || r.status === 'syncing') &&
+          (registerId === undefined || r.register_id === registerId),
+      )
+      .toArray()
     return rows
   },
 
@@ -441,37 +488,48 @@ export const outbox = {
   },
 
   async markSyncing(clientRefs: string[]): Promise<void> {
-    await offlineDb.outbox.where('client_ref').anyOf(clientRefs).modify((r) => {
-      r.status = 'syncing'
-      r.attempts += 1
-    })
+    await offlineDb.outbox
+      .where('client_ref')
+      .anyOf(clientRefs)
+      .modify((r) => {
+        r.status = 'syncing'
+        r.attempts += 1
+      })
   },
 
   async markSynced(
     clientRef: string,
     result: { server_id: string; server_number: string | null; renumbered?: boolean },
   ): Promise<void> {
-    await offlineDb.outbox.where('client_ref').equals(clientRef).modify((r) => {
-      r.status = 'synced'
-      r.synced_at = nowIso()
-      r.server_id = result.server_id
-      r.server_number = result.server_number
-      r.renumbered = result.renumbered ?? false
-      r.last_error = null
-    })
+    await offlineDb.outbox
+      .where('client_ref')
+      .equals(clientRef)
+      .modify((r) => {
+        r.status = 'synced'
+        r.synced_at = nowIso()
+        r.server_id = result.server_id
+        r.server_number = result.server_number
+        r.renumbered = result.renumbered ?? false
+        r.last_error = null
+      })
   },
 
   async markFailed(clientRef: string, error: { code: string; message: string }): Promise<void> {
-    await offlineDb.outbox.where('client_ref').equals(clientRef).modify((r) => {
-      r.status = 'failed'
-      r.last_error = error
-    })
+    await offlineDb.outbox
+      .where('client_ref')
+      .equals(clientRef)
+      .modify((r) => {
+        r.status = 'failed'
+        r.last_error = error
+      })
   },
 
   /** Deletes synced rows older than `olderThanDays` (kept a while for reprints / audit). */
   async pruneSynced(olderThanDays = 7): Promise<number> {
     const cutoff = new Date(Date.now() - olderThanDays * 86_400_000).toISOString()
-    return offlineDb.outbox.filter((r) => r.status === 'synced' && (r.synced_at ?? '') < cutoff).delete()
+    return offlineDb.outbox
+      .filter((r) => r.status === 'synced' && (r.synced_at ?? '') < cutoff)
+      .delete()
   },
 
   get(clientRef: string): Promise<OutboxEntry | undefined> {
@@ -484,7 +542,9 @@ export const outbox = {
 // ---------------------------------------------------------------------------------------------
 
 export const heldCarts = {
-  async save(cart: Omit<HeldCart, 'created_at' | 'updated_at'> & { created_at?: string }): Promise<HeldCart> {
+  async save(
+    cart: Omit<HeldCart, 'created_at' | 'updated_at'> & { created_at?: string },
+  ): Promise<HeldCart> {
     const existing = await offlineDb.held_carts.get(cart.id)
     const row: HeldCart = {
       ...cart,

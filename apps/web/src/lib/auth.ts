@@ -22,14 +22,7 @@ import {
 import type { DeploymentMode } from '@kadai/shared/enums'
 import { hasFeature as entitlementHasFeature, type Feature } from '@kadai/shared/features'
 import { expandPermissions, hasPermission, type Permission } from '@kadai/shared/permissions'
-import {
-  api,
-  clearSession,
-  isApiError,
-  onAuthEvent,
-  refreshSession,
-  setSession,
-} from './api'
+import { api, clearSession, isApiError, onAuthEvent, refreshSession, setSession } from './api'
 import { getSavedLanguage, setLanguage } from './i18n'
 import { storage, isRecord } from './storage'
 
@@ -223,7 +216,8 @@ function applyMe(me: MeResponse, options: { offline?: boolean } = {}): void {
 
 function adoptPreferredLanguage(session: SessionResponse): void {
   // A choice made on this device wins; otherwise follow the user's profile language.
-  if (getSavedLanguage() === null) void setLanguage(session.user.preferred_locale, { persist: false })
+  if (getSavedLanguage() === null)
+    void setLanguage(session.user.preferred_locale, { persist: false })
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -255,7 +249,9 @@ export async function acceptSession(session: SessionResponse): Promise<AuthStatu
 
   if (session.tenant_id) {
     await reloadMe()
-    emitLifecycle(previousTenant && previousTenant !== session.tenant_id ? 'tenant_changed' : 'signed_in')
+    emitLifecycle(
+      previousTenant && previousTenant !== session.tenant_id ? 'tenant_changed' : 'signed_in',
+    )
     return state.status
   }
   const memberships = session.memberships
@@ -273,7 +269,12 @@ export async function acceptSession(session: SessionResponse): Promise<AuthStatu
     emitLifecycle('signed_in')
     return state.status
   }
-  setState({ status: 'needs_tenant', me: null, permissions: EMPTY_PERMISSIONS, features: EMPTY_FEATURES })
+  setState({
+    status: 'needs_tenant',
+    me: null,
+    permissions: EMPTY_PERMISSIONS,
+    features: EMPTY_FEATURES,
+  })
   return state.status
 }
 
@@ -355,7 +356,10 @@ export function bootstrap(): Promise<void> {
 /** GET /setup/status: 200 → on-prem (maybe needing setup), 404 → cloud. */
 export async function probeDeployment(): Promise<DeploymentInfo> {
   try {
-    const body = await api.get<{ data: unknown }>('/setup/status', { auth: false, timeoutMs: 10_000 })
+    const body = await api.get<{ data: unknown }>('/setup/status', {
+      auth: false,
+      timeoutMs: 10_000,
+    })
     const parsed = SetupStatusResponseSchema.safeParse(body.data)
     const info: DeploymentInfo = parsed.success
       ? {

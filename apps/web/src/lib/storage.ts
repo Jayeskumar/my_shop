@@ -81,7 +81,8 @@ export const storage = {
     } catch {
       // ignore
     }
-    for (const k of memory.keys()) if (k.startsWith(PREFIX + prefix)) out.add(k.slice(PREFIX.length))
+    for (const k of memory.keys())
+      if (k.startsWith(PREFIX + prefix)) out.add(k.slice(PREFIX.length))
     return [...out]
   },
 

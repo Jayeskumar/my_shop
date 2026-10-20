@@ -15,7 +15,11 @@ export const routes: FeatureRoutes = {
     },
     {
       path: 'sales/invoices/:id',
-      handle: { title: 'nav:titles.sales_invoice', permission: 'sales.read', parent: { title: 'nav:titles.sales_invoices', to: '/sales/invoices' } },
+      handle: {
+        title: 'nav:titles.sales_invoice',
+        permission: 'sales.read',
+        parent: { title: 'nav:titles.sales_invoices', to: '/sales/invoices' },
+      },
       Component: ModulePlaceholder,
     },
     {
@@ -25,12 +29,20 @@ export const routes: FeatureRoutes = {
     },
     {
       path: 'sales/returns/new',
-      handle: { title: 'nav:titles.sales_return_new', permission: 'sales.return', parent: { title: 'nav:titles.sales_returns', to: '/sales/returns' } },
+      handle: {
+        title: 'nav:titles.sales_return_new',
+        permission: 'sales.return',
+        parent: { title: 'nav:titles.sales_returns', to: '/sales/returns' },
+      },
       Component: ModulePlaceholder,
     },
     {
       path: 'sales/returns/:id',
-      handle: { title: 'nav:titles.sales_return', permission: 'sales.return', parent: { title: 'nav:titles.sales_returns', to: '/sales/returns' } },
+      handle: {
+        title: 'nav:titles.sales_return',
+        permission: 'sales.return',
+        parent: { title: 'nav:titles.sales_returns', to: '/sales/returns' },
+      },
       Component: ModulePlaceholder,
     },
     {

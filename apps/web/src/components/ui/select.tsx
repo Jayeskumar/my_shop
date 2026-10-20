@@ -17,33 +17,35 @@ export const SelectRoot = SelectPrimitive.Root
 export const SelectGroup = SelectPrimitive.Group
 export const SelectValue = SelectPrimitive.Value
 
-export interface SelectTriggerProps
-  extends ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> {
+export interface SelectTriggerProps extends ComponentPropsWithoutRef<
+  typeof SelectPrimitive.Trigger
+> {
   size?: FieldSize
 }
 
-export const SelectTrigger = forwardRef<ElementRef<typeof SelectPrimitive.Trigger>, SelectTriggerProps>(
-  function SelectTrigger({ className, children, size = 'md', id, ...props }, ref) {
-    const control = useFormFieldControl({ id, 'aria-describedby': props['aria-describedby'] })
-    return (
-      <SelectPrimitive.Trigger
-        ref={ref}
-        className={cn(
-          fieldVariants({ size }),
-          'flex items-center justify-between gap-2 text-start data-[placeholder]:text-muted-foreground/80 [&>span]:truncate',
-          className,
-        )}
-        {...control}
-        {...props}
-      >
-        {children}
-        <SelectPrimitive.Icon asChild>
-          <ChevronDown className="size-4 shrink-0 opacity-60" />
-        </SelectPrimitive.Icon>
-      </SelectPrimitive.Trigger>
-    )
-  },
-)
+export const SelectTrigger = forwardRef<
+  ElementRef<typeof SelectPrimitive.Trigger>,
+  SelectTriggerProps
+>(function SelectTrigger({ className, children, size = 'md', id, ...props }, ref) {
+  const control = useFormFieldControl({ id, 'aria-describedby': props['aria-describedby'] })
+  return (
+    <SelectPrimitive.Trigger
+      ref={ref}
+      className={cn(
+        fieldVariants({ size }),
+        'flex items-center justify-between gap-2 text-start data-[placeholder]:text-muted-foreground/80 [&>span]:truncate',
+        className,
+      )}
+      {...control}
+      {...props}
+    >
+      {children}
+      <SelectPrimitive.Icon asChild>
+        <ChevronDown className="size-4 shrink-0 opacity-60" />
+      </SelectPrimitive.Icon>
+    </SelectPrimitive.Trigger>
+  )
+})
 
 export const SelectContent = forwardRef<
   ElementRef<typeof SelectPrimitive.Content>,
@@ -118,7 +120,13 @@ export const SelectSeparator = forwardRef<
   ElementRef<typeof SelectPrimitive.Separator>,
   ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
 >(function SelectSeparator({ className, ...props }, ref) {
-  return <SelectPrimitive.Separator ref={ref} className={cn('-mx-1 my-1 h-px bg-border', className)} {...props} />
+  return (
+    <SelectPrimitive.Separator
+      ref={ref}
+      className={cn('-mx-1 my-1 h-px bg-border', className)}
+      {...props}
+    />
+  )
 })
 
 export interface SelectOption<V extends string = string> {
@@ -168,7 +176,12 @@ export function Select<V extends string = string>({
       </SelectTrigger>
       <SelectContent className={contentClassName}>
         {options.map((o) => (
-          <SelectItem key={o.value} value={o.value} disabled={o.disabled} description={o.description}>
+          <SelectItem
+            key={o.value}
+            value={o.value}
+            disabled={o.disabled}
+            description={o.description}
+          >
             {o.label}
           </SelectItem>
         ))}

@@ -50,7 +50,8 @@ const KEY_ALIASES: Record<string, string> = {
 }
 
 export const isMac = (): boolean =>
-  typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent)
+  typeof navigator !== 'undefined' &&
+  /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent)
 
 export function parseCombo(combo: string): ParsedCombo {
   const parts = combo
@@ -59,7 +60,14 @@ export function parseCombo(combo: string): ParsedCombo {
     .map((p) => p.trim())
   // "ctrl++" → last part is '' → the key is '+'
   const rawKey = parts.pop() || '+'
-  const parsed: ParsedCombo = { key: KEY_ALIASES[rawKey] ?? rawKey, ctrl: false, alt: false, shift: false, meta: false, mod: false }
+  const parsed: ParsedCombo = {
+    key: KEY_ALIASES[rawKey] ?? rawKey,
+    ctrl: false,
+    alt: false,
+    shift: false,
+    meta: false,
+    mod: false,
+  }
   for (const m of parts) {
     if (m === 'ctrl' || m === 'control') parsed.ctrl = true
     else if (m === 'alt' || m === 'option') parsed.alt = true
@@ -100,7 +108,9 @@ export function isTypingTarget(target: EventTarget | null): boolean {
   if (tag === 'TEXTAREA' || tag === 'SELECT') return true
   if (tag === 'INPUT') {
     const type = (target as HTMLInputElement).type
-    return !['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file'].includes(type)
+    return !['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file'].includes(
+      type,
+    )
   }
   return false
 }
@@ -187,7 +197,14 @@ export function formatCombo(combo: string, mac = isMac()): string {
   if (c.meta || (c.mod && mac)) parts.push(mac ? '⌘' : 'Win')
   if (c.alt) parts.push(mac ? '⌥' : 'Alt')
   if (c.shift) parts.push('Shift')
-  const key = c.key === ' ' ? 'Space' : c.key === 'escape' ? 'Esc' : c.key.length === 1 ? c.key.toUpperCase() : c.key.replace(/^f(\d+)$/, 'F$1').replace(/^arrow/, '')
+  const key =
+    c.key === ' '
+      ? 'Space'
+      : c.key === 'escape'
+        ? 'Esc'
+        : c.key.length === 1
+          ? c.key.toUpperCase()
+          : c.key.replace(/^f(\d+)$/, 'F$1').replace(/^arrow/, '')
   parts.push(key.charAt(0).toUpperCase() + key.slice(1))
   return parts.join(' ')
 }

@@ -20,7 +20,12 @@ export const routes: FeatureRoutes = {
     },
     {
       path: 'platform/tenants/:id',
-      handle: { title: 'nav:titles.platform_tenant', mode: 'cloud', platformAdmin: true, parent: { title: 'nav:titles.platform_tenants', to: '/platform/tenants' } },
+      handle: {
+        title: 'nav:titles.platform_tenant',
+        mode: 'cloud',
+        platformAdmin: true,
+        parent: { title: 'nav:titles.platform_tenants', to: '/platform/tenants' },
+      },
       Component: ModulePlaceholder,
     },
     {

@@ -10,7 +10,13 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { X } from 'lucide-react'
-import { forwardRef, type ComponentPropsWithoutRef, type ElementRef, type HTMLAttributes, type ReactNode } from 'react'
+import {
+  forwardRef,
+  type ComponentPropsWithoutRef,
+  type ElementRef,
+  type HTMLAttributes,
+  type ReactNode,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/cn'
 import { useHotkeyScope } from '@/lib/hotkeys'
@@ -57,7 +63,8 @@ const contentVariants = cva(
 )
 
 export interface DialogContentProps
-  extends ComponentPropsWithoutRef<typeof DialogPrimitive.Content>,
+  extends
+    ComponentPropsWithoutRef<typeof DialogPrimitive.Content>,
     VariantProps<typeof contentVariants> {
   hideClose?: boolean
 }
@@ -67,28 +74,33 @@ function DialogHotkeyScope() {
   return null
 }
 
-export const DialogContent = forwardRef<ElementRef<typeof DialogPrimitive.Content>, DialogContentProps>(
-  function DialogContent({ className, children, size, hideClose, ...props }, ref) {
-    const { t } = useTranslation()
-    return (
-      <DialogPrimitive.Portal>
-        <DialogOverlay />
-        <DialogPrimitive.Content ref={ref} className={cn(contentVariants({ size }), className)} {...props}>
-          <DialogHotkeyScope />
-          {children}
-          {!hideClose ? (
-            <DialogPrimitive.Close
-              className="absolute end-3 top-3 inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-              aria-label={t('a11y.close')}
-            >
-              <X className="size-5" />
-            </DialogPrimitive.Close>
-          ) : null}
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    )
-  },
-)
+export const DialogContent = forwardRef<
+  ElementRef<typeof DialogPrimitive.Content>,
+  DialogContentProps
+>(function DialogContent({ className, children, size, hideClose, ...props }, ref) {
+  const { t } = useTranslation()
+  return (
+    <DialogPrimitive.Portal>
+      <DialogOverlay />
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(contentVariants({ size }), className)}
+        {...props}
+      >
+        <DialogHotkeyScope />
+        {children}
+        {!hideClose ? (
+          <DialogPrimitive.Close
+            className="absolute end-3 top-3 inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            aria-label={t('a11y.close')}
+          >
+            <X className="size-5" />
+          </DialogPrimitive.Close>
+        ) : null}
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  )
+})
 
 export function DialogHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div className={cn('flex flex-col gap-1.5 px-5 pb-2 pt-5 pe-14', className)} {...props} />
@@ -114,14 +126,26 @@ export const DialogTitle = forwardRef<
   ElementRef<typeof DialogPrimitive.Title>,
   ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
 >(function DialogTitle({ className, ...props }, ref) {
-  return <DialogPrimitive.Title ref={ref} className={cn('text-lg font-semibold leading-snug', className)} {...props} />
+  return (
+    <DialogPrimitive.Title
+      ref={ref}
+      className={cn('text-lg font-semibold leading-snug', className)}
+      {...props}
+    />
+  )
 })
 
 export const DialogDescription = forwardRef<
   ElementRef<typeof DialogPrimitive.Description>,
   ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
 >(function DialogDescription({ className, ...props }, ref) {
-  return <DialogPrimitive.Description ref={ref} className={cn('text-sm text-muted-foreground', className)} {...props} />
+  return (
+    <DialogPrimitive.Description
+      ref={ref}
+      className={cn('text-sm text-muted-foreground', className)}
+      {...props}
+    />
+  )
 })
 
 export interface DialogProps {

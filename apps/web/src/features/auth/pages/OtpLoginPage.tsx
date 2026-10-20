@@ -2,7 +2,7 @@
 import { KeyRound } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { safeNext } from '@/app/guards'
+import { safeNext } from '@/app/safe-next'
 import { Button, notify } from '@/components/ui'
 import { acceptSession } from '@/lib/auth'
 import { isSessionResponse } from '../api'
@@ -38,7 +38,10 @@ export default function OtpLoginPage() {
           }
           const status = await acceptSession(result)
           if (status === 'needs_tenant') {
-            void navigate(next ? `/select-business?next=${encodeURIComponent(next)}` : '/select-business', { replace: true })
+            void navigate(
+              next ? `/select-business?next=${encodeURIComponent(next)}` : '/select-business',
+              { replace: true },
+            )
           } else {
             void navigate(safeNext(next), { replace: true })
           }

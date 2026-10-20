@@ -31,7 +31,9 @@ export function describeError(error: unknown, lng: Language = getLanguage()): Er
       return { title: i18next.t(`errors:client.${error.code}`, { lng }) }
     }
     const display: ErrorDisplay = {
-      title: isErrorCode(error.code) ? errorMessage(error.code, lng) : errorMessage('INTERNAL', lng),
+      title: isErrorCode(error.code)
+        ? errorMessage(error.code, lng)
+        : errorMessage('INTERNAL', lng),
     }
     if (error.code === 'VALIDATION_ERROR') {
       const first = error.validationIssues[0]
@@ -45,7 +47,12 @@ export function describeError(error: unknown, lng: Language = getLanguage()): Er
     }
     return display
   }
-  if (typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError') {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    error.name === 'AbortError'
+  ) {
     return { title: i18next.t('errors:client.UNKNOWN', { lng }) }
   }
   return { title: i18next.t('errors:client.UNKNOWN', { lng }) }

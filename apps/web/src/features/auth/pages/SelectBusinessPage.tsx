@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router'
 import { getBusinessType } from '@kadai/shared/verticals'
-import { safeNext } from '@/app/guards'
+import { safeNext } from '@/app/safe-next'
 import { Button, EmptyState, Spinner, notify } from '@/components/ui'
 import { logout, selectTenant, useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
@@ -52,7 +52,11 @@ export default function SelectBusinessPage() {
       }
     >
       {memberships.length === 0 ? (
-        <EmptyState compact title={t('errors:pages.no_business_title')} description={t('errors:pages.no_business_description')} />
+        <EmptyState
+          compact
+          title={t('errors:pages.no_business_title')}
+          description={t('errors:pages.no_business_description')}
+        />
       ) : (
         <ul className="grid gap-3">
           {memberships.map((m) => {
@@ -76,7 +80,8 @@ export default function SelectBusinessPage() {
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-base font-semibold">{m.tenant_name}</span>
                     <span className="truncate text-sm text-muted-foreground">
-                      {ta ? type.name_ta : type.name_en} · {t('select_business.role', { role: m.role_code })}
+                      {ta ? type.name_ta : type.name_en} ·{' '}
+                      {t('select_business.role', { role: m.role_code })}
                     </span>
                   </span>
                   {pending === m.tenant_id ? (

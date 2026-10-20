@@ -18,7 +18,8 @@ const iconSizes = cva('', {
 })
 
 export interface IconButtonProps
-  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'>,
+  extends
+    Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'>,
     VariantProps<typeof iconSizes> {
   icon: ReactNode
   /** Required accessible name; also shown as tooltip unless `tooltip={false}`. */
@@ -29,7 +30,18 @@ export interface IconButtonProps
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { icon, label, variant = 'ghost', size, tooltip = true, loading, className, disabled, type, ...props },
+  {
+    icon,
+    label,
+    variant = 'ghost',
+    size,
+    tooltip = true,
+    loading,
+    className,
+    disabled,
+    type,
+    ...props
+  },
   ref,
 ) {
   const button = (
@@ -38,7 +50,12 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       type={type ?? 'button'}
       aria-label={label}
       disabled={disabled || loading}
-      className={cn(buttonVariants({ variant, size: size ?? 'md' }), iconSizes({ size }), 'rounded-md', className)}
+      className={cn(
+        buttonVariants({ variant, size: size ?? 'md' }),
+        iconSizes({ size }),
+        'rounded-md',
+        className,
+      )}
       {...props}
     >
       {loading ? <Spinner size="sm" label="" /> : icon}

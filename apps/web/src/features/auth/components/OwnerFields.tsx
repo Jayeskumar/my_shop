@@ -22,9 +22,18 @@ export function OwnerFields({ setupToken = false }: { setupToken?: boolean }) {
         />
       </FormField>
       <FormField name="phone" label={t('signup.phone')} hint={t('signup.owner_hint')} required>
-        <PhoneInput size="lg" placeholder={t('otp.phone_placeholder')} {...form.register('phone')} />
+        <PhoneInput
+          size="lg"
+          placeholder={t('otp.phone_placeholder')}
+          {...form.register('phone')}
+        />
       </FormField>
-      <FormField name="password" label={t('signup.password')} hint={t('signup.password_hint')} required>
+      <FormField
+        name="password"
+        label={t('signup.password')}
+        hint={t('signup.password_hint')}
+        required
+      >
         <PasswordInput size="lg" autoComplete="new-password" {...form.register('password')} />
       </FormField>
       <FormField name="email" label={t('signup.email')}>
@@ -39,7 +48,13 @@ export function OwnerFields({ setupToken = false }: { setupToken?: boolean }) {
         />
       </FormField>
       {setupToken ? (
-        <FormField name="setup_token" label={t('setup.setup_token')} hint={t('setup.setup_token_hint')} required className="sm:col-span-2">
+        <FormField
+          name="setup_token"
+          label={t('setup.setup_token')}
+          hint={t('setup.setup_token_hint')}
+          required
+          className="sm:col-span-2"
+        >
           <Input
             size="lg"
             autoComplete="off"

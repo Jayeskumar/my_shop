@@ -7,7 +7,12 @@ const avatarVariants = cva(
   'relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full font-semibold',
   {
     variants: {
-      size: { sm: 'size-7 text-xs', md: 'size-9 text-sm', lg: 'size-12 text-base', xl: 'size-16 text-xl' },
+      size: {
+        sm: 'size-7 text-xs',
+        md: 'size-9 text-sm',
+        lg: 'size-12 text-base',
+        xl: 'size-16 text-xl',
+      },
     },
     defaultVariants: { size: 'md' },
   },
@@ -37,9 +42,17 @@ export interface AvatarProps extends VariantProps<typeof avatarVariants> {
 
 export function Avatar({ name, src, size, className }: AvatarProps) {
   return (
-    <AvatarPrimitive.Root className={cn(avatarVariants({ size }), toneFor(name), className)} title={name}>
-      {src ? <AvatarPrimitive.Image src={src} alt={name} className="size-full object-cover" /> : null}
-      <AvatarPrimitive.Fallback delayMs={src ? 300 : 0} className="flex size-full items-center justify-center">
+    <AvatarPrimitive.Root
+      className={cn(avatarVariants({ size }), toneFor(name), className)}
+      title={name}
+    >
+      {src ? (
+        <AvatarPrimitive.Image src={src} alt={name} className="size-full object-cover" />
+      ) : null}
+      <AvatarPrimitive.Fallback
+        delayMs={src ? 300 : 0}
+        className="flex size-full items-center justify-center"
+      >
         {initialsOf(name)}
       </AvatarPrimitive.Fallback>
     </AvatarPrimitive.Root>

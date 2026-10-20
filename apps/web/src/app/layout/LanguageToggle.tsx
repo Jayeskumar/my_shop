@@ -15,7 +15,10 @@ export function LanguageToggle({ className, compact }: { className?: string; com
     <div
       role="radiogroup"
       aria-label={t('language.switch')}
-      className={cn('inline-flex items-center rounded-lg border border-border bg-surface-2 p-0.5', className)}
+      className={cn(
+        'inline-flex items-center rounded-lg border border-border bg-surface-2 p-0.5',
+        className,
+      )}
     >
       {compact ? <Languages className="mx-1.5 size-4 text-muted-foreground" aria-hidden /> : null}
       {options.map((o) => {
@@ -31,7 +34,9 @@ export function LanguageToggle({ className, compact }: { className?: string; com
             className={cn(
               'h-7 rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-ring',
               o.value === 'ta' && 'font-tamil',
-              active ? 'bg-surface text-foreground shadow-card' : 'text-muted-foreground hover:text-foreground',
+              active
+                ? 'bg-surface text-foreground shadow-card'
+                : 'text-muted-foreground hover:text-foreground',
             )}
           >
             {compact ? o.short : o.label}

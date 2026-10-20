@@ -26,7 +26,10 @@ export function BusinessDetailsFields({ setup = false }: { setup?: boolean }) {
   const ta = i18n.language !== 'en'
 
   const stateOptions = useMemo(() => {
-    const codes = [TAMIL_NADU_STATE_CODE, ...ACTIVE_STATE_CODES.filter((c) => c !== TAMIL_NADU_STATE_CODE)]
+    const codes = [
+      TAMIL_NADU_STATE_CODE,
+      ...ACTIVE_STATE_CODES.filter((c) => c !== TAMIL_NADU_STATE_CODE),
+    ]
     return codes.flatMap((code) => {
       const st = getState(code)
       if (!st) return []
@@ -46,7 +49,8 @@ export function BusinessDetailsFields({ setup = false }: { setup?: boolean }) {
       form.setValue('state_code', code, { shouldValidate: true })
       setStateFromGstin(code)
     }
-    if (form.getValues('gst_scheme') === 'unregistered') form.setValue('gst_scheme', 'regular', { shouldValidate: true })
+    if (form.getValues('gst_scheme') === 'unregistered')
+      form.setValue('gst_scheme', 'regular', { shouldValidate: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- react to GSTIN changes only
   }, [valid, normalized])
 
@@ -72,7 +76,12 @@ export function BusinessDetailsFields({ setup = false }: { setup?: boolean }) {
   return (
     <div className="grid gap-5">
       <div className="grid gap-5 sm:grid-cols-2">
-        <FormField name="business_name" label={t('signup.business_name')} required className="sm:col-span-2">
+        <FormField
+          name="business_name"
+          label={t('signup.business_name')}
+          required
+          className="sm:col-span-2"
+        >
           <Input
             size="lg"
             autoComplete="organization"
@@ -81,8 +90,18 @@ export function BusinessDetailsFields({ setup = false }: { setup?: boolean }) {
             {...form.register('business_name')}
           />
         </FormField>
-        <FormField name="business_name_ta" label={t('signup.business_name_ta')} optional className="sm:col-span-2">
-          <Input size="lg" lang="ta" placeholder={t('signup.business_name_ta_placeholder')} {...form.register('business_name_ta')} />
+        <FormField
+          name="business_name_ta"
+          label={t('signup.business_name_ta')}
+          optional
+          className="sm:col-span-2"
+        >
+          <Input
+            size="lg"
+            lang="ta"
+            placeholder={t('signup.business_name_ta_placeholder')}
+            {...form.register('business_name_ta')}
+          />
         </FormField>
         {setup ? (
           <>
@@ -90,7 +109,11 @@ export function BusinessDetailsFields({ setup = false }: { setup?: boolean }) {
               <Input size="lg" startAdornment={<Building />} {...form.register('legal_name')} />
             </FormField>
             <FormField name="store_name" label={t('setup.store_name')} optional>
-              <Input size="lg" placeholder={t('setup.store_name_placeholder')} {...form.register('store_name')} />
+              <Input
+                size="lg"
+                placeholder={t('setup.store_name_placeholder')}
+                {...form.register('store_name')}
+              />
             </FormField>
           </>
         ) : null}
@@ -140,9 +163,21 @@ export function BusinessDetailsFields({ setup = false }: { setup?: boolean }) {
               onValueChange={field.onChange}
               aria-label={t('signup.gst_scheme')}
               options={[
-                { value: 'regular', label: t('signup.scheme.regular'), description: t('signup.scheme.regular_hint') },
-                { value: 'composition', label: t('signup.scheme.composition'), description: t('signup.scheme.composition_hint') },
-                { value: 'unregistered', label: t('signup.scheme.unregistered'), description: t('signup.scheme.unregistered_hint') },
+                {
+                  value: 'regular',
+                  label: t('signup.scheme.regular'),
+                  description: t('signup.scheme.regular_hint'),
+                },
+                {
+                  value: 'composition',
+                  label: t('signup.scheme.composition'),
+                  description: t('signup.scheme.composition_hint'),
+                },
+                {
+                  value: 'unregistered',
+                  label: t('signup.scheme.unregistered'),
+                  description: t('signup.scheme.unregistered_hint'),
+                },
               ]}
             />
           )}

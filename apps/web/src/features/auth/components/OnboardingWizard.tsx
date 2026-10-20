@@ -11,7 +11,13 @@ import { useTranslation } from 'react-i18next'
 import { Button, FormField } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { validationToken } from '@/lib/validation'
-import { businessGstIssues, STEP_FIELDS, stepOfField, type BusinessFormValues, type WizardStep } from '../business-rules'
+import {
+  businessGstIssues,
+  STEP_FIELDS,
+  stepOfField,
+  type BusinessFormValues,
+  type WizardStep,
+} from '../business-rules'
 import { BusinessDetailsFields } from './BusinessDetailsFields'
 import { BusinessTypePicker } from './BusinessTypePicker'
 import { OwnerFields } from './OwnerFields'
@@ -60,7 +66,8 @@ export function OnboardingWizard<TOut>({
     if (!ok) return false
     if (s === 'business') {
       const issues = businessGstIssues(form.getValues())
-      for (const issue of issues) form.setError(issue.field, { type: 'rule', message: validationToken(issue.key) })
+      for (const issue of issues)
+        form.setError(issue.field, { type: 'rule', message: validationToken(issue.key) })
       if (issues.length > 0) return false
     }
     return true
@@ -75,12 +82,19 @@ export function OnboardingWizard<TOut>({
       await onSubmit(values)
     } catch (error) {
       if (onServerError?.(error)) return
-      if (isApiError(error) && error.code === 'VALIDATION_ERROR' && error.validationIssues.length > 0) {
+      if (
+        isApiError(error) &&
+        error.code === 'VALIDATION_ERROR' &&
+        error.validationIssues.length > 0
+      ) {
         let jumped = false
         for (const issue of error.validationIssues) {
           const target = stepOfField(issue.path)
           if (!target) continue
-          form.setError(issue.path as keyof BusinessFormValues, { type: 'server', message: issue.message })
+          form.setError(issue.path as keyof BusinessFormValues, {
+            type: 'server',
+            message: issue.message,
+          })
           if (!jumped) {
             setIndex(STEPS.indexOf(target))
             jumped = true
@@ -157,18 +171,35 @@ export function OnboardingWizard<TOut>({
 
         <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
           {index > 0 ? (
-            <Button variant="ghost" size="lg" leftIcon={<ArrowLeft className="rtl:rotate-180" />} onClick={() => setIndex((i) => i - 1)} disabled={submitting}>
+            <Button
+              variant="ghost"
+              size="lg"
+              leftIcon={<ArrowLeft className="rtl:rotate-180" />}
+              onClick={() => setIndex((i) => i - 1)}
+              disabled={submitting}
+            >
               {t('common:actions.back')}
             </Button>
           ) : (
             <span />
           )}
           {isLast ? (
-            <Button type="submit" size="lg" loading={submitting} leftIcon={<Rocket />} className="sm:min-w-52">
+            <Button
+              type="submit"
+              size="lg"
+              loading={submitting}
+              leftIcon={<Rocket />}
+              className="sm:min-w-52"
+            >
               {submitting ? t('signup.creating') : submitLabel}
             </Button>
           ) : (
-            <Button type="submit" size="lg" rightIcon={<ArrowRight className="rtl:rotate-180" />} className="sm:min-w-40">
+            <Button
+              type="submit"
+              size="lg"
+              rightIcon={<ArrowRight className="rtl:rotate-180" />}
+              className="sm:min-w-40"
+            >
               {t('common:actions.next')}
             </Button>
           )}

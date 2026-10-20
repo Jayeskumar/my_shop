@@ -1,6 +1,6 @@
 import { Construction } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { Button, EmptyState, PageHeader } from '@/components/ui'
 import { translate } from '@/lib/i18n'
 import { useCurrentHandle } from '../route-handles'
@@ -12,12 +12,17 @@ import { useCurrentHandle } from '../route-handles'
 export default function ModulePlaceholder() {
   const { t } = useTranslation()
   const handle = useCurrentHandle()
+  const { pathname } = useLocation()
   const title = handle ? translate(handle.title) : ''
   return (
     <div>
       <PageHeader
         title={title}
-        breadcrumbs={handle?.parent ? [{ label: translate(handle.parent.title), to: handle.parent.to }, { label: title }] : undefined}
+        breadcrumbs={
+          handle?.parent
+            ? [{ label: translate(handle.parent.title), to: handle.parent.to }, { label: title }]
+            : undefined
+        }
       />
       <div className="rounded-xl border border-dashed border-border bg-surface">
         <EmptyState
@@ -25,14 +30,14 @@ export default function ModulePlaceholder() {
           title={t('placeholder.title')}
           description={t('placeholder.description')}
           action={
-            <Button asChild variant="outline">
-              <Link to="/">{t('actions.go_home')}</Link>
-            </Button>
+            pathname === '/' ? undefined : (
+              <Button asChild variant="outline">
+                <Link to="/">{t('actions.go_home')}</Link>
+              </Button>
+            )
           }
         />
       </div>
     </div>
   )
 }
-
-export { ModulePlaceholder }

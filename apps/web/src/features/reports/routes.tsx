@@ -15,12 +15,21 @@ export const routes: FeatureRoutes = {
     },
     {
       path: 'reports/gst',
-      handle: { title: 'nav:titles.gst_returns', permission: 'reports.gst', feature: 'gst_reports', parent: { title: 'nav:titles.reports', to: '/reports' } },
+      handle: {
+        title: 'nav:titles.gst_returns',
+        permission: 'reports.gst',
+        feature: 'gst_reports',
+        parent: { title: 'nav:titles.reports', to: '/reports' },
+      },
       Component: ModulePlaceholder,
     },
     {
       path: 'reports/:reportKey',
-      handle: { title: 'nav:titles.report', permission: 'reports.read', parent: { title: 'nav:titles.reports', to: '/reports' } },
+      handle: {
+        title: 'nav:titles.report',
+        permission: 'reports.read',
+        parent: { title: 'nav:titles.reports', to: '/reports' },
+      },
       Component: ModulePlaceholder,
     },
   ],

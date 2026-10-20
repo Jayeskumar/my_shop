@@ -29,7 +29,9 @@ export const Label = forwardRef<ElementRef<typeof LabelPrimitive.Root>, LabelPro
         </span>
       ) : null}
       {optional ? (
-        <span className="ms-1.5 text-xs font-normal text-muted-foreground">({t('misc.optional')})</span>
+        <span className="ms-1.5 text-xs font-normal text-muted-foreground">
+          ({t('misc.optional')})
+        </span>
       ) : null}
     </LabelPrimitive.Root>
   )

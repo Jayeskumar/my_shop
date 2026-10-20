@@ -5,10 +5,8 @@ import { cn } from '@/lib/cn'
 import { Spinner } from './spinner'
 import { buttonVariants } from './variants'
 
-
 export interface ButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   /** Render the child element (e.g. a router <Link>) with button styles. */
   asChild?: boolean
   /** Shows a spinner and disables the button (keeps its width). */
@@ -37,7 +35,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   const classes = cn(buttonVariants({ variant, size, fullWidth }), className)
   if (asChild) {
     return (
-      <Slot ref={ref} className={classes} aria-disabled={disabled || loading || undefined} {...props}>
+      <Slot
+        ref={ref}
+        className={classes}
+        aria-disabled={disabled || loading || undefined}
+        {...props}
+      >
         {children}
       </Slot>
     )
@@ -51,7 +54,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       aria-busy={loading || undefined}
       {...props}
     >
-      {loading ? <Spinner size={size === 'xl' || size === 'lg' ? 'md' : 'sm'} label="" /> : leftIcon}
+      {loading ? (
+        <Spinner size={size === 'xl' || size === 'lg' ? 'md' : 'sm'} label="" />
+      ) : (
+        leftIcon
+      )}
       {children}
       {!loading && rightIcon}
     </button>

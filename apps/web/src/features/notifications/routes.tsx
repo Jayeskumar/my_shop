@@ -15,7 +15,11 @@ export const routes: FeatureRoutes = {
     },
     {
       path: 'settings/notifications',
-      handle: { title: 'nav:titles.settings_notifications', permission: 'settings.manage', feature: 'notifications' },
+      handle: {
+        title: 'nav:titles.settings_notifications',
+        permission: 'settings.manage',
+        feature: 'notifications',
+      },
       Component: ModulePlaceholder,
     },
   ],

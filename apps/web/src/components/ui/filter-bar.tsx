@@ -16,7 +16,9 @@ import { Button } from './button'
 import { Input, type InputProps } from './input'
 
 export function Toolbar({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div role="toolbar" className={cn('flex flex-wrap items-center gap-2', className)} {...props} />
+  return (
+    <div role="toolbar" className={cn('flex flex-wrap items-center gap-2', className)} {...props} />
+  )
 }
 
 export interface SearchInputProps extends Omit<InputProps, 'value' | 'onChange' | 'type'> {
@@ -38,9 +40,12 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(functi
     latest.current = onChange
   })
   useEffect(() => setText(value), [value])
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current)
-  }, [])
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current)
+    },
+    [],
+  )
 
   const schedule = (next: string): void => {
     setText(next)
@@ -102,7 +107,12 @@ export interface FilterBarProps {
 export function FilterBar({ search, filters, onReset, actions, className }: FilterBarProps) {
   const { t } = useTranslation()
   return (
-    <div className={cn('flex flex-col gap-3 pb-4 lg:flex-row lg:items-center lg:justify-between', className)}>
+    <div
+      className={cn(
+        'flex flex-col gap-3 pb-4 lg:flex-row lg:items-center lg:justify-between',
+        className,
+      )}
+    >
       <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         {search ? (
           <SearchInput

@@ -13,13 +13,7 @@
  *  - Errors are thrown as {@link ApiError} with the server's `code`, `details` and `request_id`.
  */
 import type { SessionResponse } from '@kadai/shared/api/auth'
-import type {
-  Page,
-  RouteBody,
-  RouteDef,
-  RouteQuery,
-  RouteResponse,
-} from '@kadai/shared/api/common'
+import type { Page, RouteBody, RouteDef, RouteQuery, RouteResponse } from '@kadai/shared/api/common'
 import { routeUrl } from '@kadai/shared/api/common'
 import type { ErrorCode, ValidationIssue } from '@kadai/shared/errors'
 import { reportNetworkFailure, reportNetworkSuccess } from './online'
@@ -594,7 +588,10 @@ export async function callRoute<R extends RouteDef>(
   if (!route.response) return raw as RouteResponse<R>
   const parsed = route.response.safeParse(raw)
   if (parsed.success) return parsed.data as RouteResponse<R>
-  console.error(`Response of ${route.method} ${route.path} does not match its contract`, parsed.error)
+  console.error(
+    `Response of ${route.method} ${route.path} does not match its contract`,
+    parsed.error,
+  )
   return raw as RouteResponse<R>
 }
 

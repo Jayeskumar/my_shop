@@ -57,7 +57,14 @@ export interface OtpFlowProps {
   onVerified: (result: OtpVerifyResponse, phone: string) => void | Promise<void>
 }
 
-export function OtpFlow({ purpose, phone, lockPhone, autoSend, submitLabel, onVerified }: OtpFlowProps) {
+export function OtpFlow({
+  purpose,
+  phone,
+  lockPhone,
+  autoSend,
+  submitLabel,
+  onVerified,
+}: OtpFlowProps) {
   const { t } = useTranslation(['auth', 'common'])
   const [sent, setSent] = useState<SentState | null>(null)
   const [code, setCode] = useState('')
@@ -78,13 +85,20 @@ export function OtpFlow({ purpose, phone, lockPhone, autoSend, submitLabel, onVe
     try {
       const res = await authApi.requestOtp({ phone: e164, purpose })
       const at = Date.now()
-      setSent({ phone: e164, expiresAt: at + res.expires_in * 1000, resendAt: at + res.resend_after * 1000 })
+      setSent({
+        phone: e164,
+        expiresAt: at + res.expires_in * 1000,
+        resendAt: at + res.resend_after * 1000,
+      })
       setCode('')
       setCodeError(null)
       return true
     } catch (error) {
       if (isApiError(error) && error.code === 'VALIDATION_ERROR') {
-        form.setError('phone', { type: 'server', message: error.validationIssues[0]?.message ?? error.code })
+        form.setError('phone', {
+          type: 'server',
+          message: error.validationIssues[0]?.message ?? error.code,
+        })
       } else {
         notify.error(error)
       }
@@ -112,7 +126,12 @@ export function OtpFlow({ purpose, phone, lockPhone, autoSend, submitLabel, onVe
       await onVerified(result, sent.phone)
     } catch (error) {
       setCode('')
-      if (isApiError(error) && (error.code === 'OTP_INVALID' || error.code === 'OTP_EXPIRED' || error.code === 'VALIDATION_ERROR')) {
+      if (
+        isApiError(error) &&
+        (error.code === 'OTP_INVALID' ||
+          error.code === 'OTP_EXPIRED' ||
+          error.code === 'VALIDATION_ERROR')
+      ) {
         setCodeError(error.code === 'VALIDATION_ERROR' ? describeError(error).title : error.code)
       } else {
         notify.error(error)
@@ -133,9 +152,21 @@ export function OtpFlow({ purpose, phone, lockPhone, autoSend, submitLabel, onVe
           })}
         >
           <FormField name="phone" label={t('otp.phone')} required>
-            <PhoneInput size="lg" placeholder={t('otp.phone_placeholder')} autoFocus disabled={lockPhone} {...form.register('phone')} />
+            <PhoneInput
+              size="lg"
+              placeholder={t('otp.phone_placeholder')}
+              autoFocus
+              disabled={lockPhone}
+              {...form.register('phone')}
+            />
           </FormField>
-          <Button type="submit" size="lg" fullWidth loading={sending} leftIcon={<MessageSquareText />}>
+          <Button
+            type="submit"
+            size="lg"
+            fullWidth
+            loading={sending}
+            leftIcon={<MessageSquareText />}
+          >
             {t('otp.send')}
           </Button>
         </form>
@@ -173,7 +204,11 @@ export function OtpFlow({ purpose, phone, lockPhone, autoSend, submitLabel, onVe
         autoFocus
         aria-describedby="otp-status"
       />
-      <div id="otp-status" className="flex min-h-5 flex-wrap items-center justify-between gap-2 text-sm" aria-live="polite">
+      <div
+        id="otp-status"
+        className="flex min-h-5 flex-wrap items-center justify-between gap-2 text-sm"
+        aria-live="polite"
+      >
         {codeError ? (
           <span role="alert" className="font-medium text-danger">
             {errorText}
@@ -181,10 +216,14 @@ export function OtpFlow({ purpose, phone, lockPhone, autoSend, submitLabel, onVe
         ) : expired ? (
           <span className="text-danger">{t('otp.expired')}</span>
         ) : (
-          <span className="text-muted-foreground">{t('otp.expires_in', { time: mmss(secondsToExpiry) })}</span>
+          <span className="text-muted-foreground">
+            {t('otp.expires_in', { time: mmss(secondsToExpiry) })}
+          </span>
         )}
         {secondsToResend > 0 && !expired ? (
-          <span className="text-muted-foreground tabular-nums">{t('otp.resend_in', { seconds: secondsToResend })}</span>
+          <span className="text-muted-foreground tabular-nums">
+            {t('otp.resend_in', { seconds: secondsToResend })}
+          </span>
         ) : (
           <Button
             variant="link"
@@ -198,8 +237,16 @@ export function OtpFlow({ purpose, phone, lockPhone, autoSend, submitLabel, onVe
           </Button>
         )}
       </div>
-      {import.meta.env.DEV ? <p className="text-xs text-muted-foreground">{t('otp.dev_hint')}</p> : null}
-      <Button type="submit" size="lg" fullWidth loading={verifying} disabled={code.length !== 6 || expired}>
+      {import.meta.env.DEV ? (
+        <p className="text-xs text-muted-foreground">{t('otp.dev_hint')}</p>
+      ) : null}
+      <Button
+        type="submit"
+        size="lg"
+        fullWidth
+        loading={verifying}
+        disabled={code.length !== 6 || expired}
+      >
         {submitLabel ?? t('otp.verify')}
       </Button>
       {!lockPhone ? (

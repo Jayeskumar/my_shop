@@ -56,7 +56,9 @@ export function PinSwitchDialog({ open, onOpenChange, onSwitched }: PinSwitchDia
   }, [selected, pin, busy, onSwitched, onOpenChange, t, users])
 
   const notTrusted =
-    !device || (isApiError(users.error) && (users.error.code === 'DEVICE_NOT_TRUSTED' || users.error.status === 403))
+    !device ||
+    (isApiError(users.error) &&
+      (users.error.code === 'DEVICE_NOT_TRUSTED' || users.error.status === 403))
 
   return (
     <Dialog
@@ -75,17 +77,39 @@ export function PinSwitchDialog({ open, onOpenChange, onSwitched }: PinSwitchDia
         <div className="flex flex-col items-center gap-4 pb-4">
           <Avatar name={selected.full_name} size="lg" />
           <p className="text-sm text-muted-foreground">{selected.role_name}</p>
-          <PinPad value={pin} onChange={(v) => { setPin(v); setError(null) }} onSubmit={() => void submit()} disabled={busy} error={Boolean(error)} />
+          <PinPad
+            value={pin}
+            onChange={(v) => {
+              setPin(v)
+              setError(null)
+            }}
+            onSubmit={() => void submit()}
+            disabled={busy}
+            error={Boolean(error)}
+          />
           {error ? (
             <p role="alert" className="text-sm font-medium text-danger">
               {error}
             </p>
           ) : null}
           <div className="flex w-full max-w-xs gap-2">
-            <Button variant="outline" size="lg" className="flex-1" onClick={reset} leftIcon={<ArrowLeft />} disabled={busy}>
+            <Button
+              variant="outline"
+              size="lg"
+              className="flex-1"
+              onClick={reset}
+              leftIcon={<ArrowLeft />}
+              disabled={busy}
+            >
               {t('pin.back')}
             </Button>
-            <Button size="lg" className="flex-1" disabled={pin.length < 4} loading={busy} onClick={() => void submit()}>
+            <Button
+              size="lg"
+              className="flex-1"
+              disabled={pin.length < 4}
+              loading={busy}
+              onClick={() => void submit()}
+            >
               {t('pin.submit')}
             </Button>
           </div>
@@ -97,7 +121,15 @@ export function PinSwitchDialog({ open, onOpenChange, onSwitched }: PinSwitchDia
           ))}
         </div>
       ) : users.error ? (
-        <EmptyState compact title={describeError(users.error).title} action={<Button variant="outline" onClick={() => void users.refetch()}>{t('common:actions.retry')}</Button>} />
+        <EmptyState
+          compact
+          title={describeError(users.error).title}
+          action={
+            <Button variant="outline" onClick={() => void users.refetch()}>
+              {t('common:actions.retry')}
+            </Button>
+          }
+        />
       ) : (users.data ?? []).length === 0 ? (
         <EmptyState compact title={t('pin.no_users')} />
       ) : (

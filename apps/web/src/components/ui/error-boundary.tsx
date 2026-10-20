@@ -16,7 +16,13 @@ export function ErrorFallback({ error, reset, className }: ErrorFallbackProps) {
   const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
   const stack = error instanceof Error ? error.stack : undefined
   return (
-    <div role="alert" className={cn('mx-auto flex max-w-lg flex-col items-center gap-4 px-6 py-16 text-center', className)}>
+    <div
+      role="alert"
+      className={cn(
+        'mx-auto flex max-w-lg flex-col items-center gap-4 px-6 py-16 text-center',
+        className,
+      )}
+    >
       <span className="flex size-16 items-center justify-center rounded-2xl bg-danger-soft text-danger">
         <AlertTriangle className="size-8" />
       </span>

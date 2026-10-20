@@ -37,8 +37,16 @@ export interface TooltipProps {
 }
 
 /** `<Tooltip content="Print (Ctrl+P)"><IconButton … /></Tooltip>` */
-export function Tooltip({ content, children, side = 'top', align, disabled, delayDuration }: TooltipProps) {
-  if (disabled || content === null || content === undefined || content === '') return <>{children}</>
+export function Tooltip({
+  content,
+  children,
+  side = 'top',
+  align,
+  disabled,
+  delayDuration,
+}: TooltipProps) {
+  if (disabled || content === null || content === undefined || content === '')
+    return <>{children}</>
   return (
     <TooltipPrimitive.Root delayDuration={delayDuration}>
       <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>

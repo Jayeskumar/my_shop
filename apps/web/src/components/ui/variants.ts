@@ -14,7 +14,8 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-primary text-primary-foreground shadow-card hover:bg-primary-hover active:bg-primary-hover',
+        primary:
+          'bg-primary text-primary-foreground shadow-card hover:bg-primary-hover active:bg-primary-hover',
         accent: 'bg-accent text-accent-foreground shadow-card hover:bg-accent-hover',
         secondary: 'bg-surface-2 text-foreground hover:bg-surface-3',
         outline: 'border border-input bg-surface text-foreground shadow-card hover:bg-surface-2',
@@ -82,23 +83,83 @@ export const badgeVariants = cva(
       size: { sm: 'px-2 py-0.5 text-[11px]', md: 'px-2.5 py-1 text-xs', lg: 'px-3 py-1.5 text-sm' },
     },
     compoundVariants: [
-      { appearance: 'soft', tone: 'neutral', className: 'border-transparent bg-surface-2 text-foreground' },
-      { appearance: 'soft', tone: 'primary', className: 'border-transparent bg-primary-soft text-primary-soft-foreground' },
-      { appearance: 'soft', tone: 'accent', className: 'border-transparent bg-accent-soft text-accent-soft-foreground' },
-      { appearance: 'soft', tone: 'success', className: 'border-transparent bg-success-soft text-success-soft-foreground' },
-      { appearance: 'soft', tone: 'warning', className: 'border-transparent bg-warning-soft text-warning-soft-foreground' },
-      { appearance: 'soft', tone: 'danger', className: 'border-transparent bg-danger-soft text-danger-soft-foreground' },
-      { appearance: 'soft', tone: 'info', className: 'border-transparent bg-info-soft text-info-soft-foreground' },
-      { appearance: 'solid', tone: 'neutral', className: 'border-transparent bg-foreground text-background' },
-      { appearance: 'solid', tone: 'primary', className: 'border-transparent bg-primary text-primary-foreground' },
-      { appearance: 'solid', tone: 'accent', className: 'border-transparent bg-accent text-accent-foreground' },
-      { appearance: 'solid', tone: 'success', className: 'border-transparent bg-success text-success-foreground' },
-      { appearance: 'solid', tone: 'warning', className: 'border-transparent bg-warning text-warning-foreground' },
-      { appearance: 'solid', tone: 'danger', className: 'border-transparent bg-danger text-danger-foreground' },
-      { appearance: 'solid', tone: 'info', className: 'border-transparent bg-info text-info-foreground' },
+      {
+        appearance: 'soft',
+        tone: 'neutral',
+        className: 'border-transparent bg-surface-2 text-foreground',
+      },
+      {
+        appearance: 'soft',
+        tone: 'primary',
+        className: 'border-transparent bg-primary-soft text-primary-soft-foreground',
+      },
+      {
+        appearance: 'soft',
+        tone: 'accent',
+        className: 'border-transparent bg-accent-soft text-accent-soft-foreground',
+      },
+      {
+        appearance: 'soft',
+        tone: 'success',
+        className: 'border-transparent bg-success-soft text-success-soft-foreground',
+      },
+      {
+        appearance: 'soft',
+        tone: 'warning',
+        className: 'border-transparent bg-warning-soft text-warning-soft-foreground',
+      },
+      {
+        appearance: 'soft',
+        tone: 'danger',
+        className: 'border-transparent bg-danger-soft text-danger-soft-foreground',
+      },
+      {
+        appearance: 'soft',
+        tone: 'info',
+        className: 'border-transparent bg-info-soft text-info-soft-foreground',
+      },
+      {
+        appearance: 'solid',
+        tone: 'neutral',
+        className: 'border-transparent bg-foreground text-background',
+      },
+      {
+        appearance: 'solid',
+        tone: 'primary',
+        className: 'border-transparent bg-primary text-primary-foreground',
+      },
+      {
+        appearance: 'solid',
+        tone: 'accent',
+        className: 'border-transparent bg-accent text-accent-foreground',
+      },
+      {
+        appearance: 'solid',
+        tone: 'success',
+        className: 'border-transparent bg-success text-success-foreground',
+      },
+      {
+        appearance: 'solid',
+        tone: 'warning',
+        className: 'border-transparent bg-warning text-warning-foreground',
+      },
+      {
+        appearance: 'solid',
+        tone: 'danger',
+        className: 'border-transparent bg-danger text-danger-foreground',
+      },
+      {
+        appearance: 'solid',
+        tone: 'info',
+        className: 'border-transparent bg-info text-info-foreground',
+      },
       { appearance: 'outline', tone: 'neutral', className: 'border-input text-foreground' },
       { appearance: 'outline', tone: 'primary', className: 'border-primary/50 text-primary' },
-      { appearance: 'outline', tone: 'accent', className: 'border-accent/60 text-accent-soft-foreground' },
+      {
+        appearance: 'outline',
+        tone: 'accent',
+        className: 'border-accent/60 text-accent-soft-foreground',
+      },
       { appearance: 'outline', tone: 'success', className: 'border-success/50 text-success' },
       { appearance: 'outline', tone: 'warning', className: 'border-warning/50 text-warning' },
       { appearance: 'outline', tone: 'danger', className: 'border-danger/50 text-danger' },

@@ -20,7 +20,13 @@ export function Qty({ milli, unit, packSize, packUnit, className, colorize }: Qt
       ? formatPackQty(milli, packSize, unit, packUnit)
       : formatQty(milli, unit)
   return (
-    <span className={cn('whitespace-nowrap tabular-nums', colorize && milli < 0 && 'text-danger', className)}>
+    <span
+      className={cn(
+        'whitespace-nowrap tabular-nums',
+        colorize && milli < 0 && 'text-danger',
+        className,
+      )}
+    >
       {text}
     </span>
   )

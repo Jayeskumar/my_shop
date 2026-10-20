@@ -145,7 +145,13 @@ export function DataTable<T>({
       header: ({ table }) => (
         <Checkbox
           aria-label={t('actions.select')}
-          checked={table.getIsAllRowsSelected() ? true : table.getIsSomeRowsSelected() ? 'indeterminate' : false}
+          checked={
+            table.getIsAllRowsSelected()
+              ? true
+              : table.getIsSomeRowsSelected()
+                ? 'indeterminate'
+                : false
+          }
           onCheckedChange={(v) => table.toggleAllRowsSelected(v === true)}
         />
       ),
@@ -199,11 +205,17 @@ export function DataTable<T>({
     />
   ) : null
 
-  const emptyPanel = !firstLoad && !error && data.length === 0 ? (
-    empty ?? (
-      <EmptyState compact icon={<SearchX />} title={t('empty.no_results')} description={t('empty.no_results_hint')} />
-    )
-  ) : null
+  const emptyPanel =
+    !firstLoad && !error && data.length === 0
+      ? (empty ?? (
+          <EmptyState
+            compact
+            icon={<SearchX />}
+            title={t('empty.no_results')}
+            description={t('empty.no_results_hint')}
+          />
+        ))
+      : null
 
   const content = desktop ? (
     <Table aria-label={label} aria-busy={loading || undefined}>
@@ -221,7 +233,9 @@ export function DataTable<T>({
                 <TableHead
                   key={header.id}
                   className={cn(alignClass(meta?.align), meta?.headerClassName)}
-                  aria-sort={dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : undefined}
+                  aria-sort={
+                    dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : undefined
+                  }
                   style={header.column.columnDef.size ? { width: header.getSize() } : undefined}
                 >
                   {canSort ? (
@@ -275,12 +289,18 @@ export function DataTable<T>({
                     : undefined
                 }
                 tabIndex={onRowClick ? 0 : undefined}
-                className={cn(onRowClick && 'cursor-pointer hover:bg-surface-2/70 focus-visible:bg-surface-2 focus-visible:outline-none')}
+                className={cn(
+                  onRowClick &&
+                    'cursor-pointer hover:bg-surface-2/70 focus-visible:bg-surface-2 focus-visible:outline-none',
+                )}
               >
                 {row.getVisibleCells().map((cell) => {
                   const meta = cell.column.columnDef.meta
                   return (
-                    <TableCell key={cell.id} className={cn(cellPad, alignClass(meta?.align), meta?.className)}>
+                    <TableCell
+                      key={cell.id}
+                      className={cn(cellPad, alignClass(meta?.align), meta?.className)}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   )
@@ -290,7 +310,11 @@ export function DataTable<T>({
       </TableBody>
     </Table>
   ) : (
-    <ul aria-label={label} aria-busy={loading || undefined} className={cn('grid gap-2 p-2', loading && !firstLoad && 'opacity-60')}>
+    <ul
+      aria-label={label}
+      aria-busy={loading || undefined}
+      className={cn('grid gap-2 p-2', loading && !firstLoad && 'opacity-60')}
+    >
       {firstLoad
         ? Array.from({ length: Math.min(skeletonCount, 5) }, (_, i) => (
             <li key={`sk-${i}`} className="rounded-lg border border-border p-3">
@@ -327,11 +351,16 @@ export function DataTable<T>({
                     .map((c) => {
                       const header = c.column.columnDef.header
                       const labelText =
-                        c.column.columnDef.meta?.label ?? (typeof header === 'string' ? header : c.column.id)
+                        c.column.columnDef.meta?.label ??
+                        (typeof header === 'string' ? header : c.column.id)
                       return (
                         <div key={c.id} className="min-w-0">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{labelText}</dt>
-                          <dd className="truncate text-sm">{flexRender(c.column.columnDef.cell, c.getContext())}</dd>
+                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                            {labelText}
+                          </dt>
+                          <dd className="truncate text-sm">
+                            {flexRender(c.column.columnDef.cell, c.getContext())}
+                          </dd>
                         </div>
                       )
                     })}
@@ -374,8 +403,15 @@ export function DataTable<T>({
   )
 
   return (
-    <div className={cn('overflow-hidden rounded-xl border border-border bg-surface shadow-card', className)}>
-      {loading && !firstLoad ? <div className="h-0.5 w-full animate-shimmer bg-primary" aria-hidden /> : null}
+    <div
+      className={cn(
+        'overflow-hidden rounded-xl border border-border bg-surface shadow-card',
+        className,
+      )}
+    >
+      {loading && !firstLoad ? (
+        <div className="h-0.5 w-full animate-shimmer bg-primary" aria-hidden />
+      ) : null}
       {errorPanel ?? (
         <>
           {data.length > 0 || firstLoad ? content : null}

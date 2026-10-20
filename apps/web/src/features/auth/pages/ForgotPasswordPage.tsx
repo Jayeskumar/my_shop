@@ -49,7 +49,10 @@ export default function ForgotPasswordPage() {
   })
 
   const back = (
-    <Link to="/login" className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline">
+    <Link
+      to="/login"
+      className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline"
+    >
       <ArrowLeft className="size-4 rtl:rotate-180" />
       {t('forgot.back_to_login')}
     </Link>
@@ -72,13 +75,33 @@ export default function ForgotPasswordPage() {
     <AuthLayout title={t('forgot.new_password_title')} footer={back}>
       <FormProvider {...form}>
         <form onSubmit={onSubmit} noValidate className="grid gap-5">
-          <FormField name="new_password" label={t('forgot.new_password')} hint={t('signup.password_hint')} required>
-            <PasswordInput size="lg" autoComplete="new-password" autoFocus {...form.register('new_password')} />
+          <FormField
+            name="new_password"
+            label={t('forgot.new_password')}
+            hint={t('signup.password_hint')}
+            required
+          >
+            <PasswordInput
+              size="lg"
+              autoComplete="new-password"
+              autoFocus
+              {...form.register('new_password')}
+            />
           </FormField>
           <FormField name="confirm_password" label={t('forgot.confirm_password')} required>
-            <PasswordInput size="lg" autoComplete="new-password" {...form.register('confirm_password')} />
+            <PasswordInput
+              size="lg"
+              autoComplete="new-password"
+              {...form.register('confirm_password')}
+            />
           </FormField>
-          <Button type="submit" size="lg" fullWidth loading={form.formState.isSubmitting} leftIcon={<Save />}>
+          <Button
+            type="submit"
+            size="lg"
+            fullWidth
+            loading={form.formState.isSubmitting}
+            leftIcon={<Save />}
+          >
             {t('forgot.submit')}
           </Button>
         </form>

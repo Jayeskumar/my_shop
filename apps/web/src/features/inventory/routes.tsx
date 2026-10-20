@@ -25,32 +25,58 @@ export const routes: FeatureRoutes = {
     },
     {
       path: 'inventory/adjustments/new',
-      handle: { title: 'nav:titles.adjustment_new', permission: 'inventory.adjust', parent: { title: 'nav:titles.adjustments', to: '/inventory/adjustments' } },
+      handle: {
+        title: 'nav:titles.adjustment_new',
+        permission: 'inventory.adjust',
+        parent: { title: 'nav:titles.adjustments', to: '/inventory/adjustments' },
+      },
       Component: ModulePlaceholder,
     },
     {
       path: 'inventory/adjustments/:id',
-      handle: { title: 'nav:titles.adjustment', permission: 'inventory.adjust', parent: { title: 'nav:titles.adjustments', to: '/inventory/adjustments' } },
+      handle: {
+        title: 'nav:titles.adjustment',
+        permission: 'inventory.adjust',
+        parent: { title: 'nav:titles.adjustments', to: '/inventory/adjustments' },
+      },
       Component: ModulePlaceholder,
     },
     {
       path: 'inventory/transfers',
-      handle: { title: 'nav:titles.transfers', permission: 'inventory.transfer', feature: 'stock_transfers' },
+      handle: {
+        title: 'nav:titles.transfers',
+        permission: 'inventory.transfer',
+        feature: 'stock_transfers',
+      },
       Component: ModulePlaceholder,
     },
     {
       path: 'inventory/transfers/new',
-      handle: { title: 'nav:titles.transfer_new', permission: 'inventory.transfer', feature: 'stock_transfers', parent: { title: 'nav:titles.transfers', to: '/inventory/transfers' } },
+      handle: {
+        title: 'nav:titles.transfer_new',
+        permission: 'inventory.transfer',
+        feature: 'stock_transfers',
+        parent: { title: 'nav:titles.transfers', to: '/inventory/transfers' },
+      },
       Component: ModulePlaceholder,
     },
     {
       path: 'inventory/transfers/:id',
-      handle: { title: 'nav:titles.transfer', permission: 'inventory.transfer', feature: 'stock_transfers', parent: { title: 'nav:titles.transfers', to: '/inventory/transfers' } },
+      handle: {
+        title: 'nav:titles.transfer',
+        permission: 'inventory.transfer',
+        feature: 'stock_transfers',
+        parent: { title: 'nav:titles.transfers', to: '/inventory/transfers' },
+      },
       Component: ModulePlaceholder,
     },
     {
       path: 'inventory/batches',
-      handle: { title: 'nav:titles.batches', permission: 'inventory.read', feature: 'batches_expiry' },
+      handle: {
+        title: 'nav:titles.batches',
+        permission: 'inventory.read',
+        feature: 'batches_expiry',
+      },
       Component: ModulePlaceholder,
     },
   ],

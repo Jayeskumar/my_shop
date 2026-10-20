@@ -97,18 +97,22 @@ export function Combobox<T>({
     const controller = new AbortController()
     setLoading(true)
     setError(null)
-    const timer = setTimeout(() => {
-      loadRef.current?.(q, controller.signal)
-        .then((rows) => {
-          if (!controller.signal.aborted) setResults(rows)
-        })
-        .catch((e: unknown) => {
-          if (!controller.signal.aborted) setError(e)
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setLoading(false)
-        })
-    }, q === '' ? 0 : debounceMs)
+    const timer = setTimeout(
+      () => {
+        loadRef
+          .current?.(q, controller.signal)
+          .then((rows) => {
+            if (!controller.signal.aborted) setResults(rows)
+          })
+          .catch((e: unknown) => {
+            if (!controller.signal.aborted) setError(e)
+          })
+          .finally(() => {
+            if (!controller.signal.aborted) setLoading(false)
+          })
+      },
+      q === '' ? 0 : debounceMs,
+    )
     return () => {
       clearTimeout(timer)
       controller.abort()
@@ -143,7 +147,11 @@ export function Combobox<T>({
             {...control}
           >
             <span className={cn('min-w-0 flex-1 truncate', !value && 'text-muted-foreground/80')}>
-              {value ? (renderValue ? renderValue(value) : getOptionLabel(value)) : (placeholder ?? t('misc.select_placeholder'))}
+              {value
+                ? renderValue
+                  ? renderValue(value)
+                  : getOptionLabel(value)
+                : (placeholder ?? t('misc.select_placeholder'))}
             </span>
           </button>
         </PopoverTrigger>
@@ -161,7 +169,10 @@ export function Combobox<T>({
           </button>
         ) : null}
       </div>
-      <PopoverContent className="w-[max(var(--radix-popover-trigger-width),18rem)] p-0" align="start">
+      <PopoverContent
+        className="w-[max(var(--radix-popover-trigger-width),18rem)] p-0"
+        align="start"
+      >
         <Command shouldFilter={!isAsync} loop className="flex flex-col">
           <div className="flex items-center gap-2 border-b border-border px-3">
             <Command.Input
@@ -171,15 +182,21 @@ export function Combobox<T>({
               placeholder={searchPlaceholder ?? t('misc.search_placeholder')}
               className="h-11 w-full bg-transparent text-base outline-none placeholder:text-muted-foreground/70 sm:text-sm"
             />
-            {loading ? <Spinner size="sm" className="text-muted-foreground" label={t('misc.searching')} /> : null}
+            {loading ? (
+              <Spinner size="sm" className="text-muted-foreground" label={t('misc.searching')} />
+            ) : null}
           </div>
           <Command.List className="max-h-72 overflow-y-auto p-1">
             {error ? (
-              <div className="px-3 py-6 text-center text-sm text-danger">{describeError(error).title}</div>
+              <div className="px-3 py-6 text-center text-sm text-danger">
+                {describeError(error).title}
+              </div>
             ) : null}
             {!loading && !error ? (
               <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
-                {isAsync && trimmed.length < minQueryLength ? t('misc.type_to_search') : (emptyText ?? t('misc.no_options'))}
+                {isAsync && trimmed.length < minQueryLength
+                  ? t('misc.type_to_search')
+                  : (emptyText ?? t('misc.no_options'))}
               </Command.Empty>
             ) : null}
             {results.map((option) => {
@@ -193,8 +210,15 @@ export function Combobox<T>({
                   onSelect={() => select(option)}
                   className="flex cursor-default select-none items-center gap-2 rounded-md px-2.5 py-2 text-sm aria-selected:bg-primary-soft aria-selected:text-primary-soft-foreground"
                 >
-                  <Check className={cn('size-4 shrink-0', optionValue === selectedValue ? 'opacity-100' : 'opacity-0')} />
-                  <div className="min-w-0 flex-1">{renderOption ? renderOption(option) : label}</div>
+                  <Check
+                    className={cn(
+                      'size-4 shrink-0',
+                      optionValue === selectedValue ? 'opacity-100' : 'opacity-0',
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    {renderOption ? renderOption(option) : label}
+                  </div>
                 </Command.Item>
               )
             })}

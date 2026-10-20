@@ -15,11 +15,18 @@ import { parseQtyText } from './input-parsing'
 import { Input, type InputProps } from './input'
 import type { FieldSize } from './variants'
 
-export interface QtyInputProps
-  extends Omit<
-    InputProps,
-    'value' | 'defaultValue' | 'onChange' | 'type' | 'min' | 'max' | 'step' | 'endAdornment' | 'inputMode'
-  > {
+export interface QtyInputProps extends Omit<
+  InputProps,
+  | 'value'
+  | 'defaultValue'
+  | 'onChange'
+  | 'type'
+  | 'min'
+  | 'max'
+  | 'step'
+  | 'endAdornment'
+  | 'inputMode'
+> {
   /** Milli units; null/undefined = empty. */
   value: number | null | undefined
   onChange: (qtyMilli: number | null) => void

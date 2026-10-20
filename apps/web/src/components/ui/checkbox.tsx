@@ -1,6 +1,12 @@
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox'
 import { Check, Minus } from 'lucide-react'
-import { forwardRef, useId, type ComponentPropsWithoutRef, type ElementRef, type ReactNode } from 'react'
+import {
+  forwardRef,
+  useId,
+  type ComponentPropsWithoutRef,
+  type ElementRef,
+  type ReactNode,
+} from 'react'
 import { cn } from '@/lib/cn'
 
 export interface CheckboxProps extends ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root> {
@@ -41,7 +47,10 @@ export const Checkbox = forwardRef<ElementRef<typeof CheckboxPrimitive.Root>, Ch
       <div className="flex items-start gap-2.5">
         <div className="pt-0.5">{box}</div>
         <div className="grid gap-0.5">
-          <label htmlFor={controlId} className="cursor-pointer text-sm font-medium leading-snug peer-disabled:opacity-60">
+          <label
+            htmlFor={controlId}
+            className="cursor-pointer text-sm font-medium leading-snug peer-disabled:opacity-60"
+          >
             {label}
           </label>
           {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}

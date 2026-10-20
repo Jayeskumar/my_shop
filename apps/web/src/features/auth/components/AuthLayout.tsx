@@ -25,12 +25,22 @@ export function AuthLayout({ title, subtitle, children, footer, wide }: AuthLayo
   ]
   return (
     <div className="flex min-h-dvh bg-background">
-      <aside className="relative hidden w-[44%] max-w-2xl flex-col justify-between overflow-hidden bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 p-10 text-white lg:flex xl:p-14">
+      <aside className="sticky top-0 hidden h-dvh w-[44%] self-start max-w-2xl flex-col justify-between overflow-hidden bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 p-10 text-white lg:flex xl:p-14">
         {/* Decorative kolam-like dots pattern */}
-        <svg className="pointer-events-none absolute -end-24 -top-24 size-[28rem] opacity-[0.12]" viewBox="0 0 200 200" aria-hidden>
+        <svg
+          className="pointer-events-none absolute -end-24 -top-24 size-[28rem] opacity-[0.12]"
+          viewBox="0 0 200 200"
+          aria-hidden
+        >
           {Array.from({ length: 10 }, (_, r) =>
             Array.from({ length: 10 }, (_, c) => (
-              <circle key={`${r}-${c}`} cx={10 + c * 20} cy={10 + r * 20} r={(r + c) % 3 === 0 ? 3 : 1.6} fill="white" />
+              <circle
+                key={`${r}-${c}`}
+                cx={10 + c * 20}
+                cy={10 + r * 20}
+                r={(r + c) % 3 === 0 ? 3 : 1.6}
+                fill="white"
+              />
             )),
           )}
         </svg>
@@ -39,7 +49,7 @@ export function AuthLayout({ title, subtitle, children, footer, wide }: AuthLayo
         </div>
         <div className="relative flex flex-col gap-8">
           <div className="flex flex-col gap-4">
-            <h2 className="text-3xl font-bold leading-tight xl:text-4xl">{t('brand.headline')}</h2>
+            <h2 className="text-[1.75rem] font-bold leading-snug [:lang(en)_&]:text-3xl xl:text-[2rem] xl:[:lang(en)_&]:text-4xl">{t('brand.headline')}</h2>
             <p className="max-w-md text-base text-primary-100">{t('brand.subline')}</p>
           </div>
           <ul className="grid gap-4">
@@ -67,11 +77,15 @@ export function AuthLayout({ title, subtitle, children, footer, wide }: AuthLayo
         <div className="flex flex-1 items-start justify-center px-4 pb-10 pt-2 sm:items-center sm:px-8">
           <div className={cn('w-full', wide ? 'max-w-2xl' : 'max-w-md')}>
             <div className="mb-6 flex flex-col gap-1.5">
-              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{title}</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                {title}
+              </h1>
               {subtitle ? <p className="text-[15px] text-muted-foreground">{subtitle}</p> : null}
             </div>
             {children}
-            {footer ? <div className="mt-8 text-center text-sm text-muted-foreground">{footer}</div> : null}
+            {footer ? (
+              <div className="mt-8 text-center text-sm text-muted-foreground">{footer}</div>
+            ) : null}
           </div>
         </div>
       </main>

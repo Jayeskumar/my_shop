@@ -1,5 +1,11 @@
 import * as TabsPrimitive from '@radix-ui/react-tabs'
-import { createContext, forwardRef, useContext, type ComponentPropsWithoutRef, type ElementRef } from 'react'
+import {
+  createContext,
+  forwardRef,
+  useContext,
+  type ComponentPropsWithoutRef,
+  type ElementRef,
+} from 'react'
 import { cn } from '@/lib/cn'
 
 type TabsVariant = 'underline' | 'pills'
@@ -30,7 +36,9 @@ export const TabsList = forwardRef<
       ref={ref}
       className={cn(
         'scrollbar-thin flex max-w-full items-center overflow-x-auto',
-        variant === 'underline' ? 'gap-1 border-b border-border' : 'w-fit gap-1 rounded-lg bg-surface-2 p-1',
+        variant === 'underline'
+          ? 'gap-1 border-b border-border'
+          : 'w-fit gap-1 rounded-lg bg-surface-2 p-1',
         className,
       )}
       {...props}

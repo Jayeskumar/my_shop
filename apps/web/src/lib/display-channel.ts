@@ -49,7 +49,13 @@ export type DisplayMessage =
       expires_at: string | null
     }
   | { type: 'payment_status'; status: 'pending' | 'paid' | 'failed' | 'expired' | 'cancelled' }
-  | { type: 'thank_you'; total_paise: number; paid_paise: number; change_paise: number; invoice_number: string | null }
+  | {
+      type: 'thank_you'
+      total_paise: number
+      paid_paise: number
+      change_paise: number
+      invoice_number: string | null
+    }
 
 interface Envelope {
   v: number

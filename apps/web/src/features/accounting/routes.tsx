@@ -15,17 +15,30 @@ export const routes: FeatureRoutes = {
     },
     {
       path: 'accounting/shifts',
-      handle: { title: 'nav:titles.shifts', permission: ['shifts.operate', 'shifts.manage'], feature: 'shifts' },
+      handle: {
+        title: 'nav:titles.shifts',
+        permission: ['shifts.operate', 'shifts.manage'],
+        feature: 'shifts',
+      },
       Component: ModulePlaceholder,
     },
     {
       path: 'accounting/shifts/:id',
-      handle: { title: 'nav:titles.shift', permission: ['shifts.operate', 'shifts.manage'], feature: 'shifts', parent: { title: 'nav:titles.shifts', to: '/accounting/shifts' } },
+      handle: {
+        title: 'nav:titles.shift',
+        permission: ['shifts.operate', 'shifts.manage'],
+        feature: 'shifts',
+        parent: { title: 'nav:titles.shifts', to: '/accounting/shifts' },
+      },
       Component: ModulePlaceholder,
     },
     {
       path: 'accounting/day-book',
-      handle: { title: 'nav:titles.day_book', permission: 'accounting.read', feature: 'accounting' },
+      handle: {
+        title: 'nav:titles.day_book',
+        permission: 'accounting.read',
+        feature: 'accounting',
+      },
       Component: ModulePlaceholder,
     },
     {
@@ -40,7 +53,11 @@ export const routes: FeatureRoutes = {
     },
     {
       path: 'accounting/statements',
-      handle: { title: 'nav:titles.statements', permission: 'accounting.read', feature: 'accounting' },
+      handle: {
+        title: 'nav:titles.statements',
+        permission: 'accounting.read',
+        feature: 'accounting',
+      },
       Component: ModulePlaceholder,
     },
   ],

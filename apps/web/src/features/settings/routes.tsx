@@ -40,7 +40,11 @@ export const routes: FeatureRoutes = {
     },
     {
       path: 'settings/audit-log',
-      handle: { title: 'nav:titles.settings_audit_log', permission: 'audit.read', feature: 'audit_log' },
+      handle: {
+        title: 'nav:titles.settings_audit_log',
+        permission: 'audit.read',
+        feature: 'audit_log',
+      },
       Component: ModulePlaceholder,
     },
   ],

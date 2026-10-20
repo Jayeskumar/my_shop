@@ -12,7 +12,10 @@ export interface WizardStepperProps {
 export function WizardStepper({ steps, current, onStepClick }: WizardStepperProps) {
   const { t } = useTranslation('auth')
   return (
-    <nav aria-label={t('signup.step', { current: current + 1, total: steps.length })} className="mb-6">
+    <nav
+      aria-label={t('signup.step', { current: current + 1, total: steps.length })}
+      className="mb-6"
+    >
       <ol className="flex items-center gap-2">
         {steps.map((step, i) => {
           const done = i < current
@@ -46,7 +49,10 @@ export function WizardStepper({ steps, current, onStepClick }: WizardStepperProp
                 </span>
               </button>
               {i < steps.length - 1 ? (
-                <span className={cn('h-0.5 flex-1 rounded-full', done ? 'bg-primary' : 'bg-surface-3')} aria-hidden />
+                <span
+                  className={cn('h-0.5 flex-1 rounded-full', done ? 'bg-primary' : 'bg-surface-3')}
+                  aria-hidden
+                />
               ) : null}
             </li>
           )

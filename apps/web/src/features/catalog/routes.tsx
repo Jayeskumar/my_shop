@@ -15,12 +15,20 @@ export const routes: FeatureRoutes = {
     },
     {
       path: 'catalog/products/new',
-      handle: { title: 'nav:titles.product_new', permission: 'catalog.write', parent: { title: 'nav:titles.products', to: '/catalog/products' } },
+      handle: {
+        title: 'nav:titles.product_new',
+        permission: 'catalog.write',
+        parent: { title: 'nav:titles.products', to: '/catalog/products' },
+      },
       Component: ModulePlaceholder,
     },
     {
       path: 'catalog/products/:id',
-      handle: { title: 'nav:titles.product', permission: 'catalog.read', parent: { title: 'nav:titles.products', to: '/catalog/products' } },
+      handle: {
+        title: 'nav:titles.product',
+        permission: 'catalog.read',
+        parent: { title: 'nav:titles.products', to: '/catalog/products' },
+      },
       Component: ModulePlaceholder,
     },
     {
@@ -50,7 +58,11 @@ export const routes: FeatureRoutes = {
     },
     {
       path: 'catalog/import',
-      handle: { title: 'nav:titles.catalog_import', permission: 'catalog.write', parent: { title: 'nav:titles.products', to: '/catalog/products' } },
+      handle: {
+        title: 'nav:titles.catalog_import',
+        permission: 'catalog.write',
+        parent: { title: 'nav:titles.products', to: '/catalog/products' },
+      },
       Component: ModulePlaceholder,
     },
   ],

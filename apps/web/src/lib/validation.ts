@@ -41,7 +41,8 @@ const customError: z.core.$ZodErrorMap = (issue: RawIssue) => {
       return undefined
     case 'too_small': {
       const min = Number(issue.minimum)
-      if (issue.origin === 'string') return min <= 1 ? token('required') : token('min_length', { min })
+      if (issue.origin === 'string')
+        return min <= 1 ? token('required') : token('min_length', { min })
       if (issue.origin === 'number' || issue.origin === 'int' || issue.origin === 'bigint')
         return token('min_value', { min })
       if (issue.origin === 'array' && min <= 1) return token('select')
@@ -104,13 +105,15 @@ const VALIDATION_KEYS = new Set<string>(Object.values(KNOWN_MESSAGES))
 
 function isValidationKey(key: string): key is ValidationKey {
   return (
-    VALIDATION_KEYS.has(key) ||
-    i18next.exists(`errors:validation.${key}`, { lng: 'en' }) // keys added later in errors.json
+    VALIDATION_KEYS.has(key) || i18next.exists(`errors:validation.${key}`, { lng: 'en' }) // keys added later in errors.json
   )
 }
 
 /** Builds a token for a validation key (use in custom form refinements: `message: vt('...')`). */
-export function validationToken(key: ValidationKey, params?: Record<string, string | number>): string {
+export function validationToken(
+  key: ValidationKey,
+  params?: Record<string, string | number>,
+): string {
   return token(key, params)
 }
 
@@ -129,6 +132,7 @@ export function localizeValidationMessage(message: string | undefined | null): s
   }
   const known = KNOWN_MESSAGES[message]
   if (known) return i18next.t(`errors:validation.${known}`)
-  if (message.startsWith('Password must be at least')) return i18next.t('errors:validation.password_min')
+  if (message.startsWith('Password must be at least'))
+    return i18next.t('errors:validation.password_min')
   return message
 }

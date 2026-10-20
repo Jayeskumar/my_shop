@@ -1,4 +1,14 @@
-import { Building2, KeyRound, LogOut, Monitor, Moon, Sun, UserCircle2, UserRoundCog, Users } from 'lucide-react'
+import {
+  Building2,
+  KeyRound,
+  LogOut,
+  Monitor,
+  Moon,
+  Sun,
+  UserCircle2,
+  UserRoundCog,
+  Users,
+} from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
@@ -35,7 +45,11 @@ export function UserMenu() {
   if (!user) return null
   const memberships = session?.memberships ?? []
   const hasDevice = getDeviceCredentials() !== null && Boolean(me)
-  const business = me ? (getLanguage() === 'ta' && me.tenant.name_ta ? me.tenant.name_ta : me.tenant.name) : null
+  const business = me
+    ? getLanguage() === 'ta' && me.tenant.name_ta
+      ? me.tenant.name_ta
+      : me.tenant.name
+    : null
 
   const signOut = async (all: boolean): Promise<void> => {
     await logout({ all })
@@ -53,14 +67,20 @@ export function UserMenu() {
           <Avatar name={user.full_name} size="sm" />
           <span className="hidden max-w-36 flex-col text-start leading-tight xl:flex">
             <span className="truncate text-sm font-semibold">{user.full_name}</span>
-            {me ? <span className="truncate text-xs text-muted-foreground">{me.membership.role_name}</span> : null}
+            {me ? (
+              <span className="truncate text-xs text-muted-foreground">
+                {me.membership.role_name}
+              </span>
+            ) : null}
           </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64">
           <DropdownMenuLabel className="flex flex-col gap-0.5 normal-case">
             <span className="text-sm font-semibold text-foreground">{user.full_name}</span>
             {business ? <span className="font-normal">{business}</span> : null}
-            {user.is_platform_admin ? <span className="font-normal text-primary">{t('shell.platform_admin')}</span> : null}
+            {user.is_platform_admin ? (
+              <span className="font-normal text-primary">{t('shell.platform_admin')}</span>
+            ) : null}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem icon={<UserCircle2 />} onSelect={() => setDialog('profile')}>
@@ -75,19 +95,31 @@ export function UserMenu() {
             </DropdownMenuItem>
           ) : null}
           {memberships.length > 1 ? (
-            <DropdownMenuItem icon={<Building2 />} onSelect={() => void navigate('/select-business')}>
+            <DropdownMenuItem
+              icon={<Building2 />}
+              onSelect={() => void navigate('/select-business')}
+            >
               {t('shell.switch_business')}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger icon={theme === 'dark' ? <Moon /> : theme === 'light' ? <Sun /> : <Monitor />}>
+            <DropdownMenuSubTrigger
+              icon={theme === 'dark' ? <Moon /> : theme === 'light' ? <Sun /> : <Monitor />}
+            >
               {t('common:theme.label')}
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
-              <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setThemePreference(v as ThemePreference)}>
-                <DropdownMenuRadioItem value="light">{t('common:theme.light')}</DropdownMenuRadioItem>
+              <DropdownMenuRadioGroup
+                value={theme}
+                onValueChange={(v) => setThemePreference(v as ThemePreference)}
+              >
+                <DropdownMenuRadioItem value="light">
+                  {t('common:theme.light')}
+                </DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="dark">{t('common:theme.dark')}</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="system">{t('common:theme.system')}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="system">
+                  {t('common:theme.system')}
+                </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
             </DropdownMenuSubContent>
           </DropdownMenuSub>
@@ -100,9 +132,20 @@ export function UserMenu() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <ProfileDialog open={dialog === 'profile'} onOpenChange={(o) => setDialog(o ? 'profile' : null)} />
-      <ChangePasswordDialog open={dialog === 'password'} onOpenChange={(o) => setDialog(o ? 'password' : null)} />
-      {hasDevice ? <PinSwitchDialog open={dialog === 'pin'} onOpenChange={(o) => setDialog(o ? 'pin' : null)} /> : null}
+      <ProfileDialog
+        open={dialog === 'profile'}
+        onOpenChange={(o) => setDialog(o ? 'profile' : null)}
+      />
+      <ChangePasswordDialog
+        open={dialog === 'password'}
+        onOpenChange={(o) => setDialog(o ? 'password' : null)}
+      />
+      {hasDevice ? (
+        <PinSwitchDialog
+          open={dialog === 'pin'}
+          onOpenChange={(o) => setDialog(o ? 'pin' : null)}
+        />
+      ) : null}
     </>
   )
 }

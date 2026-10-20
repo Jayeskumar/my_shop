@@ -4,14 +4,23 @@
  *
  *   <MoneyInput value={field.value} onChange={field.onChange} />   // via RHF <Controller>
  */
-import { forwardRef, useEffect, useRef, useState, type ClipboardEvent, type FocusEvent } from 'react'
+import {
+  forwardRef,
+  useEffect,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type FocusEvent,
+} from 'react'
 import { tryParseRupees } from '@kadai/shared/money'
 import { cn } from '@/lib/cn'
 import { formatMoneyInputValue, moneyEditingText, parseMoneyText } from './input-parsing'
 import { Input, type InputProps } from './input'
 
-export interface MoneyInputProps
-  extends Omit<InputProps, 'value' | 'defaultValue' | 'onChange' | 'type' | 'startAdornment' | 'inputMode'> {
+export interface MoneyInputProps extends Omit<
+  InputProps,
+  'value' | 'defaultValue' | 'onChange' | 'type' | 'startAdornment' | 'inputMode'
+> {
   /** Paise; null/undefined = empty. */
   value: number | null | undefined
   onChange: (paise: number | null) => void
@@ -24,7 +33,16 @@ export interface MoneyInputProps
 const ALLOWED = /^-?[\d,]*(\.\d{0,2})?$/
 
 export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(function MoneyInput(
-  { value, onChange, allowNegative = false, showSymbol = true, onBlur, onFocus, className, ...props },
+  {
+    value,
+    onChange,
+    allowNegative = false,
+    showSymbol = true,
+    onBlur,
+    onFocus,
+    className,
+    ...props
+  },
   ref,
 ) {
   const [text, setText] = useState(() => formatMoneyInputValue(value))

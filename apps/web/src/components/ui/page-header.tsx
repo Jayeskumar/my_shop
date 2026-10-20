@@ -37,11 +37,16 @@ export function Breadcrumbs({ items, className }: { items: Crumb[]; className?: 
                   {c.label}
                 </Link>
               ) : (
-                <span className={cn('truncate', last && 'text-foreground')} aria-current={last ? 'page' : undefined}>
+                <span
+                  className={cn('truncate', last && 'text-foreground')}
+                  aria-current={last ? 'page' : undefined}
+                >
                   {c.label}
                 </span>
               )}
-              {!last ? <ChevronRight className="size-3.5 shrink-0 rtl:rotate-180" aria-hidden /> : null}
+              {!last ? (
+                <ChevronRight className="size-3.5 shrink-0 rtl:rotate-180" aria-hidden />
+              ) : null}
             </li>
           )
         })}
@@ -50,10 +55,23 @@ export function Breadcrumbs({ items, className }: { items: Crumb[]; className?: 
   )
 }
 
-export function PageHeader({ title, description, breadcrumbs, actions, backTo, meta, className }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  description,
+  breadcrumbs,
+  actions,
+  backTo,
+  meta,
+  className,
+}: PageHeaderProps) {
   const { t } = useTranslation()
   return (
-    <header className={cn('flex flex-col gap-3 pb-5 sm:flex-row sm:items-end sm:justify-between', className)}>
+    <header
+      className={cn(
+        'flex flex-col gap-3 pb-5 sm:flex-row sm:items-end sm:justify-between',
+        className,
+      )}
+    >
       <div className="flex min-w-0 flex-col gap-1.5">
         {breadcrumbs?.length ? <Breadcrumbs items={breadcrumbs} /> : null}
         <div className="flex min-w-0 items-center gap-2">
@@ -66,12 +84,18 @@ export function PageHeader({ title, description, breadcrumbs, actions, backTo, m
               <ArrowLeft className="size-5 rtl:rotate-180" />
             </Link>
           ) : null}
-          <h1 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">{title}</h1>
+          <h1 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+            {title}
+          </h1>
           {meta ? <div className="flex shrink-0 items-center gap-2">{meta}</div> : null}
         </div>
-        {description ? <p className="max-w-3xl text-sm text-muted-foreground">{description}</p> : null}
+        {description ? (
+          <p className="max-w-3xl text-sm text-muted-foreground">{description}</p>
+        ) : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2 sm:justify-end">{actions}</div> : null}
+      {actions ? (
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">{actions}</div>
+      ) : null}
     </header>
   )
 }

@@ -8,9 +8,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui'
-import { selectRegister, selectStore, useAuth, useCurrentRegister, useCurrentStore } from '@/lib/auth'
+import {
+  selectRegister,
+  selectStore,
+  useAuth,
+  useCurrentRegister,
+  useCurrentStore,
+} from '@/lib/auth'
 import { cn } from '@/lib/cn'
 import { getLanguage } from '@/lib/i18n'
+
+/** "Counter A" when the name already says it, else "Counter A · Billing desk". */
+function registerLabel(register: { code: string; name: string }, counterWord: string): string {
+  return register.name.toUpperCase().includes(register.code.toUpperCase())
+    ? register.name
+    : `${counterWord} ${register.code} · ${register.name}`
+}
 
 /** Current store / counter, switchable unless the session is bound to a trusted device. */
 export function StoreSwitcher({ className }: { className?: string }) {
@@ -20,7 +33,11 @@ export function StoreSwitcher({ className }: { className?: string }) {
   const register = useCurrentRegister()
   if (!me) return null
   const ta = getLanguage() === 'ta'
-  const storeName = store ? (ta && store.name_ta ? store.name_ta : store.name) : t('shell.select_store')
+  const storeName = store
+    ? ta && store.name_ta
+      ? store.name_ta
+      : store.name
+    : t('shell.select_store')
   const registers = me.registers.filter((r) => r.is_active && r.store_id === store?.id)
   const stores = me.stores.filter((s) => s.is_active)
   const locked = Boolean(me.device)
@@ -34,7 +51,7 @@ export function StoreSwitcher({ className }: { className?: string }) {
       <span className="flex min-w-0 flex-col text-start leading-tight">
         <span className="truncate text-sm font-semibold">{storeName}</span>
         <span className="truncate text-xs text-muted-foreground">
-          {register ? `${t('shell.counter')} ${register.code} · ${register.name}` : t('shell.no_counter')}
+          {register ? registerLabel(register, t('shell.counter')) : t('shell.no_counter')}
         </span>
       </span>
       {locked ? <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-hidden /> : null}
@@ -78,7 +95,11 @@ export function StoreSwitcher({ className }: { className?: string }) {
             {stores.length > 1 ? <DropdownMenuSeparator /> : null}
             <DropdownMenuLabel>{t('shell.select_counter')}</DropdownMenuLabel>
             {registers.map((r) => (
-              <DropdownMenuItem key={r.id} icon={<MonitorSmartphone />} onSelect={() => selectRegister(r.id)}>
+              <DropdownMenuItem
+                key={r.id}
+                icon={<MonitorSmartphone />}
+                onSelect={() => selectRegister(r.id)}
+              >
                 <span className="flex items-center justify-between gap-2">
                   <span className="truncate">
                     {r.code} · {r.name}

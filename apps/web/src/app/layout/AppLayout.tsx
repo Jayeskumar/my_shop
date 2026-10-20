@@ -4,7 +4,14 @@
  * bottom quick-actions. Pages render in <Outlet/> inside an error boundary that resets on
  * navigation.
  */
-import { AlertTriangle, Menu, PanelLeftClose, PanelLeftOpen, ShoppingCart, WifiOff } from 'lucide-react'
+import {
+  AlertTriangle,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ShoppingCart,
+  WifiOff,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, Outlet, useLocation, useNavigate, useNavigation } from 'react-router'
@@ -30,7 +37,11 @@ function RouteProgress() {
   const navigation = useNavigation()
   if (navigation.state === 'idle') return null
   return (
-    <div className="fixed inset-x-0 top-0 z-[60] h-0.5 overflow-hidden" role="progressbar" aria-busy>
+    <div
+      className="fixed inset-x-0 top-0 z-[60] h-0.5 overflow-hidden"
+      role="progressbar"
+      aria-busy
+    >
       <div className="h-full w-1/3 animate-[slide-in-right_1s_ease-in-out_infinite] bg-accent" />
     </div>
   )
@@ -44,16 +55,24 @@ function Banners() {
   return (
     <>
       {me?.tenant.status === 'suspended' ? (
-        <div role="alert" className="flex items-center gap-2 bg-danger px-4 py-2 text-sm font-medium text-danger-foreground">
+        <div
+          role="alert"
+          className="flex items-center gap-2 bg-danger px-4 py-2 text-sm font-medium text-danger-foreground"
+        >
           <AlertTriangle className="size-4 shrink-0" />
           {t('nav:shell.suspended_banner_generic')}
         </div>
       ) : null}
       {offline ? (
-        <div role="status" className="flex items-center gap-2 bg-warning-soft px-4 py-1.5 text-sm text-warning-soft-foreground">
+        <div
+          role="status"
+          className="flex items-center gap-2 bg-warning-soft px-4 py-1.5 text-sm text-warning-soft-foreground"
+        >
           <WifiOff className="size-4 shrink-0" />
           <span className="truncate">
-            {status.browserOnline ? t('common:network.server_down_hint') : t('common:network.offline_hint')}
+            {status.browserOnline
+              ? t('common:network.server_down_hint')
+              : t('common:network.offline_hint')}
           </span>
         </div>
       ) : null}
@@ -109,19 +128,42 @@ export function AppLayout() {
           collapsed ? 'w-[72px]' : 'w-64',
         )}
       >
-        <div className={cn('flex h-16 shrink-0 items-center border-b border-border', collapsed ? 'justify-center' : 'px-5')}>
-          <Link to="/" aria-label="Kadai" className="rounded-md focus-visible:outline-2 focus-visible:outline-ring">
+        <div
+          className={cn(
+            'flex h-16 shrink-0 items-center border-b border-border',
+            collapsed ? 'justify-center' : 'px-5',
+          )}
+        >
+          <Link
+            to="/"
+            aria-label="Kadai"
+            className="rounded-md focus-visible:outline-2 focus-visible:outline-ring"
+          >
             <BrandMark size="sm" withName={!collapsed} />
           </Link>
         </div>
-        <ScrollArea className="min-h-0 flex-1" viewportClassName={cn('py-3', collapsed ? 'px-2' : 'px-3')}>
+        <ScrollArea
+          className="min-h-0 flex-1"
+          viewportClassName={cn('py-3', collapsed ? 'px-2' : 'px-3')}
+        >
           {collapsed ? <NavRail groups={groups} /> : <NavList groups={groups} />}
         </ScrollArea>
-        <div className={cn('flex shrink-0 border-t border-border p-2', collapsed ? 'justify-center' : 'justify-end')}>
+        <div
+          className={cn(
+            'flex shrink-0 border-t border-border p-2',
+            collapsed ? 'justify-center' : 'justify-end',
+          )}
+        >
           <IconButton
             size="sm"
             label={collapsed ? t('shell.expand_sidebar') : t('shell.collapse_sidebar')}
-            icon={collapsed ? <PanelLeftOpen className="rtl:rotate-180" /> : <PanelLeftClose className="rtl:rotate-180" />}
+            icon={
+              collapsed ? (
+                <PanelLeftOpen className="rtl:rotate-180" />
+              ) : (
+                <PanelLeftClose className="rtl:rotate-180" />
+              )
+            }
             onClick={toggleCollapsed}
           />
         </div>
@@ -144,7 +186,12 @@ export function AppLayout() {
         <NavList groups={groups} onNavigate={() => setDrawerOpen(false)} />
       </Drawer>
 
-      <div className={cn('flex min-h-dvh flex-col transition-[padding] duration-200', collapsed ? 'lg:ps-[72px]' : 'lg:ps-64')}>
+      <div
+        className={cn(
+          'flex min-h-dvh flex-col transition-[padding] duration-200',
+          collapsed ? 'lg:ps-[72px]' : 'lg:ps-64',
+        )}
+      >
         <header className="no-print sticky top-0 z-20 border-b border-border bg-surface/90 pt-safe backdrop-blur supports-[backdrop-filter]:bg-surface/75">
           <div className="flex h-16 items-center gap-2 px-3 sm:px-5">
             <IconButton
@@ -176,7 +223,11 @@ export function AppLayout() {
           </div>
         </header>
         <Banners />
-        <main id="main" tabIndex={-1} className="flex-1 px-4 pb-24 pt-5 outline-none sm:px-6 md:pb-10 lg:px-8">
+        <main
+          id="main"
+          tabIndex={-1}
+          className="flex-1 px-4 pb-24 pt-5 outline-none sm:px-6 md:pb-10 lg:px-8"
+        >
           <div className="mx-auto w-full max-w-[1600px]">
             <ErrorBoundary resetKeys={[location.pathname]}>
               <Outlet />

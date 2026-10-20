@@ -14,12 +14,7 @@ import { checkAccess } from '@/lib/permissions'
 import { SplashScreen } from './pages/SplashScreen'
 import { ForbiddenPage, ModeUnavailablePage, NotFoundPage, UpgradePage } from './pages/StatusPages'
 import { useRouteHandles } from './route-handles'
-
-/** Only same-app relative paths are accepted as ?next= (no open redirects). */
-export function safeNext(next: string | null | undefined, fallback = '/'): string {
-  if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) return fallback
-  return next
-}
+import { safeNext } from './safe-next'
 
 export function RequireSession() {
   const status = useAuth((s) => s.status)
@@ -55,7 +50,12 @@ export function GuestOnly() {
   if (status === 'authenticated') return <Navigate to={safeNext(params.get('next'))} replace />
   if (status === 'needs_tenant') {
     const next = params.get('next')
-    return <Navigate to={next ? `/select-business?next=${encodeURIComponent(next)}` : '/select-business'} replace />
+    return (
+      <Navigate
+        to={next ? `/select-business?next=${encodeURIComponent(next)}` : '/select-business'}
+        replace
+      />
+    )
   }
   return <Outlet />
 }

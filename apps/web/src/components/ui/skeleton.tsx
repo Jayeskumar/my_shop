@@ -2,7 +2,13 @@ import type { HTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
 
 export function Skeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div aria-hidden className={cn('animate-shimmer rounded-md bg-surface-2', className)} {...props} />
+  return (
+    <div
+      aria-hidden
+      className={cn('animate-shimmer rounded-md bg-surface-2', className)}
+      {...props}
+    />
+  )
 }
 
 /** A few text-line placeholders. */

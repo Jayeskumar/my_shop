@@ -16,4 +16,3 @@ export function initialsOf(name: string): string {
   const picks = words.length > 1 ? [words[0]!, words[words.length - 1]!] : words.slice(0, 1)
   return picks.map(first).join('').toLocaleUpperCase('en-IN')
 }
-

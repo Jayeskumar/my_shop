@@ -67,29 +67,54 @@ export function PinPad({
         role="img"
         aria-roledescription={`${value.length}/${maxLength}`}
       >
-        {Array.from({ length: Math.max(minLength, Math.min(maxLength, Math.max(value.length, minLength))) }, (_, i) => (
-          <span
-            key={i}
-            className={cn(
-              'size-4 rounded-full border-2 transition-colors',
-              i < value.length ? (error ? 'border-danger bg-danger' : 'border-primary bg-primary') : 'border-input',
-            )}
-          />
-        ))}
+        {Array.from(
+          { length: Math.max(minLength, Math.min(maxLength, Math.max(value.length, minLength))) },
+          (_, i) => (
+            <span
+              key={i}
+              className={cn(
+                'size-4 rounded-full border-2 transition-colors',
+                i < value.length
+                  ? error
+                    ? 'border-danger bg-danger'
+                    : 'border-primary bg-primary'
+                  : 'border-input',
+              )}
+            />
+          ),
+        )}
       </div>
       <div className="grid w-full max-w-xs grid-cols-3 gap-3">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
-          <button key={d} type="button" className={keyClass} disabled={disabled} onClick={() => press(d)}>
+          <button
+            key={d}
+            type="button"
+            className={keyClass}
+            disabled={disabled}
+            onClick={() => press(d)}
+          >
             {d}
           </button>
         ))}
-        <button type="button" className={cn(keyClass, 'text-base')} disabled={disabled || !value} onClick={() => onChange('')} aria-label={t('pin.clear')}>
+        <button
+          type="button"
+          className={cn(keyClass, 'text-base')}
+          disabled={disabled || !value}
+          onClick={() => onChange('')}
+          aria-label={t('pin.clear')}
+        >
           <X className="size-6" />
         </button>
         <button type="button" className={keyClass} disabled={disabled} onClick={() => press('0')}>
           0
         </button>
-        <button type="button" className={keyClass} disabled={disabled || !value} onClick={back} aria-label={t('pin.backspace')}>
+        <button
+          type="button"
+          className={keyClass}
+          disabled={disabled || !value}
+          onClick={back}
+          aria-label={t('pin.backspace')}
+        >
           <Delete className="size-6" />
         </button>
       </div>

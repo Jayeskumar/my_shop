@@ -4,10 +4,8 @@ import { cn } from '@/lib/cn'
 import { useFormFieldControl } from './form-field-context'
 import { fieldVariants, type FieldSize } from './variants'
 
-
 export interface InputProps
-  extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'>,
-    VariantProps<typeof fieldVariants> {
+  extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'>, VariantProps<typeof fieldVariants> {
   /** Content inside the border on the left (icon, "₹", "+91"). */
   startAdornment?: ReactNode
   /** Content inside the border on the right (unit, clear button, show-password toggle). */
@@ -41,7 +39,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   const control = useFormFieldControl({
     id,
     'aria-describedby': describedBy,
-    'aria-invalid': ariaInvalid === undefined ? undefined : ariaInvalid === true || ariaInvalid === 'true',
+    'aria-invalid':
+      ariaInvalid === undefined ? undefined : ariaInvalid === true || ariaInvalid === 'true',
   })
   const s: FieldSize = size ?? 'md'
   const input = (

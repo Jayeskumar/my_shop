@@ -25,7 +25,12 @@ export function StatusDot({ tone = 'neutral', pulse, label, className }: StatusD
     <span className={cn('inline-flex items-center gap-1.5 text-sm', className)}>
       <span className="relative inline-flex size-2.5">
         {pulse ? (
-          <span className={cn('absolute inline-flex size-full animate-ping rounded-full opacity-60', colors[tone])} />
+          <span
+            className={cn(
+              'absolute inline-flex size-full animate-ping rounded-full opacity-60',
+              colors[tone],
+            )}
+          />
         ) : null}
         <span className={cn('relative inline-flex size-2.5 rounded-full', colors[tone])} />
       </span>

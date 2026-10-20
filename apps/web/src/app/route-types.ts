@@ -46,7 +46,9 @@ export interface FeatureRoutes {
  * Code-split page loader for a route's `lazy` field:
  *   lazy: page(() => import('./pages/ProductsPage'))   // module must `export default` the page
  */
-export function page(loader: () => Promise<{ default: ComponentType }>): NonNullable<RouteObject['lazy']> {
+export function page(
+  loader: () => Promise<{ default: ComponentType }>,
+): NonNullable<RouteObject['lazy']> {
   return async () => {
     const mod = await loader()
     return { Component: mod.default }
