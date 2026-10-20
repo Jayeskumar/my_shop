@@ -53,6 +53,11 @@ export const PosSettingsSchema = z.object({
   sound: z.boolean().default(true),
   /** Product ids pinned as quick keys on the billing screen. */
   quick_keys: z.array(z.uuid()).max(60).default([]),
+  /**
+   * With plan feature `shifts`: a register must have an open shift before it can bill
+   * (POS prompts to open one; the server answers 422 reason shift_required).
+   */
+  require_open_shift: z.boolean().default(false),
 })
 
 export const DrugScheduleSchema = z.enum(['OTC', 'G', 'H', 'H1', 'X'])
@@ -296,6 +301,58 @@ export function initialSettingsFor(businessType: BusinessType): TenantSettings {
   return resolveSettings(settingsPresetFor(businessType))
 }
 
+/**
+ * Weighing scale on a register's serial port (Web Serial, ARCHITECTURE.md §21.8). Common Indian
+ * scales stream ASCII weight frames continuously ('ST,GS,  1.250kg', '   1.250') or answer a
+ * request command. `weight_pattern` overrides the built-in parser: a regular expression whose
+ * first capture group is the number.
+ */
+export const RegisterScaleSettingsSchema = z.object({
+  enabled: z.boolean().default(false),
+  baud_rate: z
+    .union([
+      z.literal(1200),
+      z.literal(2400),
+      z.literal(4800),
+      z.literal(9600),
+      z.literal(19200),
+      z.literal(38400),
+      z.literal(57600),
+      z.literal(115200),
+    ])
+    .default(9600),
+  data_bits: z.union([z.literal(7), z.literal(8)]).default(8),
+  stop_bits: z.union([z.literal(1), z.literal(2)]).default(1),
+  parity: z.enum(['none', 'even', 'odd']).default('none'),
+  flow_control: z.enum(['none', 'hardware']).default('none'),
+  /** continuous = the scale streams frames; on_request = send `request_command` first. */
+  protocol: z.enum(['continuous', 'on_request']).default('continuous'),
+  /** e.g. 'W' or 'P' (sent followed by CR). */
+  request_command: z.string().max(16).nullable().default(null),
+  weight_pattern: z
+    .string()
+    .max(200)
+    .nullable()
+    .default(null)
+    .refine(
+      (p) => {
+        if (p === null) return true
+        try {
+          new RegExp(p)
+          return true
+        } catch {
+          return false
+        }
+      },
+      { message: 'weight_pattern_invalid' },
+    ),
+  /** Unit of the number when the frame carries none. */
+  weight_unit: z.enum(['kg', 'g']).default('kg'),
+  /** Ignore frames the scale marks unstable ('US'). */
+  stable_only: z.boolean().default(true),
+})
+export type RegisterScaleSettings = z.output<typeof RegisterScaleSettingsSchema>
+
 /** Per-register (counter) settings, `registers.settings`. */
 export const RegisterSettingsSchema = z.object({
   /** null = use the tenant invoice print format. */
@@ -304,5 +361,11 @@ export const RegisterSettingsSchema = z.object({
   customer_display: z.boolean().default(false),
   cash_drawer: z.boolean().default(false),
   printer_name: z.string().trim().max(100).nullable().default(null),
+  /**
+   * The counter browser runs with --kiosk-printing (Kadai desktop shortcut): print receipts
+   * silently, without the print dialog flow.
+   */
+  silent_print: z.boolean().default(false),
+  scale: RegisterScaleSettingsSchema.prefault({}),
 })
 export type RegisterSettings = z.output<typeof RegisterSettingsSchema>

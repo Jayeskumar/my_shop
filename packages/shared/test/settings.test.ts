@@ -167,6 +167,31 @@ describe('vertical presets', () => {
       customer_display: false,
       cash_drawer: false,
       printer_name: null,
+      silent_print: false,
+      scale: {
+        enabled: false,
+        baud_rate: 9600,
+        data_bits: 8,
+        stop_bits: 1,
+        parity: 'none',
+        flow_control: 'none',
+        protocol: 'continuous',
+        request_command: null,
+        weight_pattern: null,
+        weight_unit: 'kg',
+        stable_only: true,
+      },
     })
+  })
+  it('RegisterSettingsSchema scale settings', () => {
+    const s = RegisterSettingsSchema.parse({
+      scale: { enabled: true, baud_rate: 2400, weight_pattern: 'GS,\\s*([0-9.]+)kg' },
+    })
+    expect(s.scale).toMatchObject({ enabled: true, baud_rate: 2400, protocol: 'continuous' })
+    expect(RegisterSettingsSchema.safeParse({ scale: { baud_rate: 1234 } }).success).toBe(false)
+    expect(RegisterSettingsSchema.safeParse({ scale: { weight_pattern: '([0-9' } }).success).toBe(
+      false,
+    )
+    expect(DEFAULT_SETTINGS.pos.require_open_shift).toBe(false)
   })
 })
