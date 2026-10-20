@@ -197,7 +197,7 @@ install_docker_mode() {
   KADAI_INSTALL_MODE=docker
   KADAI_DOTENV=$envf
   log "pulling images"
-  dc pull
+  kadai_pull_images
   log "starting PostgreSQL and Kadai (the first start applies all migrations)"
   dc up -d
   open_firewall

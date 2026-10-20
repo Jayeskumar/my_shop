@@ -850,6 +850,10 @@ sends the public invoice link `/i/<share_token>` (+ UPI pay link when due).
 | `KADAI_ENABLE_MOCK_PAYMENTS` | `false` | dev/test |
 | `LOG_LEVEL` | `info` | |
 
+Deployment and tuning variables (`TRUST_PROXY`, pool sizes, statement/idle timeouts, token TTLs,
+`KADAI_HEALTH_REQUIRE_WORKER`, `METRICS_TOKEN`, …) and `VAR_FILE` secrets are listed in
+[DEPLOYMENT.md §2](./DEPLOYMENT.md#2-configuration).
+
 ---
 
 ## 20. Local development

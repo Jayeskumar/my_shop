@@ -121,7 +121,10 @@ if [[ "$KADAI_INSTALL_MODE" == docker ]]; then
   confirm "Upgrade Kadai to $target?"
 
   log "pulling $target (Kadai keeps running meanwhile)"
-  docker pull "$target"
+  if ! docker pull "$target"; then
+    docker image inspect "$target" >/dev/null 2>&1 || die "cannot pull $target and it is not present locally"
+    warn "could not pull $target; using the local copy"
+  fi
   dump=$(pre_upgrade_backup)
   printf 'PREVIOUS=%s\nBACKUP=%s\nAT=%s\n' "$current" "$dump" "$(date -Iseconds)" >"$state_file"
 

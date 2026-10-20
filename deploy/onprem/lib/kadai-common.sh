@@ -94,6 +94,20 @@ kadai_detect_mode() {
 
 dc() { docker compose --project-directory "$KADAI_HOME" -f "$KADAI_HOME/docker-compose.yml" "$@"; }
 
+# Pulls the compose images; an image that cannot be pulled is fine when it is already present
+# locally (offline installs: docker load -i kadai-images.tar before running the scripts).
+kadai_pull_images() {
+  dc pull --ignore-pull-failures || true
+  local img missing=0
+  for img in $(dc config --images); do
+    if ! docker image inspect "$img" >/dev/null 2>&1; then
+      warn "image $img is neither pullable nor present locally"
+      missing=1
+    fi
+  done
+  ((missing == 0)) || die "missing container images (internet access, registry login or docker load needed)"
+}
+
 # Host folder for backups (+ the path the application sees, recorded in the backups table).
 kadai_backup_dir() {
   local configured
