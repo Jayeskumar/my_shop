@@ -12,6 +12,7 @@ import {
   fileUploadIssue,
 } from '@kadai/shared/api/identity'
 import { Button, Skeleton, Spinner } from '@/components/ui'
+import { isApiError } from '@/lib/api'
 import { useCan } from '@/lib/auth'
 import { uploadFile, useFileObjectUrl } from '../api'
 import { notifySettingsError, useValidationKeyText } from '../lib/messages'
@@ -57,7 +58,12 @@ export function LogoField({
       setLocal({ id: uploaded.id, url: URL.createObjectURL(file) })
       onChange(uploaded.id)
     } catch (error) {
-      notifySettingsError(error)
+      // The server re-checks type, size and content (magic bytes): show its key inline.
+      const fileIssue = isApiError(error)
+        ? error.validationIssues.find((i) => i.path === 'file')
+        : undefined
+      if (fileIssue) setIssue(fileIssue.code ?? fileIssue.message)
+      else notifySettingsError(error)
     } finally {
       setUploading(false)
     }

@@ -44,7 +44,8 @@ export function ThisComputerCard({
           <p className="mt-1 text-sm text-muted-foreground">
             {register
               ? t('devices.this_counter', {
-                  register: `${register.code} · ${register.name}`,
+                  register: register.name,
+                  code: register.code,
                   store: store ? localizedName(store.name, store.name_ta) : '',
                 })
               : t('devices.this_store_only', {

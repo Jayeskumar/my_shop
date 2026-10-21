@@ -5,7 +5,7 @@
  */
 import { Copy, ShieldCheck, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { FormProvider, useForm } from 'react-hook-form'
+import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import {
   RoleCreateSchema,
@@ -21,6 +21,7 @@ import { applyServerFieldErrors } from '@/lib/form-errors'
 import { useCreateRole, useDeleteRole, usePermissionCatalog, useUpdateRole } from '../api'
 import { changedTopLevel, contractResolver, textOrNull } from '../lib/forms'
 import { roleLabel } from '../lib/members'
+import { roleCodeFromName } from '../lib/role-permissions'
 import {
   errorReason,
   notifySettingsError,
@@ -94,6 +95,9 @@ export function RoleEditorDialog({
     ),
     mode: 'onTouched',
   })
+  const nameValue = useWatch({ control: form.control, name: 'name' })
+  // What the server will use when the code is left empty.
+  const codePlaceholder = nameValue.trim() ? roleCodeFromName(nameValue) : 'senior_cashier'
   const create = useCreateRole()
   const update = useUpdateRole()
   const remove = useDeleteRole()
@@ -298,7 +302,7 @@ export function RoleEditorDialog({
                       {...form.register('code')}
                       maxLength={40}
                       className="font-mono"
-                      placeholder="senior_cashier"
+                      placeholder={codePlaceholder}
                     />
                   </SettingsField>
                 ) : null}

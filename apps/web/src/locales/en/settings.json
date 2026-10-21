@@ -175,6 +175,8 @@
     "file_empty": "The file is empty",
     "file_type": "This type of file is not accepted",
     "file_too_large": "The file is too large",
+    "file_content": "The file content does not match its type (is it really an image or PDF?)",
+    "file_required": "Choose a file to upload",
     "scale_length": "Prefix + item code + value + 1 check digit must make 13 digits",
     "scale_prefix": "Prefixes are 1–3 digit numbers (e.g. 21, 22)",
     "weight_pattern_invalid": "This pattern is not a valid regular expression"
@@ -323,7 +325,7 @@
     "title": "Trusted computers",
     "description": "Computers registered as counters. Revoke one that is lost, sold or replaced.",
     "this_registered": "This computer is a registered counter",
-    "this_counter": "Counter {{register}} at {{store}}.",
+    "this_counter": "{{register}} (code {{code}}) at {{store}}.",
     "this_store_only": "Back-office computer at {{store}}.",
     "this_since": "Registered on {{date}}.",
     "this_badge": "This computer",

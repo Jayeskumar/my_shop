@@ -21,3 +21,19 @@ export function impliedBy(
   }
   return out
 }
+
+/**
+ * The code the server derives from a role name when none is given (mirrors slugRoleCode in the
+ * identity module): 'Senior pharmacist' → 'senior_pharmacist'; Tamil-only names → 'custom_role'.
+ */
+export function roleCodeFromName(name: string): string {
+  const slug = name
+    .normalize('NFKD')
+    .replace(/[^\x20-\x7e]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^[^a-z]+/, '')
+    .replace(/_+$/g, '')
+    .slice(0, 32)
+  return slug.length >= 2 ? slug : 'custom_role'
+}

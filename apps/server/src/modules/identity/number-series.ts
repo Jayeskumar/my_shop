@@ -35,7 +35,7 @@ import { assertNotStale, notFound, validationError } from '../../core/errors'
 import { assertStoreAccess } from '../../core/http'
 import { DEFAULT_PADDING, PREFIX_TEMPLATES, renderPrefix } from '../../core/numbering'
 import type { Tx } from '../../db/tenant'
-import { type Ctx, iso, reasonConflict, reasonUnprocessable, tenantToday } from './common'
+import { type Ctx, iso, lockKey, reasonConflict, reasonUnprocessable, tenantToday } from './common'
 
 type ListQuery = z.output<typeof NumberSeriesListQuerySchema>
 type CreateBody = z.output<typeof NumberSeriesCreateSchema>
@@ -240,6 +240,8 @@ export async function listNumberSeries(
  * yet — would produce the same numbers.
  */
 async function assertPrefixFree(tx: Tx, ctx: Ctx, fy: string, prefix: string, self: SeriesKey) {
+  // Serialise prefix changes of one FY: two admins cannot both claim the same free prefix.
+  await lockKey(tx, `kadai_series_prefix:${ctx.tenantId}:${fy}`)
   // The caller's scope limits what they see; the clash check must cover every store.
   const all = await loadUniverse(tx, { ...ctx, storeIds: null }, fy)
   const selfKey = keyOf(self)
@@ -330,7 +332,7 @@ export async function createNumberSeries(
       : undefined
     if (!reg) {
       throw validationError([
-        { path: 'register_id', message: 'Unknown register', code: 'register_unknown' },
+        { path: 'register_id', message: 'register_unknown', code: 'register_unknown' },
       ])
     }
     if (reg.store_id !== store.id) {

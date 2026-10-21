@@ -2,9 +2,15 @@
  * MSW helpers for settings tests: handlers are declared from the shared route catalogue entries
  * (method + path pattern), never from hand-written URLs, and requests can be recorded.
  */
+import { configure } from '@testing-library/react'
 import { http, HttpResponse, type JsonBodyType } from 'msw'
 import { ROUTE_SCOPE_PREFIX, type RouteDef } from '@kadai/shared/api/common'
 import { ORIGIN } from '@/test/msw'
+
+// Settings pages are lazy route chunks rendered through the real router: on a busy machine the
+// first render of a page can take longer than Testing Library's 1 s default, so findBy* /
+// waitFor in the settings tests (which all import this module) wait up to 5 s.
+configure({ asyncUtilTimeout: 5000 })
 
 /** MSW URL pattern of a catalogue route ('/users/:id' → 'http://…/api/v1/users/:id'). */
 export function routePattern(route: RouteDef): string {

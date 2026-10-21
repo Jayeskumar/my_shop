@@ -29,7 +29,7 @@ import { diffRows, displayValue } from './audit'
 import { changedFields, changedTopLevel, digitsOnly } from './forms'
 import { gstinStatus } from './gstin'
 import { canAssignRole } from './members'
-import { impliedBy } from './role-permissions'
+import { impliedBy, roleCodeFromName } from './role-permissions'
 import { badPrefixes, layoutLength, sampleScaleBarcode, testScan } from './scale'
 
 describe('settings fixtures follow the identity contract', () => {
@@ -152,5 +152,14 @@ describe('audit diff rows', () => {
     expect(displayValue(null)).toBe('—')
     expect(displayValue(false)).toBe('No')
     expect(displayValue(DEFAULT_SETTINGS.notifications.due_reminder_days)).toBe('[7,15,30]')
+  })
+})
+
+describe('role codes', () => {
+  it('derives the code the server will use from the role name', () => {
+    expect(roleCodeFromName('Senior pharmacist')).toBe('senior_pharmacist')
+    expect(roleCodeFromName('  Billing Staff 2 ')).toBe('billing_staff_2')
+    expect(roleCodeFromName('2nd shift helper')).toBe('nd_shift_helper')
+    expect(roleCodeFromName('மூத்த மருந்தாளர்')).toBe('custom_role')
   })
 })

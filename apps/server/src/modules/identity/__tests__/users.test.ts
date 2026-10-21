@@ -823,6 +823,20 @@ describe('identity: users', () => {
     const ids = list.data.map((m) => m.id)
     expect(ids).toContain(everywhere.user.id)
     expect(ids).not.toContain(onlyS1.user.id)
+    // The detail follows the list: members of other stores only are not visible at all.
+    expectStatus<Data<Member>>(
+      await branch.inject({ method: 'GET', url: api(`/users/${everywhere.user.id}`), as: scoped }),
+      200,
+    )
+    expectError(
+      await branch.inject({ method: 'GET', url: api(`/users/${onlyS1.user.id}`), as: scoped }),
+      404,
+      'NOT_FOUND',
+    )
+    expectStatus<Data<Member>>(
+      await branch.inject({ method: 'GET', url: api(`/users/${onlyS1.user.id}`) }),
+      200,
+    )
 
     const ownRole = scoped.membership.role_id
     expectError(

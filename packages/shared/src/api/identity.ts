@@ -12,6 +12,8 @@
 // - Server rule (no schema change): business-wide writes — PATCH /settings, PATCH
 //   /settings/business, PATCH/DELETE /roles/:id (and POST /stores, as before) — answer 403
 //   reason all_stores_required to store-scoped members; the web hides them for such members.
+// - Server rule (review; no schema change): GET /users/:id follows the list's store scope — a
+//   store-scoped admin gets 404 for members who cannot work in any of the admin's stores.
 /**
  * Contract for the identity module — docs/API.md "identity": members (users), roles &
  * permissions, stores, registers, trusted devices, tenant settings, business profile, number

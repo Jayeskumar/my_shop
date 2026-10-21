@@ -206,6 +206,26 @@ describe('identity: stores, registers, devices', () => {
     expect(row?.changes).toBeTruthy()
   })
 
+  it('keeps one active store when the last two are deactivated at the same time', async () => {
+    const duo = await createTestTenant(t)
+    const s2 = expectStatus<Data<Store>>(
+      await createStore({ code: 'S2', name: 'Second', state_code: '33' }, duo),
+      201,
+    ).data
+    const results = await Promise.all([
+      patchStore(duo.store.id, { is_active: false }, duo),
+      patchStore(s2.id, { is_active: false }, duo),
+    ])
+    expect(results.map((r) => r.statusCode).sort()).toEqual([200, 409])
+    const refused = results.find((r) => r.statusCode === 409)!
+    expectError(refused, 409, 'CONFLICT', 'last_active_store')
+    const active = expectStatus<List<Store>>(
+      await duo.inject({ method: 'GET', url: api('/stores?is_active=true') }),
+      200,
+    )
+    expect(active.page.total).toBe(1)
+  })
+
   it('scopes store administration to the admin’s stores', async () => {
     const branch = await createTestTenant(t)
     const s2 = expectStatus<Data<Store>>(
@@ -486,6 +506,19 @@ describe('identity: stores, registers, devices', () => {
       400,
       'VALIDATION_ERROR',
     )
+    // Issue messages are translation keys (settings:validation.register_unknown).
+    const unknownRegister = expectError(
+      await shop.inject({
+        method: 'POST',
+        url: api('/devices'),
+        payload: { name: 'PC', store_id: shop.store.id, register_id: newId() },
+      }),
+      400,
+      'VALIDATION_ERROR',
+    )
+    expect(unknownRegister.details?.issues).toEqual([
+      { path: 'register_id', message: 'register_unknown', code: 'register_unknown' },
+    ])
     const cashier = await shop.asRole('cashier')
     expectError(
       await shop.inject({

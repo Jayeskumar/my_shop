@@ -147,6 +147,26 @@ export async function getMember(tx: Tx, ctx: Ctx, userId: string): Promise<Membe
   return toMember(row, ctx)
 }
 
+/**
+ * Store-scoped admins see only the members who can work in (one of) their stores — all-store
+ * members included (they work in the admin's stores too); the same rule as the list.
+ */
+function visibleToCaller<Q extends ReturnType<typeof memberQuery>>(q: Q, ctx: Ctx): Q {
+  if (ctx.storeIds === null) return q
+  return q.where(
+    sql<boolean>`(m.store_ids is null or m.store_ids && ${[...ctx.storeIds]}::uuid[])`,
+  ) as Q
+}
+
+/** GET /users/:id — 404 for members outside a store-scoped caller's stores (as in the list). */
+export async function getVisibleMember(tx: Tx, ctx: Ctx, userId: string): Promise<Member> {
+  const row = await visibleToCaller(memberQuery(tx, ctx), ctx)
+    .where('m.user_id', '=', userId)
+    .executeTakeFirst()
+  if (!row) throw notFound('member', userId)
+  return toMember(row, ctx)
+}
+
 export async function listMembers(
   tx: Tx,
   ctx: Ctx,
@@ -167,10 +187,7 @@ export async function listMembers(
   if (query.store_id) {
     q = q.where(sql<boolean>`(m.store_ids is null or ${query.store_id}::uuid = any(m.store_ids))`)
   }
-  // Store-scoped admins see the members who can work in (one of) their stores.
-  if (ctx.storeIds !== null) {
-    q = q.where(sql<boolean>`(m.store_ids is null or m.store_ids && ${[...ctx.storeIds]}::uuid[])`)
-  }
+  q = visibleToCaller(q, ctx)
   const { field, direction } = query.sort
   const column =
     field === 'full_name'

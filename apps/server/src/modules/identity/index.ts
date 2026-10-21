@@ -48,7 +48,7 @@ import {
   createMember,
   disableMember,
   enableMember,
-  getMember,
+  getVisibleMember,
   listMembers,
   resetMemberPassword,
   resetMemberPin,
@@ -111,7 +111,9 @@ export const identityImpls: RouteImpls<Routes> = {
     tx: async (tx, req) => ({ data: await userDirectory(tx, req.ctx, req.query) }),
   },
   createUser: { handler: createUserRoute },
-  getUser: { tx: async (tx, req) => ({ data: await getMember(tx, req.ctx, req.params.id) }) },
+  getUser: {
+    tx: async (tx, req) => ({ data: await getVisibleMember(tx, req.ctx, req.params.id) }),
+  },
   updateUser: {
     tx: async (tx, req) => ({
       data: await updateMember(req.server.kadai, tx, req.ctx, req.params.id, req.body),

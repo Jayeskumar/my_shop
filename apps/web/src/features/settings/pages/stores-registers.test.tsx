@@ -1,11 +1,12 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { DeviceCreateSchema, StoreCreateSchema, identityRoutes } from '@kadai/shared/api/identity'
 import { DEFAULT_PLAN_FEATURES } from '@kadai/shared/features'
-import { getDeviceCredentials, saveDeviceCredentials } from '@/lib/auth'
+import { getCurrentStore, getDeviceCredentials, reloadMe, saveDeviceCredentials } from '@/lib/auth'
 import { IDS, makeMe } from '@/test/fixtures'
-import { errorResponse, server } from '@/test/msw'
+import { apiPath, errorResponse, server } from '@/test/msw'
 import { renderApp, signIn } from '@/test/render'
 import { device, page, register, store } from '../testing/fixtures'
 import { onRoute, type RecordedRequest } from '../testing/handlers'
@@ -54,6 +55,25 @@ describe('stores', () => {
       fssai_number: '12423012000123',
     })
     expect(StoreCreateSchema.safeParse(calls[0]!.body).success).toBe(true)
+  })
+
+  it('keeps the store in use when a new store sorts first after the /me reload', async () => {
+    const me = multiStoreMe()
+    const single = {
+      ...me,
+      stores: me.stores.filter((s) => s.id === IDS.store),
+      registers: me.registers.filter((r) => r.store_id === IDS.store),
+    }
+    await signIn(single)
+    expect(getCurrentStore()?.id).toBe(IDS.store)
+    // The new branch 'A1' is listed before S1 (stores come ordered by code).
+    const added = {
+      ...single,
+      stores: [{ ...me.stores[1]!, id: IDS.store2, code: 'A1' }, ...single.stores],
+    }
+    server.use(http.get(apiPath('/me'), () => HttpResponse.json({ data: added })))
+    await reloadMe()
+    expect(getCurrentStore()?.id).toBe(IDS.store)
   })
 
   it('explains the plan limit instead of failing on save', async () => {

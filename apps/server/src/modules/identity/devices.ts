@@ -136,7 +136,7 @@ export async function createDevice(
       : undefined
     if (!reg) {
       throw validationError([
-        { path: 'register_id', message: 'Unknown register', code: 'register_unknown' },
+        { path: 'register_id', message: 'register_unknown', code: 'register_unknown' },
       ])
     }
     if (reg.store_id !== store.id) {

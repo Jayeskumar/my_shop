@@ -41,6 +41,7 @@ import {
   type Ctx,
   iso,
   isoOrNull,
+  lockKey,
   mergeDeep,
   paginateQuery,
   readAddress,
@@ -261,6 +262,9 @@ export async function updateStore(
   assertGstinMatchesState(gstin, stateCode, body.gstin !== undefined ? 'gstin' : 'state_code')
 
   if (body.is_active === false && store.is_active) {
+    // Same lock as the stores limit (assertWithinLimit): two admins deactivating the last two
+    // active stores at once are serialised, so one of them sees the other's change.
+    await lockKey(tx, `kadai_limit:${ctx.tenantId}:stores`)
     if ((await activeStoreCount(tx, ctx, id)) === 0) {
       throw reasonConflict('last_active_store', 'The business must keep one active store')
     }
