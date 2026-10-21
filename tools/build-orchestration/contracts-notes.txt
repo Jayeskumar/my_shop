@@ -1,0 +1,386 @@
+===== CONTRACT AGENT =====
+SUMMARY: Wrote the complete API contracts for sales, payments and purchases in packages/shared/src/api/{sales,payments,purchases}.ts: Zod 4 entity/list/detail/request schemas, a defineRoutes catalogue for every endpoint, and the pure maths both sides need. The cart pricing function priceCart() is shared, so the POS and the server compute identical totals. Each request and response schema has a realistic-fixture test, and a structural test checks all three catalogues. I hardened payment-intent consumption in core/payments.ts recordPayment and added integration tests for it, including a concurrency test. I made one small additive change to the foundation settings.ts (a shift-required flag and register scale/silent-print settings) and updated docs/API.md (my three sections) and ARCHITECTURE §8.4/§12. Writing the tests surfaced one real loyalty edge case: capping by a small bill could leave fewer points than the minimum, which core/loyalty would reject. That case now redeems nothing and reports loyalty_below_minimum. No commits made (the orchestrator made a WIP checkpoint mid-way).
+DECISIONS: - **Message keys:** validation messages are snake_case keys exported as SALES_/PAYMENTS_/PURCHASES_VALIDATION_KEYS. This matches the identity agent's convention: the web looks up errors:validation.<key>, then <module>:validation.<key>.
+- **Shared helpers:** payments.ts exports the query/body helpers that sales and purchases also use: zQueryList (one value or repeated keys → array), zQueryInt, zIfUpdatedAt, zNullableText, zAmountPaise, zMilli0, zReason, zListFormat, plus the date-range helpers. purchases.ts imports zQueryIds from identity.
+- **Import graph:**
+  - sales imports payments and parties (loyalty).
+  - purchases imports payments, sales (TaxBreakupRowSchema) and identity.
+  - payments imports none of the others.
+- **List responses:** they are listOf(Row).extend({summary}), and the totals cover the whole filtered range. `?format=csv` on the same list route streams CSV.
+- **Pricing contract:**
+  - priceCart() runs promotions on undiscounted amounts, then the bill discount (manual bp + flat, then bill promotions, then loyalty; each capped by what is left), then computeDocument. The server resolves catalogue data and calls it; the POS calls it with Dexie data.
+  - Default price order (resolveUnitPrice): store price > wholesale tier > batch price > product price. MRP order: batch > store > product.
+  - Loyalty redemption is a flat bill discount (part of bill_discount_paise, also reported as loyalty_redeem_paise). It uses the parties helpers loyaltyRedeemIssue / loyaltyValuePaise / loyaltyPointsForAmount, so there is one formula, the same one core/loyalty uses.
+- **Quote issues vs create errors:** the quote returns all issues as typed `issues` plus can_complete and requires. Create/complete throws the first blocking one as salesIssueErrorCode(code), with details {reason, line_key, issues}: RX_REQUIRED, EXPIRED_BATCH, INSUFFICIENT_STOCK, CREDIT_LIMIT_EXCEEDED; FORBIDDEN for overrides; FEATURE_NOT_IN_PLAN for credit without khata; UNPROCESSABLE otherwise.
+- **FEFO split:** line keys become key, key#2, … (splitLineKey), with a `fefo_split` warning.
+- **Tenders (deviation from the spec):** I dropped `tendered_paise`. For cash, `amount_paise` is the cash handed over. allocateTenders applies non-cash tenders first (each must fit the remaining amount), then cash with change. Cash tender payments store the change in notes via cashTenderNotes() / parseCashTenderNotes(), so reprints know it.
+- **Payment origin:** there is no DB column, so origin is derived from the client_ref the posting modules MUST pass to recordPayment: `tender:<invoice_id>:<i>`, `cn:<id>`, `dn:<id>` (paymentClientRef / paymentOriginOf). Only origin 'manual' can be cancelled via POST /payments/:id/cancel; anything else is 409.
+- **Intent rules in core recordPayment (documented in the module comment and ARCHITECTURE §8.4):**
+  - The intent row is locked FOR UPDATE; it must be paid and unused, in the same store; only receipts with a non-cash method.
+  - The amount must EQUAL the money received (paid_amount_paise). An intent is never split.
+  - Partial application is done with allocations. The unallocated rest becomes the customer's advance, so it needs a customer party; walk-in intent money must be fully allocated. This is new and stricter: I updated two existing tests to match.
+  - A customer-bound intent funds only that customer, except pos_sale intents, which may end as a walk-in bill.
+  - A client_ref replay must name the same intent (else IDEMPOTENCY_MISMATCH).
+  - Errors carry details.reason: intent_used (409), intent_not_paid, intent_amount_mismatch, intent_store, intent_customer, intent_unallocated, intent_method, intent_direction.
+- **Permission refinements vs docs/API.md (updated there):**
+  - POST /payments/intents/:id/apply needs payments.collect (it creates money, so payments.read was not enough).
+  - POST /sales/credit-notes/:id/cancel needs sales.cancel.
+  - Backdated invoices need SALES_BACKDATE_PERMISSION = 'sales.cancel'.
+  - The credit-limit override needs sales.credit plus credit_limit_override: true, and is audited (as the spec says).
+- **Endpoints added beyond docs/API.md (all in the catalogue and docs):**
+  - GET /sales/credit-notes/:id/print
+  - GET /payments/open-items (FIFO allocation table, used with allocateFifo)
+  - GET /public/v1/pay/:reference_code
+  - GET /debit-notes/prefill?batch_ids=&store_id=&supplier_id= (matches inventory's purchaseReturnPrefillPath)
+  - reorder-suggestions also accepts product_ids (matches inventory's reorderPrefillPath).
+- **Renamed parameter:** GET /payments/upi-qr uses provider_account_id instead of vpa_account_id.
+- **Estimates:** they are sales_invoices with doc_type 'estimate' and status completed once numbered, then 'converted'; valid_until is stored in due_date. They are listed with `GET /sales/invoices?doc_type=estimate`. The default invoice list excludes estimates and held/draft bills.
+- **Returns:** prorateReturnLine works on charged + free quantity. The final return takes the exact remainder; partial returns are capped by what is still uncredited, so amounts stay exact even after a credit note is cancelled. Debit notes use the same function.
+- **Settlements and offline returns:**
+  - creditNoteSettlementOptions: refunds are capped by refundable_paise (paid and not yet refunded). For adjust_due, any excess over the due becomes the customer's advance, so a walk-in invoice cannot use adjust_due for more than its due.
+  - Offline credit notes are numbered at sync (credit notes are numbered per store); /pos/sync processes invoices first, then credit notes, in array order, one transaction each.
+- **Bootstrap:** the row shapes match the web Dexie Cached* types; promotions come as {id, data, updated_at}. In delta mode, barcode_product_ids and store_price_product_ids say for which products the barcodes / store prices in the response are complete. Catalog must bump products.updated_at when barcodes or store prices change.
+- **Print model:** SalesPrintModelSchema contains no ids or costs, so the public invoice is {document: print model, pay}. It includes the HSN summary, CGST/SGST(UTGST)/IGST rate rows, both amount-in-words strings, a UPI QR for the due, the composition declaration, rx, A4 copy labels and the signatory.
+- **settings.ts (additive change to a foundation file):**
+  - Added PosSettings.require_open_shift (default false). Bootstrap reports shift_required = feature shifts AND this setting.
+  - Added RegisterSettings.silent_print and RegisterSettings.scale (RegisterScaleSettingsSchema: baud, data bits, stop bits, parity, flow control, protocol, request_command, weight_pattern regex, weight_unit, stable_only).
+  - **ACTION for identity:** RegisterSettingsPatchSchema in api/identity.ts lists fields explicitly, so it must add scale (deep-partial) and silent_print, or PATCH will drop them. I could not reach the other agent.
+- **Server read hint:** read registers.settings and tenant settings leniently (readSettings / safeParse with defaults) before passing them to the response schemas.
+NOTES (schemas & route keys): **payments (@kadai/shared/api/payments)**
+- Helpers:
+  - Query/body: zQueryList, zQueryInt, zIfUpdatedAt, zNullableText, zAmountPaise, zMilli0, zReason, zListFormat, DATE_RANGE_FIELDS / dateOrderOk / DATE_ORDER_ISSUE.
+  - Providers: PROVIDER_CAPABILITIES, DYNAMIC_PROVIDER_CODES / isDynamicProvider, RAZORPAY_WEBHOOK_EVENTS, paymentWebhookPath, maskKeyId.
+  - Intents: TERMINAL_INTENT_STATUSES / isTerminalIntentStatus, INTENT_POLL_BACKOFF_SECONDS / intentPollDelaySeconds, INTENT_STREAM_EVENT='intent', INTENT_STREAM_HEARTBEAT_SECONDS, INTENT_LONG_POLL_MAX_SECONDS.
+  - Payments: paymentClientRef / paymentOriginOf / isPaymentCancellable, ALLOCATION_TARGETS_BY_DIRECTION, allocateFifo, upiReferenceFromNumber.
+  - Labels and constants: PAYMENT_METHOD_LABELS, CREDIT_DUE_LABEL, UPI_MCC_OPTIONS, PAYMENT_LINK_TEMPLATE.
+- Schemas:
+  - Providers: PaymentProviderAccountSchema, PaymentProviderPublicSchema, PaymentProviderCreateSchema (discriminated union upi_vpa / razorpay / mock), PaymentProviderUpdateSchema, PaymentProviderListQuerySchema, ProviderTestResultSchema.
+  - Intents: PaymentIntentSchema, PaymentIntentCreateSchema, PaymentIntentGetQuerySchema, PaymentIntentConfirmSchema, PaymentIntentCancelSchema, PaymentIntentMockPaySchema, PaymentIntentApplySchema, PaymentIntentListQuerySchema, PaymentIntentListResponseSchema.
+  - Payments: PaymentSchema, PaymentDetailSchema, PaymentCreateSchema, PaymentCancelSchema, PaymentListQuerySchema, PaymentListResponseSchema, OpenItemsQuerySchema, OpenItemsResponseSchema.
+  - Links, QR, public, webhooks: PaymentLinkCreateSchema, PaymentLinkResultSchema, PublicPayPageSchema, ReferenceCodeParamsSchema, UpiQrQuerySchema, UpiQrPayloadSchema, PaymentWebhookParamsSchema, WebhookAckSchema.
+- Routes (paymentsRoutes):
+  - Providers: listProviders, createProvider, getProvider, updateProvider, deleteProvider, testProvider.
+  - Intents: createIntent, listIntents, getIntent, streamIntent (sse), confirmIntent, cancelIntent, mockPayIntent, applyIntent.
+  - Links and QR: createLink, upiQr.
+  - Receipts and vouchers: openItems, listPayments, createPayment, getPayment, cancelPayment.
+  - publicPayPage (public), webhook (webhook scope).
+
+**sales (@kadai/shared/api/sales)**
+- Helpers:
+  - Pricing: priceCart, resolveUnitPrice, qtyIssue, drugScheduleOf, lineRequiresRx, batchExpiryStatus, discountLimitBp, discountBpOf, loyaltyRedemption.
+  - Lines and numbering: splitLineKey, cartLineKey, salesDocumentModeFor, seriesDocTypeFor, formatSeriesNumber, generateShareToken / SHARE_TOKEN_RE, publicInvoicePath.
+  - Tenders and credit: allocateTenders, cashTenderNotes / parseCashTenderNotes / displayPaymentNotes, creditCheck.
+  - Returns: returnableQtyMilli, prorateReturnLine, defaultRestock, creditNoteSettlementOptions.
+  - Issues: SALES_BLOCKING_ISSUE_CODES / SALES_WARNING_CODES / isBlockingSalesIssue / salesIssueErrorCode / SALES_OVERRIDE_PERMISSION / SALES_BACKDATE_PERMISSION.
+  - Labels and constants: SALES_DOC_TITLES, COMPOSITION_DECLARATION, AUTHORISED_SIGNATORY, SAVINGS_LABEL, CREDIT_NOTE_REASON_LABELS / CREDIT_NOTE_SETTLEMENT_LABELS, INVOICE_COPY_LABELS, INVOICE_SHARE_TEMPLATE + params schema, ESTIMATE_VALIDITY_DAYS.
+- Request schemas: RxSchema, CustomerSnapshotInputSchema, AdHocItemSchema, CartLineInputSchema, TenderInputSchema, QuoteRequestSchema, InvoiceCreateSchema, InvoiceUpdateSchema, InvoiceCompleteSchema, InvoiceCancelSchema, CollectPaymentSchema, InvoiceShareSchema, EstimateCreateSchema, EstimateConvertSchema, CreditNoteLineInputSchema, CreditNoteCreateSchema, CreditNoteCancelSchema, SyncInvoiceSchema, SyncCreditNoteSchema, PosSyncRequestSchema.
+- Query schemas: InvoiceListQuerySchema, CreditNoteListQuerySchema, HeldBillsQuerySchema, PosBootstrapQuerySchema, PrintQuerySchema, ShareTokenParamsSchema.
+- Response schemas:
+  - Pricing: SalesIssueSchema, PricedLineSchema, QuoteResultSchema, TaxBreakupRowSchema.
+  - Invoices: SalesInvoiceLineSchema (meta: SalesLineMetaSchema), SalesInvoiceListRowSchema, SalesInvoiceDetailSchema, InvoiceSaveResultSchema, InvoiceCancelResultSchema, CollectPaymentResultSchema, InvoiceShareResultSchema, HeldBillSchema, InvoiceListResponseSchema.
+  - Returns: ReturnableResponseSchema, CreditNoteListRowSchema, CreditNoteDetailSchema, CreditNoteListResponseSchema.
+  - Print and public: SalesPrintModelSchema, PublicInvoiceSchema.
+  - POS: PosBootstrapSchema (+ Bootstrap* row schemas, SeriesStateSchema), PosSyncResultSchema.
+- Routes (salesRoutes):
+  - POS: posBootstrap, posQuote, posSync, listHeld.
+  - Invoices: createInvoice, listInvoices, getInvoice, updateInvoice, deleteInvoice, completeInvoice, cancelInvoice, collectPayment, printInvoice, shareInvoice, returnable.
+  - Estimates: createEstimate, convertEstimate.
+  - Credit notes: listCreditNotes, createCreditNote, getCreditNote, cancelCreditNote, printCreditNote.
+  - publicInvoice (public).
+
+**purchases (@kadai/shared/api/purchases)**
+- Helpers:
+  - Maths: purchaseBillTotals (computePurchaseDocument + supplier round-off override), expiryFromMonthYear, salePriceExclTax, marginBp, suggestedReorderQtyMilli, averageDailySalesMilli, REORDER_SALES_WINDOW_DAYS.
+  - Status and actions: purchaseOrderStatusAfterReceipt, purchaseOrderActions, purchaseBillActions.
+  - Warnings and text: purchaseLineWarnings (PurchaseWarningSchema / codes), formatPurchaseOrderText.
+  - Labels and constants: PURCHASE_DOC_TITLES, DEBIT_NOTE_REASON_LABELS / DEBIT_NOTE_SETTLEMENT_LABELS, PO_TO_SUPPLIER_TEMPLATE + params schema.
+- Schemas:
+  - Orders: PurchaseOrderLineInputSchema, PurchaseOrderCreateSchema, PurchaseOrderUpdateSchema, PurchaseOrderSendSchema, PurchaseOrderStatusChangeSchema, PurchaseOrderLineSchema, PurchaseOrderListRowSchema, PurchaseOrderDetailSchema, PurchaseOrderSendResultSchema, PurchaseOrderListQuerySchema.
+  - Bills: PurchaseBillLineInputSchema, PurchaseBillCreateSchema, PurchaseBillUpdateSchema, PurchaseBillFromOrderSchema, PurchaseBillPostSchema, PurchaseBillCancelSchema, DuplicateSupplierInvoiceDetailsSchema, PurchaseBillLineSchema, PurchaseBillListRowSchema, PurchaseBillDetailSchema, PriceUpdateSchema, PurchaseBillPostResultSchema, PurchaseBillListQuerySchema, PurchaseBillListResponseSchema, BillReturnableResponseSchema.
+  - Debit notes: DebitNoteLineInputSchema, DebitNoteCreateSchema, DebitNoteCancelSchema, DebitNoteLineSchema, DebitNoteListRowSchema, DebitNoteDetailSchema, DebitNoteListQuerySchema, DebitNoteListResponseSchema, DebitNotePrefillQuerySchema, DebitNotePrefillSchema.
+  - Shared and reorder: PurchasePaymentRefSchema, ReorderSuggestionsQuerySchema, ReorderItemSchema, ReorderSuggestionsSchema.
+- Routes (purchasesRoutes, all with feature 'purchases'):
+  - Orders: listOrders, createOrder, getOrder, updateOrder, deleteOrder, sendOrder, cancelOrder, closeOrder.
+  - Bills: listBills, createBill, getBill, updateBill, deleteBill, postBill, cancelBill, billFromOrder, billReturnable.
+  - Debit notes: listDebitNotes, createDebitNote, debitNotePrefill, getDebitNote, cancelDebitNote.
+  - reorderSuggestions.
+
+**core/payments.ts:** new internal lockIntentForPayment(); sameRequest now also compares payment_intent_id. The public signatures of recordPayment / cancelPayment are unchanged.
+
+===== CONTRACT AGENT =====
+SUMMARY: The API contracts for catalog, parties, inventory and identity are written and replace the four ownership stubs. Each file has entity schemas (DB-mirroring list and detail variants), request schemas for every endpoint, a defineRoutes catalogue, UI constants and pure helpers both sides share. apps/server/src/core/loyalty.ts is also implemented: earnPoints, redeemPoints, reversePoints, adjustPoints, expirePoints and reversiblePoints. Each call row-locks the customer, writes loyalty_ledger and customers.loyalty_points together, and the balance can never go below zero. All checks pass: shared typecheck, tests (1098, including 4 new contract test files) and eslint on everything I touched; server typecheck, the full server suite (249 tests, including 10 new loyalty integration tests) and web typecheck. `pnpm exec eslint packages/shared` has one error, in packages/shared/test/api/commerce-catalogues.test.ts (an `import type` rule). That file belongs to the other contracts agent and I left it alone. I also checked, with a temporary test I then deleted, that every route of the 4 catalogues registers through route(), that the OpenAPI document at /api/docs/json builds, and that query coercion (repeated keys, booleans, sort) works through Fastify. I made two small changes outside my files: two settings fields (`catalog.auto_sku`, `catalog.sku_prefix`) in packages/shared/src/settings.ts, and targeted updates to my four sections of docs/API.md plus a core/loyalty paragraph in ARCHITECTURE §8.5. Nothing was committed (a harness WIP checkpoint commit already contains part of this work).
+DECISIONS: General conventions
+- Route `response` is always the full envelope (dataOf/listOf).
+- Collections that are not paginated use `dataOf(z.array(...))`: the category tree, number series, HSN search results and the permission catalogue.
+- GET /stock is the one list with an extended envelope: `listOf(StockRow).extend({ totals })`.
+- Custom-rule validation messages are snake_case keys. Each file exports its `<MODULE>_VALIDATION_KEYS`. Where a key already exists in the web's errors:validation (phone, gstin, gstin_state, hsn, pin, email, date_order) I reused it; other keys belong in `<module>:validation.*`. Generic min/max/required checks keep no custom message, so the web's zod error map still applies.
+- Query arrays use `zQueryIds`, which accepts repeated keys (what the web client sends) or comma lists.
+- Every sort uses `sortQuery(...).prefault(default)`, so handlers always receive `{field, direction}`.
+
+Shared helpers (exported from api/identity.ts; the other three contracts import them)
+- PATCH-safe nullable fields: `zNullableText`, `zNullablePhone`, `zNullableGstin`, `zNullablePan`, `zNullableEmail`. Missing means unchanged; null or '' means clear. Common's zOptionalPhone/zOptionalGstin would turn a missing field into null and wipe it on PATCH, so I did not use them in bodies.
+- Every PATCH has no defaults, accepts optional `if_updated_at` (→ 409 STALE_WRITE) and rejects an empty body with `empty_patch`.
+- Also exported: `zIfUpdatedAt`, `zStoreScope` (uuid or 'all'), `zTags` (lower-cased, de-duplicated), `ExportFormatSchema`, CSV helpers (`toCsv`/`toCsvRow` with formula guard and BOM; `parseCsv`/`parseCsvTable`), the import schemas, `documentPath()` / `DOCUMENT_ROUTES` (web links for audit log, ledgers and movements) and `TAMIL_NADU_DISTRICTS`.
+
+Delete semantics
+- Categories, brands and tax slab rules: deleted only when unused; otherwise 409 with a hint to deactivate.
+- Products, customers, suppliers, doctors and promotions: DELETE returns `{id, result: 'deleted'|'deactivated'}`.
+- Stock-transfer cancel always sets status 'cancelled', including drafts; there is no DELETE route.
+
+Imports
+- `ImportJobSchema` is shared by products and customers. `dry_run` defaults to true.
+- Errors look like `[{row (file line, header = 1), field, code, message}]`.
+- GET /imports/:id lives in the catalog catalogue with permission any-of catalog.write / customers.write.
+
+Additions and deviations from docs/API.md (all now documented there)
+- New endpoints: POST /users/:id/reset-password (admin reset, no SMS needed on-prem), POST /number-series (customise a series before its first document, e.g. to continue old numbering; unused series are listed with `id: null`), DELETE /products/:id/barcodes/:barcodeId, GET /products/import/template, GET /customers/import/template, GET /doctors/:id.
+- GET /stores and /stores/:id are open to any member, for store pickers and transfer destinations.
+- Reads of promotions, doctors, customer loyalty and stock transfers need only the read permission; writes are as listed in API.md.
+- PATCH /batches/:id accepts inventory.adjust or catalog.write; expiry/mfg changes still need inventory.adjust (enforced by the backend).
+- Files upload as `POST /files?purpose=` (multipart, part `file`). FILE_UPLOAD_RULES follows the spec (logo and product_image 2 MB images, prescription 5 MB, import 10 MB), stricter than core FILE_RULES, so the identity route must enforce it. File content needs the bearer token, so the web fetches it as a blob.
+
+Settings and loyalty
+- I added `catalog.auto_sku` (default false) and `catalog.sku_prefix` (default 'P') to settings.ts. The spec asks for automatic SKUs and there was no setting for it; `formatAutoSku()` builds the value.
+- `SettingsPatchSchema` and `RegisterSettingsPatchSchema` are strict deep-partials derived from the shared schemas. They keep up automatically with the other agent's new register settings (`silent_print`, `scale`). The server must deep-merge and then validate with the full schema.
+- Loyalty maths lives in api/parties.ts and is used by core/loyalty.ts and the POS: `loyaltyPointsForAmount`, `maxRedeemablePoints`, `loyaltyRedeemIssue`, `loyaltyValuePaise`.
+- `adjustPoints` writes the audit entry `customer.loyalty_adjust` itself; callers must not audit again.
+- Reversal rows carry the original document's ref_type/ref_id.
+
+Cross-module prefill links (inventory pages → other modules)
+- `/purchases/returns/new?store_id=&supplier_id=&batch_ids=a,b`
+- `/purchases/orders/new?source=reorder&store_id=&product_ids=`
+- `/inventory/adjustments/new?kind=&store_id=&batch_ids=&product_ids=`
+- `/inventory/transfers/new?from_store_id=&product_ids=`
+- Use the builder functions, and `parseInventoryPrefill(location.search)` on the receiving page.
+
+Jobs and labels
+- Job `catalog.import` handles imports above IMPORT_INLINE_MAX_ROWS (1000) rows.
+- Job `inventory.alerts` takes data `{tenant_id, date}`. Its notification templates are `low_stock_digest` / `expiry_digest` with flat params (`LowStockDigestParamsSchema`, `ExpiryDigestParamsSchema`).
+- Each contract has bilingual label maps (`{en, ta}`) for its enums, following the PERMISSIONS / FEATURE_LABELS pattern, for use in server CSV/print output and the web.
+NOTES (schemas & route keys): identity (`identityRoutes`)
+- Route keys: listUsers, createUser, getUser, updateUser, disableUser, enableUser, resetUserPin, resetUserPassword, listRoles, createRole, getRole, updateRole, deleteRole, listPermissions, listStores, createStore, getStore, updateStore, listRegisters, createRegister, getRegister, updateRegister, listDevices, createDevice, revokeDevice, getSettings, updateSettings, getBusinessProfile, updateBusinessProfile, listNumberSeries, createNumberSeries, updateNumberSeries, listAuditLogs, uploadFile, getFile, getFileContent.
+- Schemas: MemberSchema (`id` = user id), MemberListQuerySchema, MemberCreateSchema / MemberCreateResultSchema (temporary_password shown once), MemberUpdateSchema, MemberDisableSchema, ResetPinSchema, ResetPasswordSchema / ResetPasswordResultSchema, RoleSchema, RoleCreateSchema, RoleUpdateSchema, PermissionCatalogSchema plus `permissionCatalog()`, StoreSchema / StoreCreateSchema / StoreUpdateSchema, RegisterSchema / RegisterCreateSchema / RegisterUpdateSchema / RegisterSettingsPatchSchema, DeviceSchema / DeviceCreateSchema / DeviceCreateResultSchema (device_secret once) / DeviceRevokeSchema, SettingsResponseSchema, SettingsPatchSchema, BusinessProfileSchema / BusinessProfileUpdateSchema (`confirm_gst_scheme_change`), NumberSeriesSchema / NumberSeriesCreateSchema / NumberSeriesUpdateSchema, AuditLogSchema / AuditLogListQuerySchema, FileSchema, FileUploadQuerySchema, FileContentQuerySchema.
+- Helpers and constants: `seriesFormatIssues`, `formatSeriesNumber`, `seriesMaxLength`, `fileUploadIssue`, FILE_UPLOAD_RULES, MEMBERSHIP_STATUS_LABELS, DOC_TYPE_LABELS, UPLOAD_PURPOSE_LABELS, plus the shared helpers listed under decisions.
+
+catalog (`catalogRoutes`)
+- Route keys: listCategories, createCategory, getCategory, updateCategory, deleteCategory, listBrands, createBrand, updateBrand, deleteBrand, listTaxSlabRules, createTaxSlabRule, getTaxSlabRule, updateTaxSlabRule, deleteTaxSlabRule, listProducts, lookupProduct, exportProducts, productImportTemplate, importProducts, bulkUpdateProducts, createProduct, getProduct, updateProduct, deleteProduct, generateVariants, addBarcode, deleteBarcode, getImport, listPromotions, createPromotion, getPromotion, updatePromotion, deletePromotion, listStorePrices, updateStorePrices, printLabels, listUnits, searchHsn.
+- Category schemas: CategorySchema, CategoryNodeSchema (recursive), CategoryDetailSchema, CategoryCreateSchema, CategoryUpdateSchema.
+- Brand and tax-rule schemas: BrandSchema and its create/update schemas; TaxSlabRuleSchema, TaxSlabRuleCreateSchema (last slab must be open-ended), TaxSlabRuleUpdateSchema.
+- Product schemas: ProductSchema, ProductDetailSchema (barcodes, variants, category path, brand, stock), ProductListItemSchema, ProductListQuerySchema, ProductExportQuerySchema, ProductCreateSchema (server fills fields from settings and category), ProductUpdateSchema, ProductLookupResultSchema with SellableProductSchema (match barcode/sku/scale, qty_milli, price_paise), BarcodeAddSchema, ProductBarcodeSchema, VariantGenerateSchema / VariantGenerateResultSchema, ProductBulkUpdateSchema / ProductBulkUpdateResultSchema, PriceChangeSchema, ProductImportSchema.
+- Promotion, store-price, label and directory schemas: PromotionCreateSchema / PromotionUpdateSchema (kind and rules travel together) / PromotionResponseSchema (with status), StorePriceRowSchema, StorePricesUpdateSchema, LabelRequestSchema, LabelPrintModelSchema, UnitsResponseSchema, HsnEntrySchema.
+- Category helpers: `categoryTree`, `flattenCategoryTree`, `categoryDescendantIds`, `categoryPlacementIssue` (cycle, max depth 3).
+- Product helpers: `productRuleIssues`, `normalizeProductFlags`, `barcodeIssue`, `barcodeFormatFor` (JsBarcode format), `formatAutoSku`, `slabRateForPrice`, `applyPriceChange` (caps at MRP), `productMargin`, `mrpSavings`.
+- Variant helpers: `variantCombinations`, `variantKey`, `variantName`, `variantSku`, `variantPrices`, `variantAxisOrder`.
+- Import and promotion helpers: `productImportColumns(businessType)`, `productImportTemplateCsv`, `parsePercentBp`, `parseYesNo`, `promotionStatus`, `promotionSummary` (returns a translation key plus params).
+- Constants: VARIANT_PRESETS (sizes, colours with Tamil names), LABEL_TEMPLATES (38x25, 50x25, a4_65 geometry in mm), PRODUCT_KIND_LABELS, PROMOTION_KIND_LABELS, PROMOTION_STATUS_LABELS.
+
+parties (`partiesRoutes`)
+- Route keys: listCustomers, createCustomer, lookupCustomer, customerImportTemplate, importCustomers, getCustomer, updateCustomer, deleteCustomer, customerLedger (`?format=csv`), customerSummary, customerLoyalty, adjustLoyalty, listSuppliers, createSupplier, getSupplier, updateSupplier, deleteSupplier, supplierLedger, listDoctors, createDoctor, getDoctor, updateDoctor, deleteDoctor.
+- Customer schemas: CustomerListItemSchema (balance, overdue_paise, last_invoice_at, loyalty_points), CustomerSchema, CustomerListQuerySchema (has_due, overdue, credit, tag, customer_type), CustomerCreateSchema (state derived from GSTIN; price_tier default), CustomerUpdateSchema, CustomerLookupQuerySchema, CustomerImportSchema.
+- Statement, summary and loyalty schemas: PartyLedgerQuerySchema, PartyLedgerSchema, PartyLedgerRowSchema, CustomerSummarySchema, LoyaltyEntrySchema (balance_after), LoyaltyAdjustSchema, LoyaltyAdjustResultSchema.
+- Supplier and doctor schemas: BankDetailsInputSchema (a full account number is accepted only to derive account_no_last4) and BankDetailsSchema, SupplierListItemSchema, SupplierSchema, SupplierCreateSchema, SupplierUpdateSchema, DoctorSchema and its create/update schemas.
+- Helpers: `buildLedgerStatement`, `partyBalanceEffect`, `monthlySeries`, `creditCheck`, `effectiveCreditDays`, `invoiceDueDate`, `isInvoiceOverdue`, `deriveStateCode`, plus the loyalty maths (`loyaltyPointsForAmount`, `maxRedeemablePoints`, `loyaltyRedeemIssue`, `loyaltyValuePaise`).
+- Constants: CUSTOMER_IMPORT_COLUMNS, CUSTOMER_TYPE_LABELS, PRICE_TIER_LABELS, LOYALTY_KIND_LABELS, LEDGER_SOURCE_LABELS.
+
+inventory (`inventoryRoutes`)
+- Route keys: listStock, stockAlerts, listMovements, productStock, postOpeningStock, listBatches, updateBatch, listAdjustments, createAdjustment, getAdjustment, updateAdjustment, deleteAdjustment, postAdjustment, cancelAdjustment, listTransfers, createTransfer, getTransfer, updateTransfer, dispatchTransfer, receiveTransfer, cancelTransfer.
+- Stock and movement schemas: StockListQuerySchema (store_id or 'all', group product/batch, format csv), StockListResponseSchema (with totals), StockRowSchema, ProductStockSchema, MovementListQuerySchema (multi-type), MovementRowSchema (ref_number, user_name, balance_after_milli).
+- Batch schemas: BatchListQuerySchema, BatchRowSchema, BatchUpdateSchema.
+- Adjustment and opening-stock schemas: AdjustmentCreateSchema / AdjustmentUpdateSchema (kind rules per line), AdjustmentCancelSchema, StockAdjustmentSchema / StockAdjustmentDetailSchema, OpeningStockSchema / OpeningStockResultSchema.
+- Transfer and alert schemas: TransferCreateSchema / TransferUpdateSchema / TransferReceiveSchema / TransferCancelSchema, StockTransferSchema / StockTransferDetailSchema (timeline), StockAlertsSchema, InventoryAlertsJobSchema, LowStockDigestParamsSchema, ExpiryDigestParamsSchema.
+- Helpers: `stockStatus`, `expiryStatus` (a batch is sellable on its expiry date), `stockValuePaise`, `stockTakeDelta`, `adjustmentValueSummary` (loss goes to inventory_adjustment, or inventory_writeoff for damage/expiry), `adjustmentLineIssues`, `transferShortfall`, the prefill path builders and `parseInventoryPrefill`.
+- Constants: MOVEMENT_DIRECTION, ADJUSTMENT_MOVEMENT_TYPE, ADJUSTMENT_REASONS, plus the *_LABELS maps for movement types, adjustment kinds, transfer status, stock status and expiry status.
+
+core/loyalty.ts (server)
+- `earnPoints(tx, ctx, {customer_id, amount_paise? | points?, ref_type, ref_id, notes?})` → `{entry_id, points, balance}`.
+- `redeemPoints(tx, ctx, {customer_id, points, bill_total_paise?, ref_type, ref_id})` → posting plus value_paise. Refusals are 422 UNPROCESSABLE with details.reason set to a parties validation key.
+- `reversePoints(tx, ctx, {customer_id, ref_type, ref_id, earned_points?, redeemed_points?, notes?})` → `{entries, balance, restored_points, removed_points, shortfall_points}`.
+- `adjustPoints(tx, ctx, {customer_id, points, notes})` (audited) and `expirePoints(tx, ctx, {customer_id, points, notes?})`.
+- `reversiblePoints(tx, ctx, {customer_id, ref_type, ref_id})` reports what is still reversible for a document.
+
+===== CONTRACT AGENT =====
+SUMMARY: I wrote the API contracts for platform, licensing and onprem, with all the shared helpers both sides need. There are 133 catalogue routes in total:
+- platformRoutes: 14
+- licensingRoutes (vendor console): 69
+- licensingPublicRoutes: 19
+- onpremRoutes: 31
+
+The shared package typechecks, all 1617 shared tests pass, and eslint on packages/shared is clean.
+
+- **licensing.ts**:
+  - Licence keys (KD-XXXX-XXXX-XXXX-XXXX, Crockford base32 with a Luhn mod 32 check character).
+  - The signed-request string `METHOD\npath?query\ntimestamp\nsha256(body)`, with header and clock-skew helpers.
+  - The offline activation request format, and the `KDREQ1.` / `KDLIC1.` copy-paste codes.
+  - Semver comparison, release eligibility and `planUpgrades` (stepping stones, plus the newest release that needs an AMC renewal).
+  - `amcStatus` / `licenseTermStatus` (with grace days) / `extendTermEnd`.
+  - Add-on features and limits.
+  - Offer and announcement audience matching, and `selectBanners`, used by both cloud GET /announcements and on-prem check-ins.
+  - `priceOrder()`: partner discount, then the four offer kinds with stacking and max-discount caps, coupon status, then CGST+SGST or IGST per line.
+  - Gapless invoice numbers `KD/<FY>/<seq>`, partner commission, order and commission status machines, and staff role capabilities.
+  - Full entity, request and response schemas for every endpoint.
+- **onprem.ts**: licence status view, vendor state, the update request/status files for the host updater, backup retention and file naming, cloud-backup encryption constants and recovery codes, LAN URLs, config redaction for the support bundle, kiosk shortcut.
+- **platform.ts**: billing plans / subscription / quote / checkout / cancel / invoices, the Razorpay webhook and subscription event map, announcements, system info with an on-prem extension slot, API keys.
+
+LicensePayloadSchema in core/license.ts is extended with all the optional fields the task listed, plus `key_prefix`. Old payloads verify unchanged, and new payloads keep every original required field, so older shop versions still accept them. `grace_days` is now honoured in `verifyLicense`. On-prem entitlements now include add-on features only while each add-on is still valid. The 0010 tables were already migrated and in schema.generated.ts; `db:migrate` and `db:types:check` confirmed it was up to date.
+
+docs/API.md now has the rewritten platform section and the two new sections (licensing & vendor console, on-prem system). I also updated the ARCHITECTURE.md §14 job table, which still listed the old `platform.backup` job. No commits by me (the workflow made a WIP checkpoint commit while I was working).
+DECISIONS: Conventions:
+- Vendor console routes are `licensingRoutes`, built with `defineVendorRoutes`. They are a RouteDef plus `vendor: {capability}` (null = any active staff member) and carry no tenant `permission`.
+- Register them with `route(app, def, handler, {config: {auth: 'user'}, preHandler: [staff guard]})`. They are mode cloud and must 404 unless KADAI_VENDOR_CONSOLE is set.
+- Capabilities per role are in `STAFF_ROLE_CAPABILITIES`. Partner users must be scoped to their own partner_id in every handler, and only an owner may grant or change the owner and admin roles.
+- Public routes are `licensingPublicRoutes` (`defineLicensingPublicRoutes`): a RouteDef plus `licensing: {authn: none | license_key | installation | connect_token, rate_limit}`.
+- Errors carry `details.reason` from `LICENSING_ERROR_REASONS` / `ONPREM_ERROR_REASONS`, each with its error code and Tamil/English text. The shop server relays vendor reasons unchanged.
+
+Signed requests:
+- Headers X-Kadai-Installation, X-Kadai-Timestamp (unix seconds) and X-Kadai-Signature (base64 Ed25519 over `installationSignaturePayload`).
+- The path includes the query string; the body hash is over the raw bytes. Allowed skew is ±600 s, and a signature already seen in that window is rejected; clients re-sign every retry.
+- Online activate is also signed, with the new key from the body (proves the shop holds the private key).
+- I changed `plugins/body-parsers.ts` to keep `req.rawBody` for `/public/v1/licensing/*` as well as `/webhooks/*`.
+
+Licence payload (core/license.ts):
+- `features` is the base list only. Add-on features come from `addons[]` while each add-on's valid_until has not passed (`licenseEffectiveFeatures`); `core/entitlements.ts` now does this.
+- `limits` and `max_stores` are signed as effective values (edition + overrides + add-ons) and are never re-added on the shop. `max_stores` is always present; unlimited is written as 10000.
+- `grace_days` makes `verifyLicense` return ok with `in_grace` until valid_until + grace.
+- I also added an optional `key_prefix`, which was not in the requested list.
+- `licenses.limits` means staff overrides of the edition limits (before add-ons). `licenses.addons` stores `LicenseAddon` snapshots (product_code, qty, features, per-unit limits, valid_until).
+
+Pricing:
+- All pricing goes through `priceOrder`. Coded offers apply only as the coupon.
+- Every eligible offer alone is a candidate, plus all stackable offers together (override, then percent, then flat, then free months). The highest buyer value wins; free months are valued at the line's monthly price, and ties go to the entered coupon.
+- `vendor_orders.lines` stores `PricedOrderLine[]`.
+- Cloud plans are priced as lines with product code `cloud_<plan>_<cycle>`. Monthly ones are synthesized from `plans.price_monthly_paise` because they have no price-book row.
+
+Payments and invoice numbers:
+- `/webhooks/platform/razorpay` is owned by the platform module. It fulfils `cloud_plan` orders itself and enqueues `licensing.fulfil-order` (`FulfilOrderJobData`) for every other order kind.
+- Both modules assign invoice numbers from the system_settings key `vendorInvoiceCounterKey(fy)`: lock the row, increment, then format with `formatVendorInvoiceNumber`.
+- Razorpay `notes` keys are in `RAZORPAY_NOTE_KEYS`.
+
+Deviations from the spec or docs/API.md:
+- Renewal checkout and quote take `{items: [{product_code, qty}], coupon_code?}` instead of `{product_codes}`, so quantities are possible.
+- Added endpoints:
+  - public `renewal-quote`, `license/refresh`, `deactivate` and `DELETE` on backups;
+  - on the shop, `/system/renewal-quote`, `/system/check-in`, `/system/banners/:id/dismiss` and `/system/connect`, plus the cloud-backup setup / confirm / upload / download endpoints;
+  - in the console, `GET /platform/me`, `/platform/staff`, `/platform/audit-logs`, `/platform/activations`, `GET /platform/plans` and `/billing/invoices/:id/print`.
+- Since keys are never stored, "resend key" is `POST /platform/licenses/:id/reissue-key`, which issues a new key; existing activations keep working.
+- The offline activation request contains no licence key; the key is entered on the vendor side.
+- `GET /system/vendor-state` and banner dismissal are open to any member, so the app-wide banners work for cashiers too.
+- Activating a licence and uploading a licence file should both be allowed in read-only mode (`allowReadOnly`).
+
+Not done / for the module teams:
+- `licensing` and `onprem` are not yet in MODULE_NAMES (modules/module.ts), MODULES (modules/index.ts) or jobs/registry.ts, and the module folders do not exist. Pre-wire these before the parallel phase to avoid conflicts.
+- The new config variables (KADAI_VENDOR_CONSOLE, signing keys, KADAI_VENDOR_STATE_CODE / GSTIN, KADAI_VENDOR_URL, RAZORPAY_PLAN_*) are still for the backend teams to add.
+- The relay request shape matches the notifications contract's `relayRequestFrom()`, and `kadai_relay` is already in its provider codes.
+NOTES (schemas & route keys): LICENSING (@kadai/shared/api/licensing):
+- Catalogues:
+  - `licensingRoutes` (69): me, listStaff, createStaff, updateStaff, listAuditLogs, metrics, listProducts, createProduct, updateProduct, listCustomers, createCustomer, getCustomer, updateCustomer, listLicenses, issueLicense, getLicense, updateLicense, listLicenseEvents, suspendLicense, resumeLicense, revokeLicense, reissueLicenseKey, upgradeLicense, addLicenseAddon, renewLicense, offlineActivate, listActivations, deactivateActivation, blockActivation, activationLicenseFile, listOffers, createOffer, getOffer, updateOffer, listOfferRedemptions, validateOffer, quoteOrder, listOrders, createOrder, getOrder, updateOrder, createPaymentLink, markOrderPaid, fulfilOrder, cancelOrder, refundOrder, orderInvoice, listPartners, createPartner, getPartner, updatePartner, listCommissions, approveCommission, payCommission, listReleases, createRelease, getRelease, updateRelease, listAnnouncements, createAnnouncement, getAnnouncement, updateAnnouncement, listTenants, getTenant, suspendTenant, resumeTenant, changeTenantPlan, listPlans, updatePlan.
+  - `licensingPublicRoutes` (19): activate, offlineActivate, checkIn, releases, renewalQuote, renewalCheckout, refreshLicense, deactivate, backupUploadUrl, backupComplete, listBackups, backupDownloadUrl, deleteBackup, relaySend, relayStatus, connectOtpRequest, connectOtpVerify, connectShops, connectSnapshot.
+- Main schemas:
+  - Staff: StaffMember / VendorMe / StaffCreate(+Result) / StaffUpdate.
+  - Partners: Partner / PartnerRow / PartnerDetail / PartnerCreate / PartnerUpdate; Commission / CommissionPay.
+  - Price book: LicenseProduct / LicenseProductCreate / LicenseProductUpdate.
+  - Customers: VendorCustomer / VendorCustomerRow / VendorCustomerDetail (customer 360) / VendorCustomerCreate / VendorCustomerUpdate.
+  - Licences: LicenseRow / LicenseDetail / LicenseIssue / LicenseKeyResult / LicenseRenew / LicenseUpgrade / LicenseAddonAdd / LicenseReissueKey / LicenseUpdate / LicenseEvent.
+  - Activations: Activation / ActivationDeactivate / StaffOfflineActivate / LicenseFileResult / LicenseSummary.
+  - Offers: Offer / OfferPublic / OfferCreate / OfferUpdate / OfferRedemption / OfferValidate(+Result) / OfferAudience / OfferBanner.
+  - Orders: VendorOrderRow / VendorOrderDetail / VendorOrderQuote / VendorOrderCreate / VendorOrderUpdate / PaymentLink / OrderMarkPaid / OrderRefund / VendorInvoicePrint.
+  - Releases: Release / ReleaseInfo / ReleaseArtifact / ReleaseCreate / ReleaseUpdate / ReleasePlan.
+  - Announcements and banners: Announcement / AnnouncementAudience / AnnouncementCreate / AnnouncementUpdate / Banner.
+  - Cloud tenants and plans: TenantAdminRow / TenantAdminDetail / TenantPlanChange / PlanAdmin / PlanUpdate / PlatformAuditLog / VendorMetrics.
+  - Public API: InstallationIdentity / OfflineActivationRequest / SignedLicenseDocument / LicenseFileInput / ActivateRequest / ActivateResponse / CheckInRequest / CheckInResponse / ConnectSnapshot / OfferQuote / RenewalInfo / AddonEntitlements / RenewalRequest / RenewalQuoteResponse / RenewalCheckoutResponse / LicenseRefreshRequest / LicenseRefreshResponse / SelfDeactivate*.
+  - Connect: Connect* (OTP request/verify, session, shop, shop snapshot).
+  - Cloud backups: CloudBackup* / PresignedUrl.
+  - Relay: RelayMessageRequest / RelayMessage.
+- Helpers:
+  - Keys: generateLicenseKey, parseLicenseKey, isLicenseKey, licenseKeyPrefix, formatLicenseKeyInput, zLicenseKey.
+  - Signed requests: installationSignaturePayload, signedRequestHeaders, parseSignedRequestHeaders, isTimestampFresh.
+  - Releases: compareSemver, isReleaseEligible, planUpgrades, releaseSignatureMessage.
+  - Terms and add-ons: amcStatus, licenseTermStatus, termEndDate, extendTermEnd, licenseEffectiveFeatures, licenseEffectiveLimits, licenseMaxStores.
+  - Audiences and offers: announcementAudienceMatches, offerIneligibility, selectBanners, offerState, buyerSegments.
+  - Pricing: priceOrder, priceWithGst.
+  - Invoices and orders: formatVendorInvoiceNumber, vendorInvoiceCounterKey, partnerCommissionPaise, canTransitionOrder, canTransitionCommission, invoiceTotals.
+  - Staff: vendorCan.
+- Constants: LICENSING_JOBS, RAZORPAY_NOTE_KEYS, RELAY_MONTHLY_QUOTA, CONNECT_TOKEN_HEADER, plus the label maps.
+
+PLATFORM (@kadai/shared/api/platform):
+- `platformRoutes` (14): billingPlans, billingSubscription, billingQuote, billingCheckout, billingCancel, billingInvoices, billingInvoicePrint, razorpayWebhook (scope webhook, /platform/razorpay), announcements, dismissAnnouncement, systemInfo, listApiKeys, createApiKey, revokeApiKey.
+- Schemas: BillingPlan / BillingPlansResponse / BillingOverview / SubscriptionView / UsageMeter / BillingQuoteRequest / BillingQuote / CheckoutRequest / CheckoutResponse / CancelSubscription / BillingInvoice / SystemInfo (with an `onprem` field of type OnPremSystemInfo) / ApiKey / ApiKeyCreate / ApiKeyCreateResult / ApiKeyRevoke / WebhookAck.
+- Helpers: cloudPlanProductCode, razorpayPlanEnvVar, yearlySavings, daysLeft, usageMeter, apiKeyState, missingPermissions.
+- Constants: RAZORPAY_SUBSCRIPTION_EVENT_STATUS, PLATFORM_RAZORPAY_EVENTS, CLOUD_PLAN_NAMES, PLATFORM_JOBS, PURCHASABLE_CLOUD_PLANS.
+
+ONPREM (@kadai/shared/api/onprem):
+- `onpremRoutes` (31, all mode onprem): getLicense, activateLicense, activationRequest, uploadLicense, refreshLicense, deactivateLicense, vendorState, checkInNow, dismissBanner, renewalQuote, renewalCheckout, getUpdates, installUpdate, updateStatus, listBackups, createBackup, downloadBackup, restoreRequest, getBackupSettings, updateBackupSettings, testBackupPath, cloudBackupStatus, cloudBackupSetup, cloudBackupConfirm, uploadBackupToCloud, downloadCloudBackup, getConnect, updateConnect, network, disk, supportBundle.
+- Schemas: LicenseStatusView / InstalledLicense / LocalLicenseState / CoreLicenseStatus / ActivationRequestFile / LicenseUpload / LicenseDeactivate / VendorState (stored in system_settings 'vendor_state') / VendorStateView / UpdateRequestFile / UpdateStatusFile (KADAI_DATA_DIR/updates/*.json) / UpdateStatusView / UpdatesView / HostRequestAccepted / LocalBackup / BackupSettings / BackupSettingsUpdate / PathTest(+Result) / RestoreRequest / CloudBackup* / ConnectSettings / NetworkInfo / DiskInfo / SupportBundleRequest / OnPremSystemInfo.
+- Helpers: checkInDelaySeconds, localLicenseState, emptyVendorState, visibleBanners, backupsToPrune, backupFileName, parseBackupFileName, backupHealth, generateRecoveryCode, parseRecoveryCode, lanUrls, firewallCommand, redactConfig, kioskShortcutTarget.
+- Constants: CLOUD_BACKUP_ENCRYPTION, ONPREM_SETTINGS_KEYS, ONPREM_JOBS, KADAI_RELAY_PROVIDER.
+
+===== CONTRACT AGENT =====
+SUMMARY: I wrote the API contracts for accounting, reports and notifications, replacing the three ownership stubs. I also wrote apps/server/src/core/notify.ts with integration tests, and rewrote the accounting, reports and notifications sections of docs/API.md. Each contract follows the existing style: Zod 4 schemas with inferred types (z.output for responses, z.input for requests), snake_case fields, money in paise, full envelopes in the catalogue, and snake_case validation keys plus `details.reason` lists instead of English messages.
+- **Accounting:** all 25 endpoints are in `accountingRoutes`. It also has the shared maths both sides need: expense GST, the expense, cash pay-in/pay-out and shift-difference journal lines, expected shift cash, denomination totals, the account tree, running balances, and the P&L, balance-sheet and trial-balance totals.
+- **Reports:** all 23 endpoints are in `reportsRoutes`, plus the `REPORTS` catalogue for the generic web viewer. It also has the GST builders: the GSTR-1 offline-tool JSON, the GSTR-1 CSV in the offline tool's column layout, and ITC utilisation for GSTR-3B. Helpers cover date presets (including this FY and quarters), ageing buckets, change percentages and report CSV export.
+- **Notifications:** all 10 endpoints are in `notificationsRoutes`. It defines the 10 default templates in Tamil and English per channel, a small template engine, the pluggable provider interface with a registry and error classification, provider message formats, delivery-receipt parsing and retry/backoff rules.
+- **core/notify.ts:** `enqueueNotification()` checks the template, channel, recipient and params, writes the outbox row inside the business transaction, and queues `notifications.send` after commit. If that job can't be queued yet, the row stays 'queued' for the one-minute sweep. The same file holds the per-process provider registry and `deliverMessage()`.
+DECISIONS: CROSS-MODULE / FOUNDATION ITEMS FOR OTHER TEAMS
+1. Cash short/excess account: this is the accounting team's change, as the spec says, and I did not edit shared accounting.ts. The contract exports `CASH_SHORT_EXCESS_SUBTYPE = 'cash_short_excess'` and `CASH_SHORT_EXCESS_ACCOUNT` (code 5250, expense type, 'Cash short / excess' / 'ரொக்கக் குறைவு / மிகுதி'). The accounting backend must add it to SYSTEM_ACCOUNT_SUBTYPES and DEFAULT_CHART, backfill existing tenants with a 07xx migration, and update test/accounting.test.ts, which pins the exact subtype map. `AccountSubtypeSchema` already accepts it.
+2. Notifications config: config/index.ts only has SMS_PROVIDER log|msg91, WHATSAPP_PROVIDER log|whatsapp_cloud, EMAIL_PROVIDER log|smtp. Env names are WHATSAPP_ACCESS_TOKEN and WHATSAPP_API_VERSION (default v21.0), not WHATSAPP_TOKEN / v20.0 as the spec says. The notifications team must add EMAIL_PROVIDER=email_webhook with EMAIL_WEBHOOK_URL and EMAIL_WEBHOOK_SECRET, MSG91_TEMPLATE_<CODE> DLT ids and an optional MSG91 webhook token. They also need to update the deploy files and the DEPLOYMENT.md env table. 'smtp' is a reserved provider code because no mail library is bundled.
+3. Relay to licensing: the licensing contract defines its own `RelayMessageRequestSchema`, so I aligned with it rather than adding a parallel schema. Notifications exports `relayRequestFrom(message)`, tested to parse with that schema. The vendor side renders with `buildOutboundMessage()` and sends with `deliverMessage()` from core/notify.ts. The provider code 'kadai_relay' matches onprem's `KADAI_RELAY_PROVIDER`.
+4. Provider registry: one per process in core/notify.ts (`getNotificationProviders()` / `setNotificationProviders()`), like `setJobQueue`. The notifications module fills it at boot; onprem registers kadai_relay and pins it with `select(channel, 'kadai_relay')`. I did not add it to KadaiDeps.
+5. Template params come from the owning contracts: invoice_share and po_to_supplier from sales/purchases, payment_link from payments, the two digests from inventory. invoice_share uses `{{number}}`, not the spec's `{{invoice_no}}`, to match the sales contract.
+6. The shift journal uses source_type 'shift' with source_id = the shift id (not the cash-entry id) for both cash entries and the close difference, so the source links open the shift page.
+7. Web routes for expense, manual journal and payment detail are `?id=` drawer links in `JOURNAL_SOURCE_ROUTES`: /accounting/expenses?id=, /accounting/journal?id=, /payments?id=. Identity's DOCUMENT_ROUTES is unchanged.
+
+CONVENTIONS AND DEVIATIONS FROM docs/API.md (docs updated)
+- **Report response shape:** tabular reports answer `{data, page, totals, meta}`, built with `reportResponse(row, totals)`; `limit` ≤ 5000. `?format=csv` streams every row with the English column labels and a totals row, via `reportCsv()`. Range reports require from/to (at most 366 days). `store_id` takes a store id or 'all'.
+- **Report feature gates:** dashboard has none. reports_basic: sales-summary, item-sales, category-sales, cancellations, stock-summary, customer/supplier outstanding, h1-register, schedule-sales. advanced_reports: brand-sales, profit, discounts, stock-ageing, dead-stock. Expiry needs batches_expiry, the shifts report needs shifts, and every GST report needs gst_reports + reports.gst.
+- **GST routes:** gstr1 and gstr3b answer a union `kind: gstr1 | gstr3b | composition | unregistered` (composition is the CMP-08 quarterly summary at 1%). They take `gstin=` for businesses registered in several states. gstr1/export is `stream: 'file'`. `GSTR1_PORTAL_SCHEMA_VERSION = 'GST3.2.1'` and the hsn_b2b / hsn_b2c split must be checked against the current GST offline tool before release. Zero-rated lines go to the nil table as exempt. ITC uses received_date.
+- **Accounting route changes:**
+  - Added `DELETE /accounts/:id`: deletes an account without journal lines, else deactivates it; 409 when not allowed.
+  - Deactivation: income/expense accounts can always be deactivated; balance-sheet accounts need a zero balance.
+  - `GET /accounts` returns the whole chart, not paginated, as `dataOf(ChartOfAccounts)`. Permissions are any-of accounting.read, expenses.write, shifts.operate, payments.configure; balances need accounting.read.
+  - Feature gates: expenses have none (all plans); journals, books and statements need 'accounting'; shifts need 'shifts'.
+  - `GET /shifts/current` returns `{data: null}` when there is no open shift.
+  - Trial balance and balance sheet are tenant-wide (403 `all_stores_required`); only the P&L has a store filter.
+  - Books are paginated (≤ 1000 rows) with a running balance over the whole range.
+- **Notifications route changes:**
+  - Added `GET /notifications/:id` and `GET /webhooks/notifications/:provider` (WhatsApp hub.challenge).
+  - `POST /customers/:id/remind` takes channel whatsapp | sms | wa_me. wa_me works on every plan and only returns the text plus a wa.me link.
+  - The template list returns `{templates, providers, settings, dlt_note}`.
+  - `DELETE /notification-templates/...` returns the default entry.
+- **Default template texts:** SMS and WhatsApp defaults have no conditional sections, because DLT and Meta texts must match word for word. `{{#x}}` / `{{^x}}` sections are used only in email. WhatsApp body parameters follow the order placeholders first appear in that language's text. `whatsappTemplateText()` and `dltTemplateText()` print the exact texts to register with Meta and DLT.
+NOTES (schemas & route keys): ACCOUNTING (@kadai/shared/api/accounting)
+- **Routes (`accountingRoutes`):** listAccounts, createAccount, getAccount, updateAccount, deleteAccount, listJournalEntries, getJournalEntry, createJournalEntry, reverseJournalEntry, listExpenses, createExpense, getExpense, cancelExpense, openShift, currentShift, listShifts, getShift, addShiftCashEntry, closeShift, dayBook, cashBook, accountLedger (params `{accountId}`), trialBalance, profitLoss, balanceSheet.
+- **Account schemas:** AccountSubtypeSchema, MoneyAccountKindSchema, BankDetails(Input)Schema, AccountSchema, AccountBalanceSchema, ChartOfAccountsQuery/Schema, AccountDetailSchema, AccountCreate/UpdateSchema.
+- **Journal schemas:** JournalSourceRef, JournalLine, JournalEntry, JournalEntryDetail, JournalListQuery/ResponseSchema, ManualJournalLine/CreateSchema, JournalReverseSchema.
+- **Expense schemas:** ExpenseSchema, ExpenseDetailSchema, ExpenseCreateSchema, ExpenseListQuery/Summary/ResponseSchema, ExpenseCancelSchema.
+- **Shift schemas:** DenominationsSchema, ShiftCashEntry(Create)Schema, ShiftCashSchema, ShiftSummarySchema (X/Z, version 1), ShiftSchema, ShiftDetailSchema, ShiftOpen/Close/CurrentQuery/ListQuery/ListResponseSchema, CashEntryCounterSchema, ShiftDifferenceStatusSchema.
+- **Books and statements schemas:** DayBookQuery/ResponseSchema, LedgerQuery/CashBookQuery/LedgerParamsSchema, AccountLedgerRow/Meta/ResponseSchema, TrialBalanceQuery/Row/Schema, ProfitLossQuery/Schema, StatementLine/SectionSchema, BalanceSheetQuery/Section/Schema.
+- **Helpers:** accountCodeMatchesType, suggestAccountCode, buildAccountTree, moneyKindOf, balanceSide, journalSourcePath / JOURNAL_SOURCE_ROUTES, journalTotals, defaultPaidFromKind, computeExpenseAmounts, expenseJournalLines, resolveExpenseTile, denominationsTotalPaise, expectedShiftCash, shiftDifference, shiftDifferenceJournalLines, defaultCashEntryCounter, cashEntryJournalLines, runningBalances, trialBalanceSides, marginBp, profitLossTotals, comparisonRange, balanceSheetTotals.
+- **Constants:** ACCOUNTING_VALIDATION_KEYS, ACCOUNTING_ERROR_REASONS, ACCOUNT_TYPE_LABELS / EXPENSE_PAYMENT_METHOD_LABELS / SHIFT_* labels, ACCOUNTING_TITLES (Tamil statement names), STATEMENT_LINE_LABELS, EXPENSE_QUICK_TILES, CASH_ENTRY_PRESETS, DENOMINATION_NOTES, CASH_SHORT_EXCESS_*.
+
+REPORTS (@kadai/shared/api/reports)
+- **Routes (`reportsRoutes`):** dashboard, salesSummary, itemSales, categorySales, brandSales, profit, discounts, cancellations, shifts, stockSummary, stockAgeing, expiry, deadStock, customerOutstanding, supplierOutstanding, gstr1, gstr1Export, gstr3b, hsnSummary, salesRegister, purchaseRegister, h1Register, scheduleSales.
+- **Dashboard and envelope:** DashboardQuery/Schema, reportResponse(), ReportMetaSchema.
+- **Per-report schemas:** each report has Query / Row / Totals / Response schemas, e.g. SalesSummary*, ItemSales*, CategorySales*, BrandSales*, Profit*, Discounts*, Cancellations*, ShiftsReport*, StockSummary*, StockAgeing*, Expiry*, DeadStock*, CustomerOutstanding*, SupplierOutstanding*, HsnSummary*, SalesRegister*, PurchaseRegister*, H1Register*, ScheduleSales*.
+- **GST schemas:** GstPeriodQuerySchema, Gstr1ReportSchema, CompositionSummarySchema, Gstr1/Gstr3bResponseSchema (discriminated by kind), Gstr3bReportSchema, Gstr1ExportQuerySchema, Gstr1PortalJsonSchema, GstWarningSchema, TaxRow/TaxHeadsSchema.
+- **Catalogue:** REPORTS / REPORTS_BY_KEY / getReportDef, REPORT_GROUPS (includes the /reports/gst link card), ReportDef / ReportColumnDef / ReportFilterDef / ReportChartDef, REPORT_KEYS.
+- **Helpers:** reportColumns, reportCellPath, reportCsv / reportCsvValue / reportCsvFilename, reportDatePresetRange + REPORT_DATE_PRESETS, reportRangeIssue, changeBp, shareBp, avgBillPaise, ageingBucket / overdueBucket, paymentMixKey + PAYMENT_MIX_LABELS, buildGstr1PortalJson, gstr1SectionRows / gstr1Csv / gstr1ExportFilename, utiliseItc, gstr3bPayment, compositionTax, gstQuarterOf, gstQueryRange, splitDocumentNumber, rupeesFromPaise, gstRateFromBp, gstPortalDate.
+- **Constants:** B2CL_INVOICE_THRESHOLD_PAISE, GSTR1_PORTAL_SCHEMA_VERSION, GST_DOC_TYPES, REPORT_MAX_RANGE_DAYS, REPORT_PAGE_MAX.
+
+NOTIFICATIONS (@kadai/shared/api/notifications)
+- **Routes (`notificationsRoutes`):** listNotifications, getNotification, retryNotification, sendNotification, listTemplates, upsertTemplate, deleteTemplate, remindCustomer (`POST /customers/:id/remind`), webhook and webhookVerify (scope 'webhook', `/notifications/:provider`).
+- **Schemas:** NotificationSchema, NotificationListQuery/ResponseSchema, NotificationSendSchema (normalises `to`), NotificationTemplateEntry/Catalog/ListQuery/Params/UpsertSchema, NotificationProviderStatusSchema, CustomerRemindSchema / CustomerRemindResultSchema, OutboundMessageSchema, ProviderSendResultSchema, NotificationSendJobSchema, EmailWebhookPayloadSchema, WhatsAppVerifyQuerySchema, NotificationWebhookParamsSchema, and per-template params schemas (PaymentReceipt / DueReminder / DailySummary / Otp / Welcome).
+- **Templates and settings constants:** NOTIFICATION_TEMPLATE_CODES, NOTIFICATION_TEMPLATES, ADHOC_TEMPLATE_CODES, NOTIFICATION_SETTING_TOGGLES (day chips 7/15/30/45/60), DLT_NOTE.
+- **Provider and job constants:** NOTIFICATION_PROVIDER_CODES / CHANNELS / LABELS, NOTIFICATION_JOBS / NOTIFICATION_CRONS, NOTIFICATION_MAX_ATTEMPTS = 5, NOTIFICATION_STUCK_AFTER_SECONDS = 300, DUE_REMINDER_MIN_GAP_DAYS = 3.
+- **Provider interface:** NotificationProvider, NotificationProviderRegistry, createNotificationProviderRegistry, NotificationProviderError (kind retryable | permanent), classifyHttpStatus, toNotificationProviderError, sendWithProvider.
+- **Rendering helpers:** parseTemplate, renderTemplate, renderNotification, resolveTemplate, templateBodyIssues, buildOutboundMessage, stringifyParams, sanitizeWhatsAppParam, smsSegments, truncateText, dltTemplateText, whatsappTemplateText.
+- **Sending and webhook helpers:** relayRequestFrom, notificationRetryDelaySeconds, shouldSendDueReminder, nextNotificationStatus, normalizeRecipient, maskRecipient, requiresWhatsAppOptIn, waMeUrl, whatsappTemplateRequest, msg91FlowRequest, parseHubSignature, parseWhatsAppStatuses, parseMsg91Report.
+
+SERVER CORE (apps/server/src/core/notify.ts)
+- `enqueueNotification(tx, ctx, {channel, template_code, to, recipient_name?, locale?, params, ref_type?, ref_id?, scheduled_at?})` → `{id, channel, template_code, locale, recipient, status: 'queued', scheduled_at}`. It throws 400 VALIDATION_ERROR (paths: template_code, channel, to, params.*, ref_id, scheduled_at). After commit it enqueues `notifications.send` with `{tenant_id, notification_id}`, singletonKey = id and startAfter = scheduled_at; an unknown job or missing queue is tolerated and left to the sweep.
+- `kickSendJob(job, scheduledAt?)` is exported for the sweep and retry endpoint to reuse.
+- Registry: `getNotificationProviders()` / `setNotificationProviders()`. `deliverMessage(message, {provider?, timeout_ms?})` returns `{ok, provider, result | error}` and never throws.
+
+===== CONSISTENCY REVIEW (completed by the lead after the reviewer was interrupted) =====
+- Path params are camelCase in every catalogue (:id, :productId, :accountId, :shareToken, :referenceCode, ...); params schemas match.
+- packages/shared/src/api/catalogues.ts aggregates all module catalogues; test/api/catalogues.test.ts enforces unique method+path, params↔path, envelopes, permission coverage (ANY_MEMBER allow-list).
+- Server: registerRoute(app, def, handler) / registerRoutes(app, routes, handlers) in apps/server/src/core/http.ts (plus route()); guards from the definition. modules/licensing and modules/onprem are registered stubs.
+- Web: callRoute in apps/web/src/lib/api.ts; useRouteQuery / useRouteMutation in apps/web/src/lib/query.ts; shared pickers in apps/web/src/components/pickers (ProductPicker, CustomerPicker, SupplierPicker, DoctorPicker, AccountPicker, CategoryPicker, BrandPicker, StorePicker, RegisterPicker, UserPicker, BatchPicker) — read index.ts for props.

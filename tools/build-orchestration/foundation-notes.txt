@@ -1,0 +1,549 @@
+===== SHARED LIBRARY (@kadai/shared) =====
+IMPORTING: `import { … } from '@kadai/shared'` gives every domain module. API contracts come from `@kadai/shared/api/common`, `@kadai/shared/api/auth` and `@kadai/shared/api/<module>` (stubs you own). A single domain module can be imported as `@kadai/shared/<module>`. These are TS source: the server build (tsup) must bundle @kadai/shared (noExternal), and Vite and tsx handle it natively. Use `import type` (verbatimModuleSyntax). All numbers are safe integers; invalid numeric input throws RangeError.
+
+ids: newId(): string (UUID v7) · isUuid(v): v is string · isUuidV7(v) · uuidV7Timestamp(id): Date|null
+math: roundDiv(n,d) (half away from zero, exact, d>0) · roundDivBig(n,d): bigint · mulDiv(a,b,d) = round(a*b/d) with BigInt overflow guard · allocateProRata(total, weights): number[] (largest remainder; parts never exceed weights; ties go to the lower index; all-zero weights split equally) · sumSafe(iter) · toSafeNumber(bigint) · assertSafeInt / assertNonNegativeInt(v,name) · clamp(v,min,max)
+money: parseRupees(str|num, {allowNegative?}) → paise (throws) · tryParseRupees(...) → paise|null · paiseToRupeesString(p) → '1234.50' · formatINR(p, {symbol?=true, decimals?: 2|0|'auto'}) → '₹1,23,456.50' · formatINRCompact(p, 'en'|'ta') → '₹1.23 L' · roundToRupee(p) → {rounded_paise, round_off_paise} · sumPaise(iter) · applyBp(p,bp) · formatBp(1800) → '18%'
+units: UNITS: UnitDef[] {code,name_en,name_ta,uqc,decimal_allowed,family,symbol_en,symbol_en_plural,symbol_ta} · UNIT_CODES · getUnit(code) · isUnitCode · isDecimalUnit · uqcFor(code) · parseQty(str, unit, {allowDecimal?}) → milli (throws) / tryParseQty → milli|null · formatQty(milli, unit, 'en'|'ta') → '1.5 kg' · milliToDecimalString(milli, grouping?) · amountForQty(pricePerPack, qtyMilli, packSize=1) · unitPriceFromPack(price, pack) · packsAndLoose(milli, pack) → {packs, loose_milli} · formatPacksAndLoose(milli, pack, unit, packUnit='PACK', locale) → '2 strips + 3 tabs'
+gst: GST_RATES_BP (const tuple) / type GstRateBp · isValidGstRate · INDIAN_STATES: IndianState[] {code, alpha, name_en, name_ta, kind, utgst, legacy?} · STATE_CODES (z.enum-ready, includes legacy 25/28) · ACTIVE_STATE_CODES · TAMIL_NADU_STATE_CODE='33' · getState(code) · isValidStateCode · stateTaxLabel(code) → 'SGST'|'UTGST' · gstinCheckChar(first14) · normalizeGstin(s) · isValidGstin(s) (structure + state + checksum; expects upper case) · isRegularGstin · stateCodeFromGstin · panFromGstin · makeGstin(state, pan, entity='1') · isValidPan · isValidHsn (4/6/8 digits) · isInterstate(storeState, pos) · splitGst(gst) → {cgst_paise, sgst_paise} (sgst = floor) · halfRateBp
+pricing:
+- computeLine(line: LineInput, {is_interstate, tax_mode, allocated_bill_discount_paise?}) → LineResult
+- computeDocument({lines, is_interstate, tax_mode, bill_discount_bp?, bill_discount_paise?, round_off: 'nearest_rupee'|'none'}) → DocumentResult {lines, gross, item_discount, bill_discount, taxable, cgst, sgst, igst, cess, tax, round_off, total, mrp_savings (all *_paise), tax_breakup}
+- LineInput {key, unit_price_paise, qty_milli, pack_size?, price_includes_tax, gst_rate_bp, cess_rate_bp?, discount_bp?, discount_paise?, mrp_paise?, free_qty_milli?, tax_slabs?}
+- LineResult {key, gross_paise, item_discount_paise, bill_discount_paise, discount_paise, taxable_paise, gst_rate_bp (effective), cess_rate_bp, cgst/sgst/igst/cess_paise, total_paise, mrp_savings_paise}
+- TaxSlabSchema / TaxSlabsSchema / type TaxSlab {max_unit_value_paise|null, gst_rate_bp} · resolveSlabRate(slabs, {net_paise, qty_milli, pack_size?, price_includes_tax, cess_rate_bp?}) → {gst_rate_bp, slab_index}
+- taxBreakup(lines) · lineNetBeforeBillDiscount(line)
+- prorateAmounts(TaxAmounts, {qty_milli, total_qty_milli, already_returned_milli?}) → amounts + total_paise (use for credit/debit-note lines)
+- computePurchaseLine({unit_cost_paise, qty_milli, free_qty_milli?, pack_size?, discount_bp?, discount_paise?, gst_rate_bp, cess_rate_bp?, is_interstate, key?}) → {gross, discount, taxable, rates, cgst/sgst/igst/cess, tax, total}
+- landedUnitCostPaise({taxable_paise, other_charges_alloc_paise, non_itc_tax_paise, qty_milli, free_qty_milli, pack_size}) → per pack
+- computePurchaseDocument({lines, is_interstate, other_charges_paise?, round_off, itc_eligible?}) → totals + lines with other_charges_alloc_paise and landed_unit_cost_paise
+- Types: TaxMode, RoundOffMode
+promotions:
+- Rule schemas: ItemPercent / ItemFlat / BuyXGetY / BillPercent / BillFlat / ComboPrice RulesSchema · PROMOTION_RULE_SCHEMAS[kind] · parsePromotionRules(kind, json)
+- PromotionKindSchema · PromotionSchema (discriminated by kind) / Promotion · PromotionLike (starts_at/ends_at may be Date)
+- applyPromotions(cart: {key, product_id, category_id?, brand_id?, unit_price_paise, qty_milli, pack_size?}[], promos, {store_id, now, timezone?}) → {line_discounts: Record<key, {discount_paise, promotion_ids}>, bill_discount_paise, applied: [{promotion_id, name, discount_paise}]}
+- isPromotionActive(promo, ctx) · sortPromotions
+- Feeding pricing: add line_discounts[key].discount_paise to LineInput.discount_paise, and pass bill_discount_paise to DocumentInput.
+words: numberToWords(n, 'en'|'ta') · amountInWords(paise, 'en'|'ta') · MAX_WORDS_NUMBER
+fy:
+- Constants and types: DEFAULT_TIMEZONE='Asia/Kolkata', DEFAULT_FY_START_MONTH=4, type DateRange
+- Dates and timezones: isDateStr · todayIn(tz?) · toDateStr(Date, tz?) · dayOfWeekIn(Date, tz?) · minutesOfDayIn · timezoneOffsetMinutes · startOfDayInstant(dateStr, tz?) → Date · instantRangeForDates(from, to, tz?) → {start, end} (half-open; use for timestamptz filters) · addDays · diffDays(from, to) · addMonths · dayOfWeek · compareDates · daysInMonth
+- Display: formatDateDisplay → 'dd-MM-yyyy' · parseDisplayDate
+- Financial years: fyOf(date, startMonth?) → '2026-27' · isFy · fyShort('2026-27') → '2627' · fyRange(fy, startMonth?) · periodsOfFy
+- Periods and GST filing: isPeriod · periodOf(date) → 'YYYY-MM' · periodRange(period) · addPeriods / nextPeriod / previousPeriod · periodToFp('2026-10') → '102026' · fpToPeriod · quarterEndPeriod
+phone: normalizeIndianPhone(s) → '+91…'|null · isValidIndianMobile · isE164 · formatPhoneDisplay(p, {withCountryCode?}) → '98765 43210' · toWhatsAppNumber → '919876543210'|null · maskPhone → '98XXX XX210'
+upi: isValidVpa · normalizeVpa · buildUpiUri({vpa, payee_name, amount_paise?, note?, reference?, mcc?}) (throws on invalid input) · parseUpiUri(uri) → ParsedUpiUri|null · generateReferenceCode(prefix='KD') → 12 characters [0-9A-Z] (crypto.getRandomValues) · UPI_NOTE_MAX_LENGTH · UPI_REFERENCE_RE · REFERENCE_CODE_LENGTH
+scale: gtinCheckDigit · isValidGtin · ean13CheckDigit · isValidEan13 · makeEan13(first12) · ScaleBarcodeConfigSchema / ScaleBarcodeConfig {enabled, prefixes, item_code_length, value_length, value_type, weight_unit_divisor, price_divisor} · parseScaleBarcode(code, cfg) → {prefix, plu, qty_milli?|price_paise?}|null · normalizePlu (strips leading zeros; match against products.scale_plu) · makeScaleBarcode(prefix, plu, value, cfg) · generateInternalBarcode(seq) → '20…' EAN-13 · isInternalBarcode · INTERNAL_BARCODE_PREFIX
+permissions:
+- PERMISSIONS (code → {group, label_en, label_ta}) · type Permission · PERMISSION_CODES · PermissionSchema · isPermission · PERMISSION_GROUPS · PERMISSION_IMPLIES
+- expandPermissions(storedCodes) → Set<Permission>: supports '*' and 'group.*' plus implications (write implies read, shifts.manage implies shifts.operate, reports.gst implies reports.read); unknown codes are ignored. Use it when building ctx.permissions and the /me permissions.
+- hasPermission(perms, p | p[]) (any-of) · hasAllPermissions
+- SYSTEM_ROLE_CODES · ROLE_PRESETS[code] {code, name_en, name_ta, description, description_ta, permissions}
+features:
+- FEATURES / Feature / FeatureSchema · isFeature · FEATURE_LABELS (alias featureLabels)
+- LIMIT_METRICS / LimitMetric · PlanLimits / PlanLimitsSchema (null = unlimited) · LIMIT_LABELS
+- EntitlementsSchema / Entitlements {plan_code, features, limits, source, valid_until?} · hasFeature(ent, f) · isWithinLimit(limits, metric, currentCount)
+- PLAN_CODES · DEFAULT_PLAN_FEATURES · DEFAULT_PLAN_LIMITS (mirror the 0001 seed) · DEFAULT_LICENSE_PLAN='pro'
+enums: every SQL CHECK enum is exported as XxxSchema (z.enum) plus type Xxx, with values identical to SQL. Names:
+- Foundation and organization: DeploymentMode, BusinessType, GstScheme, Locale, TenantStatus, UserStatus, AuthMethod, OtpPurpose, BackupKind, BackupStatus, MembershipStatus, NumberSeriesDocType, IdempotencyStatus, FilePurpose, FileStorage, ImportKind, ImportStatus, SubscriptionStatus, BillingCycle, SubscriptionProvider, PlatformInvoiceStatus
+- Catalog, parties, inventory: ProductKind, CustomerType, PriceTier, LoyaltyKind, PartyType, StockMovementType, AdjustmentKind, AdjustmentStatus, TransferStatus
+- Accounting: AccountType, JournalSourceType, ExpensePaymentMethod, ExpenseStatus
+- Sales and shifts: ShiftStatus, ShiftCashEntryKind, SalesDocType, SalesInvoiceStatus, SalesChannel, SalesPaymentStatus, CreditNoteReason, CreditNoteStatus, CreditNoteSettlement
+- Payments: PaymentProviderCode, ProviderMode, PaymentIntentKind, PaymentIntentPurpose, PaymentIntentStatus, PaymentConfirmation, PaymentDirection, PaymentMethod, PaymentStatus, AllocationTargetType
+- Purchases: PurchaseOrderStatus, PurchaseBillStatus, PurchasePaymentStatus, DebitNoteReason, DebitNoteStatus, DebitNoteSettlement
+- Notifications: NotificationChannel, NotificationStatus
+- PromotionKindSchema lives in promotions.ts. test/enums.test.ts fails if a migration adds a CHECK enum that isn't mirrored here.
+accounting: SYSTEM_ACCOUNT_SUBTYPES / SystemAccountSubtype (includes bank_charges) · isSystemAccountSubtype · DEFAULT_CHART: ChartAccount[] {code, name, name_ta, type, subtype|null, is_system} (seed it in onboarding) · EXPENSE_ACCOUNT_PRESETS (5300–5390) · EXPENSE_ACCOUNT_SUGGESTIONS · normalBalanceOf(type) · naturalBalance(type, debit, credit)
+settings:
+- TenantSettingsSchema / TenantSettings / TenantSettingsInput, with sections invoice, inventory, pos, pharmacy, loyalty, credit, notifications, payments, catalog. Each section schema is exported: InvoiceSettingsSchema … CatalogSettingsSchema, plus SETTINGS_SECTIONS.
+- DEFAULT_SETTINGS · resolveSettings(partial) (strict, throws ZodError) · readSettings(storedJson) (lenient, never throws; use when reading tenants.settings) · mergeSettings(current, patch) (deep merge, arrays replace, then validate; use for PATCH)
+- TenantSettingsPatchSchema is the PATCH body schema and injects NO defaults. Important: Zod 4 `.partial()` still applies `.default()`, so never build patch schemas with .partial() on defaulted fields.
+- settingsPresetFor(businessType) → patch · initialSettingsFor(businessType) · deepMerge · DeepPartial / TenantSettingsPatch
+- PrintFormatSchema · DrugScheduleSchema ('OTC'|'G'|'H'|'H1'|'X') · RegisterSettingsSchema
+verticals:
+- BUSINESS_TYPES: BusinessTypeDef[] {code, name_en, name_ta, description(_ta), upi_mcc, icon} · getBusinessType · defaultMccFor
+- Attribute schemas: Pharmacy / Apparel / Footwear / Electronics / Grocery / Generic AttributesSchema · attributesSchemaFor(type) · validateAttributes(type, attrs) → safeParse result (pharmacy schedule defaults to 'OTC')
+- VERTICAL_PRESETS[type] {categories: CategoryPreset tree (name, name_ta, hsn_code?, gst_rate_bp?, tax_slab_rule?, default_unit?, children?), tax_slab_rules: [{key, name, name_ta, description, slabs}], suggested_units}
+- flattenCategoryPresets(tree) → parent-first list with parent_name and sort_order (names are unique within a vertical)
+errors: ERROR_CODES (code → {status}) · ErrorCode · ERROR_CODE_LIST · ErrorCodeSchema · isErrorCode · httpStatusFor(code) · ApiErrorBody · ValidationErrorDetails {issues: [{path, message, code?}]} (use for VALIDATION_ERROR details) · ERROR_MESSAGES / errorMessages (en and ta) · errorMessage(code, locale='ta') (unknown codes fall back to INTERNAL)
+api/common:
+- Envelopes and pagination: dataOf(schema) → {data} · listOf(schema) → {data[], page} · PageSchema · PageQuerySchema (coerced; limit 1..200, default 50; offset ≥ 0) · ErrorEnvelopeSchema
+- Field schemas: zId · zPaise · zSignedPaise · zQtyMilli · zBp · zGstRateBp · zDateStr · zPeriod · zFy · zTimestamp
+- zTimestamp accepts a Date or an ISO string with offset and always outputs a string, so the server can pass pg Date rows to response schemas directly.
+- Input-only normalising fields (use plain z.string()/zE164 in responses): zPhone (input → E.164) · zOptionalPhone (''/null → null) · zGstin (trim, upper case, checksum) · zOptionalGstin.
+- More field schemas: zE164 (output) · zStateCode · zLocale · zHsn · zPincode · zOptionalText(max) · AddressSchema / Address
+- Query helpers: zBooleanQuery · zSearchQuery · zIdempotencyKey · IdParamsSchema · DateRangeQuerySchema · sortQuery(['name', 'created_at'] as const) → {field, direction}
+api/auth (inner payloads; wrap them with dataOf):
+- Field rules: PasswordSchema (8–128 characters) · OtpCodeSchema · PinSchema
+- Signup and login: SignupRequestSchema (validates GSTIN state against state_code and the scheme/GSTIN rules) · LoginRequestSchema
+- OTP: OtpRequestSchema → OtpRequestResponseSchema {expires_in, resend_after} · OtpVerifyRequestSchema → OtpVerifyResponseSchema (session | {otp_token, expires_in})
+- Passwords and sessions: PasswordResetRequestSchema · PasswordChangeRequestSchema · SelectTenantRequestSchema · RefreshRequestSchema · LogoutRequestSchema {all = false, refresh_token?}
+- PIN login: PinLoginRequestSchema · PinUsersQuerySchema · PinUsersResponseSchema (array of {user_id, full_name, role_code, role_name})
+- SessionResponseSchema {access_token, token_type: 'Bearer', expires_in, refresh_token?, user: SessionUserSchema, memberships: MembershipSummarySchema[], tenant_id|null}
+- AccessTokenClaimsSchema {sub, tid, mid, sid, did, amr[], iat?, exp?}
+- MeResponseSchema {user, tenant: MeTenantSchema, membership: MeMembershipSchema (permissions already expanded), entitlements, settings: TenantSettingsSchema (defaults filled), stores: MeStoreSchema[], registers: MeRegisterSchema[], mode, device?: MeDeviceSchema|null, server_time?}
+- SetupStatusResponseSchema {setup_required, mode, version, token_required} · SetupRequestSchema (signup fields + legal_name?, store_name?, setup_token?)
+
+ENVIRONMENT NOTES:
+- Never run `pnpm install` without `flock /tmp/kadai-pnpm.lock`. Everything needed is already installed.
+- Use the pinned Playwright 1.56.1 with the preinstalled browsers via PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers.
+
+===== SERVER CORE INFRA (apps/server) =====
+WRITING A MODULE
+Edit only your own folder (apps/server/src/modules/<m>/index.ts and jobs.ts). modules/index.ts and jobs/registry.ts are already wired.
+
+// modules/catalog/index.ts
+import { z } from 'zod'
+import { newId } from '@kadai/shared'
+import { dataOf, listOf, PageQuerySchema, zId } from '@kadai/shared/api/common'
+import { type KadaiPlugin, requirePermission, requireFeature, parsePage, paginate, idempotentTx, route } from '../../core/http'
+import { assertWithinLimit } from '../../core/entitlements'
+import { audit } from '../../core/audit'
+import { notFound } from '../../core/errors'
+import { defineModule } from '../module'
+
+const BrandSchema = z.object({ id: zId, name: z.string(), is_active: z.boolean() })
+
+const routes: KadaiPlugin = async (app) => {                 // registered under /api/v1, auth = tenant
+  app.get('/brands', {
+    schema: { querystring: PageQuerySchema.extend({ q: z.string().optional() }), response: { 200: listOf(BrandSchema) } },
+    preHandler: [requirePermission('catalog.read')],          // any-of → 403 FORBIDDEN {required}
+  }, async (req) => {
+    const page = parsePage(req.query)
+    return req.tx((tx) => {                                   // ONE RLS transaction for req.ctx
+      let q = tx.selectFrom('brands').select(['id', 'name', 'is_active']).where('tenant_id', '=', req.ctx.tenantId)
+      if (req.query.q) q = q.where('name', 'ilike', `%${req.query.q}%`)
+      return paginate(q.orderBy('name'), page)                // → { data, page: { limit, offset, total } }
+    })
+  })
+  app.post('/brands', {
+    schema: { body: z.object({ name: z.string().trim().min(1) }), response: { 201: dataOf(BrandSchema) } },
+    preHandler: [requirePermission('catalog.write'), requireFeature('catalog')],   // 402 FEATURE_NOT_IN_PLAN
+  }, async (req, reply) => idempotentTx(req, reply, async (tx) => {             // Idempotency-Key header or body client_ref
+    await assertWithinLimit(tx, req.ctx, 'products')          // 402 PLAN_LIMIT_REACHED (only meaningful for limit metrics)
+    const row = await tx.insertInto('brands').values({ id: newId(), tenant_id: req.ctx.tenantId, name: req.body.name })
+      .returning(['id', 'name', 'is_active']).executeTakeFirstOrThrow()
+    await audit(tx, req.ctx, { action: 'brand.create', entity_type: 'brand', entity_id: row.id, summary: row.name })
+    return { data: row }                                      // default status 201; pass { status } to change
+  }))
+  // A shared catalogue entry (defineRoutes in @kadai/shared/api/catalog): route(app, catalogRoutes.getBrand, async (req) => ({ data: … }))
+}
+export const catalogModule = defineModule({ name: 'catalog', routes /*, publicRoutes, webhooks, cliCommands */ })
+
+Route conventions:
+- Throw AppError (or a helper) for errors. pg errors are mapped automatically: 23505 → 409 DUPLICATE {constraint}, 23503/23514 → 422, 42501 → 403, P0001 'append-only' → 409.
+- Route config flags:
+  - `config: { public: true }` — no authentication at all;
+  - `config: { auth: 'user' }` — tenant-less tokens allowed: select-tenant, logout, password change, platform admin with requirePlatformAdmin();
+  - `config: { auth: 'optional' }`;
+  - `config: { allowSuspended: true }` — billing / self-service;
+  - `config: { allowReadOnly: true }` — license upload, logout;
+  - `config: { rateLimit: RATE_LIMITS.login | otp | webhook | public }`.
+- publicRoutes are registered under /public/v1 and webhooks under /webhooks. Webhooks read `req.rawBody` (a Buffer) for JSON, form-encoded and text bodies.
+- Uploads: @fastify/multipart is registered globally; call `await req.file()`, then `app.kadai.files.saveFile(tx, req.ctx, { purpose, filename, content_type, data })`.
+- `req.ctx` throws when the route has no tenant context; check `req.hasCtx` first. `req.auth` is either { kind: 'user', userId, tenantId|null, membershipId|null, sessionId, familyId, deviceId, amr } or { kind: 'api_key', apiKeyId, tenantId, keyPrefix }. `req.server.kadai` / `app.kadai` is the KadaiDeps object.
+
+KADAIDEPS (`app.kadai`, also the `deps` argument of job handlers)
+- config, version, logger;
+- db: { appDb, systemDb, appPool, systemPool, destroy };
+- events, jobs (JobQueue), files (FileService), crypto (SecretBox);
+- otp (OtpService), otpSender;
+- rbac, sessions, entitlements, metrics (invoicesCreated / paymentIntents counters).
+
+REQUESTCONTEXT (core/context.ts)
+- Identity: requestId, tenantId, userId|null, membershipId|null, sessionId|null, apiKeyId|null.
+- Access: roleCode ('owner' / … / 'api_key' / 'system'), permissions: ReadonlySet<Permission> (already expanded), storeIds: readonly string[]|null (null = all stores).
+- Device and client: deviceId|null, registerId|null (from the trusted device), locale 'ta'|'en' (header x-locale overrides the user preference), ip, userAgent, authMethods.
+- Jobs use systemContext(tenantId, { requestId?, locale?, userId? }): every permission, all stores, no user.
+
+HELPER SIGNATURES
+Database (src/db):
+- withTenant<T>(db, { tenantId, userId }, (tx: Tx) => Promise<T>, { statementTimeoutMs?, isolation? }?)
+- withSystemTx(db, fn, opts?)
+- afterCommit(tx, fn) / afterRollback(tx, fn)
+- jsonb(value): string — required for every json/jsonb insert or update
+- Types: Tx = Transaction<DB>; int8 → number, date → 'YYYY-MM-DD', timestamptz → Date. Responses can pass Date values to zTimestamp.
+
+Errors (core/errors):
+- new AppError(code, message?, details?, { cause?, status?, headers? })
+- validationError(issues, msg?), invalidField(path, msg)
+- unauthenticated(), forbidden(msg?, details?), notFound(entity, id?)
+- conflict(msg, d?), duplicate(msg, d?), unprocessable(msg, d?), staleWrite(entity, id)
+- featureNotInPlan(f, plan), planLimitReached(metric, limit, current, plan), rateLimited(sec), providerError(provider, msg, cause?)
+- assertFound(v, entity, id?), assertNotStale(updated_at, if_updated_at, entity, id)
+
+HTTP (core/http):
+- requirePermission(...perms), requireFeature(f), requireStoreAccess((req) => storeId), assertStoreAccess(ctx, storeId), requirePlatformAdmin()
+- parsePage(q) → { limit, offset } (default 50, max 200); pageResult(data, page, total); paginate(qb, page) — apply ORDER BY before calling
+- idempotencyKeyOf(req); idempotentTx(req, reply, work, { status? = 201 })
+- route(app, def, handler, { preHandler?, config?, bodyLimit? }?)
+
+Idempotency (core/idempotency):
+- runIdempotent(tx, ctx, { key, method, path, requestHash, ttlSeconds? }, work) → { status, body, replayed }
+- requestHash(body, extra?)
+
+Entitlements (core/entitlements):
+- getEntitlements(ctx) → { plan_code, features: Set, limits, source, valid_until, read_only, license_status? }
+- toEntitlementsDto(e) — use it for /me
+- assertFeature(ctx, f)
+- assertWithinLimit(tx, ctx, 'stores' | 'users' | 'registers' | 'products' | 'invoices_per_month', { adding? })
+- incrementUsage(tx, ctx, 'invoices' | 'sms' | …, { by?, enforce? = true, period? }) — call it inside the invoice transaction; offline sync passes enforce: false
+- notifyEntitlementsChanged(tx, tenantId?) after plan, subscription or license changes; deps.entitlements.invalidate(tenantId?)
+
+RBAC (core/rbac):
+- notifyAccessChanged(tx, { tenant_id, user_id? }) — MUST be called in the same transaction whenever roles, memberships, user status, devices or tenant status change.
+- deps.rbac.resolve(userId, tenantId) → MembershipAccess|null
+
+Settings and audit:
+- getSettings(tx, ctx) / updateSettings(tx, ctx, patch) — updateSettings audits 'settings.update'
+- audit(tx, ctx, { action, entity_type?, entity_id?, summary?, changes? })
+- diffChanges(before, after)
+
+Passwords (core/passwords):
+- hashPassword, verifyPassword(hash, pw), verifyPasswordOrDummy(hash|null, pw), needsRehash
+- hashPin, verifyPin, isWeakPin
+- passwordPolicyIssues / assertPasswordPolicy(pw, { phone, email, name }, path?)
+
+Tokens and sessions (core/tokens; all session functions take the SYSTEM db):
+- signAccessToken(config, { userId, tenantId, membershipId, sessionId, deviceId?, amr }) → { token, expiresIn }
+- verifyAccessToken(config, token)
+- createSession(systemDb|tx, config, { userId, tenantId, deviceId?, authMethod, ip?, userAgent?, familyId?, ttlDays? }) → { sessionId, familyId, refreshToken, expiresAt }
+- rotateSession(systemDb, config, refreshToken, { ip?, userAgent? }) → { …, userId, tenantId, deviceId, authMethod, previousSessionId }
+- Errors: reuse → SESSION_REVOKED (whole family revoked); unknown / expired → UNAUTHENTICATED.
+- revokeSession(db, sid), revokeFamily(db, familyId), revokeSessions(db, userId, { exceptSessionId?, tenantId? })
+  - Logout should call revokeFamily(req.auth.familyId).
+  - select-tenant should createSession with the tenant and sign a token with tid/mid.
+- generateApiKey(mode) → { key, keyPrefix, keyHash }; parseApiKey; hashApiKey; notifyApiKeysChanged(db) — call on key create or revoke.
+
+OTP (deps.otp):
+- request({ phone, purpose, ip?, locale? }) → { otp_id, expires_in, resend_after }. Errors: RATE_LIMITED with details.retry_after_seconds, or PROVIDER_ERROR.
+- verify({ phone, purpose, code }) → { otp_id }. Errors: OTP_INVALID with details.attempts_left, or OTP_EXPIRED.
+- issueOtpToken(phone, purpose, otpId) / verifyOtpToken(token, purpose)
+
+Crypto (deps.crypto):
+- encrypt / decrypt(envelope, aad?), encryptJson / decryptJson, needsReencrypt, reencrypt
+- Use AAD like `${tenant_id}:payment_provider_accounts.credentials`
+
+Events (core/events):
+- notify(tx, CHANNELS.paymentIntents | CHANNELS.cache, payload) — delivered on commit; keep payloads under 7900 bytes (ids, not documents)
+- deps.events.subscribe(channel, handler) → unsubscribe (use it for the payment-intent SSE stream; filter by tenant_id)
+
+License (core/license, platform module):
+- verifyLicense(doc, { keys: trustedLicenseKeys(config.licensePublicKey), production: config.isProduction, installationId: await getInstallationId(systemDb) })
+- storeLicense(systemDb, doc), then notifyEntitlementsChanged(systemDb)
+
+JOBS
+// modules/payments/jobs.ts
+import { defineJob, type KadaiJob } from '../../jobs/types'
+export const jobs: readonly KadaiJob[] = [
+  defineJob<{ tenant_id: string; intent_id: string }>({
+    name: 'payments.poll-intent',
+    options: { retryLimit: 5, retryDelay: 3, retryBackoff: true },
+    async handler(job, deps) { await withTenant(deps.db.appDb, systemContext(job.data.tenant_id), (tx) => …) },
+  }),
+  defineJob({ name: 'payments.expire-intents', cron: '* * * * *', tz: 'Asia/Kolkata', handler: async (_j, deps) => { /* fan out: deps.db.systemDb tenants */ } }),
+  defineJob({ name: 'payments.poll-intents', intervalSeconds: 15, handler: … }),   // sub-minute periodic job, singleton across workers
+]
+
+Job rules:
+- Names must match `module.job-name`, be unique, and the registry validates them.
+- Enqueue from anywhere: `enqueue(name, data, { tx?, startAfter?, singletonKey?, singletonSeconds?, … })` from core/jobs. Passing `tx` makes the job exist only if the business transaction commits.
+- Per-job worker options: `work: { localConcurrency, pollingIntervalSeconds }`.
+- core.cleanup runs hourly (cron '17 * * * *', IST).
+- The worker heartbeat is written to system_settings 'worker_heartbeat' every 30 s.
+
+TEST HELPERS (src/test/helpers.ts)
+- buildTestApp({ env?, modules?, depsOptions?, health?, jobDefinitions? }) → { app, deps, config, otp: MemoryOtpSender (otp.lastCode(phone, purpose)), close() }
+  - Build one app per file and call `afterAll(() => t.close())`.
+  - Pass `modules: [yourModule]` to test a module alone.
+- getTestConfig(envOverrides) / testEnv(envOverrides)
+- testDb() → { appDb, systemDb, appPool, systemPool }; closeTestDb()
+- insertTestTenant(systemDb, { business_type?, plan_code? = 'pro', name?, status?, state_code? = '33' }) → { tenant: { id, name, business_type, plan_code }, owner: TestMember, store: { id, code: 'S1' }, register: { id, code: 'A', store_id } }
+- insertTestMember(systemDb, tenantId, { permissions, role_code?, store_ids?, status? }) → TestMember { user_id, tenant_id, membership_id, role_id, role_code, phone }
+- signTestToken(deps, member, { device_id?, amr?, tenantless?, ttlSeconds? }) → access token (it creates a real auth_sessions row)
+- signTestSession(…) → { accessToken, sessionId, familyId, refreshToken }
+- bearer(token); randomPhone()
+- src/test/fixture-module.ts is a working reference for every helper.
+- Unique test data: use newId() suffixes. For shared system_settings rows, use per-test keys via the depsOptions.licenseSettingsKey / health.heartbeatKey options. The suite runs files in parallel on kadai_test without truncation.
+
+OTHER CONVENTIONS
+- After schema changes run `pnpm --filter @kadai/server db:types`; CI can use `db:types:check`. Module migrations go in your number band.
+- systemDb usage outside core must be justified in a comment (§6.1).
+- Do not use `current_date` for business dates; pass todayIn(tz) from the app.
+
+===== DOMAIN SERVICES + AUTH (apps/server/src/core, modules/auth) =====
+IMPORTS
+`import { nextNumber, peekSeries, acceptOfflineNumber, tenantCalendar } from '../../core/numbering'` and likewise from core/inventory, core/ledger, core/payments and core/onboarding.
+
+GENERAL RULES
+- All services take (tx, ctx, input) and run inside the caller's transaction: req.tx(...) or withTenant(appDb, ctx, ...).
+- They never open their own transactions, so stock, journal and payment postings in one request are atomic.
+- ctx needs tenantId and userId; payments also needs storeIds, ip, userAgent and requestId. A full RequestContext or systemContext(tenantId) works.
+
+NUMBERING
+`nextNumber(tx, ctx, { docType: NumberSeriesDocType, storeId, registerId?, date: 'YYYY-MM-DD' })` → `{ number, fy, seq, series_id }`
+- Call it in the transaction that creates the document. Example: `await nextNumber(tx, req.ctx, { docType: 'sales_invoice', storeId, registerId: req.ctx.registerId, date: invoice_date })` → 'S1-A/2627/00042'.
+- Pass registerId only for POS sales_invoice or bill_of_supply. Without it you get the back-office series 'S1/2627/…'.
+- Errors: CONFLICT when the prefix is too long; NUMBER_SERIES_EXHAUSTED (409).
+
+`peekSeries(tx, ctx, sameInput)` → `{ series_id|null, prefix, next_number, padding, fy, next }`
+- No lock and no row creation. Use it for POS bootstrap.
+
+`acceptOfflineNumber(tx, ctx, { docType, storeId, registerId, date, number })` → `{ number, fy, seq, series_id, renumbered, offline_number }`
+- Offline sync must be in creation order. Audit when renumbered is true.
+
+INVENTORY
+`postStock(tx, ctx, movements: StockMovementInput[], { allowNegative? })` → `PostedMovement[]` in the same order as the input.
+- Input: `{ store_id, product_id, batch_id?, qty_milli (signed, ≠0), movement_type, unit_cost_paise? (per pack excl. tax; required for opening/purchase/transfer_in), ref_type?, ref_id?, ref_line_id?, reason? }`.
+- Each result: `{ movement_id, unit_cost_paise, cost_paise (|value|), value_paise (signed), balance_after_milli, avg_cost_after_paise, skipped }`.
+- Sale COGS for a line = Σ result.cost_paise.
+- Example: `postStock(tx, ctx, [{ store_id, product_id, batch_id, qty_milli: -2000, movement_type: 'sale', ref_type: 'sales_invoice', ref_id: inv.id, ref_line_id: line.id }])`.
+- Signs per type: sale/transfer_out/damage/expiry_writeoff/purchase_return/purchase_cancel < 0; opening/purchase/sale_return/sale_cancel/transfer_in > 0; adjustment/stock_take ±.
+- Offline sync passes `{ allowNegative: true }`.
+
+`getAvailable(tx, ctx, { store_id, product_id, batch_id? })` → milli
+- batch_id undefined = all batches; null = the row without a batch.
+
+`pickBatchesFefo(tx, ctx, { store_id, product_id, qty_milli, today: todayIn(tz), allowNegative? })` → `[{ batch_id|null, qty_milli, batch_no, expiry_date }]`
+- Feed the result straight into postStock. Non-batch products return a single pick with batch_id null.
+
+LEDGER
+`postJournal(tx, ctx, { entry_date, store_id?, source_type: JournalSourceType, source_id?, narration?, number?, lines: [{ account: {subtype} | {id}, debit_paise?, credit_paise?, party?: {type, id}, memo?, store_id? }] })` → `{ entry_id: string | null }`
+- Example: `postJournal(tx, ctx, { entry_date: d, store_id, source_type: 'sales_invoice', source_id: inv.id, lines: [{ account: { subtype: 'receivable' }, debit_paise: total, party: customer ? { type: 'customer', id } : null }, { account: { subtype: 'sales' }, credit_paise: taxable }, …, { account: { subtype: 'round_off' }, credit_paise|debit_paise }] })`.
+- Unbalanced entries → 422 UNPROCESSABLE {debit_paise, credit_paise, difference_paise}.
+- Never update balance_paise yourself; postJournal is the only writer.
+
+`reverseJournal(tx, ctx, { source_type, source_id, entry_date, narration? })` → `{ entry_id|null, entry_ids }`
+- A second call → CONFLICT.
+
+`systemAccountId(tx, ctx, 'cash' | … )` → id (cached per transaction).
+
+PAYMENTS
+`recordPayment(tx, ctx, input)` → PaymentRecord (payments row plus allocations[] plus replayed).
+- Input: `{ direction: 'in'|'out', store_id, register_id?, shift_id? (must be open; sets register), method, amount_paise, payment_date, party?: {type, id}, reference?, payment_intent_id?, account_id?, allocations?: [{ target_type, target_id, amount_paise }], notes?, client_ref?, number?: boolean, paid_at? }`.
+- POS tender example: `recordPayment(tx, ctx, { direction: 'in', store_id, register_id, shift_id, method: 'upi', amount_paise, payment_date, party, payment_intent_id, allocations: [{ target_type: 'sales_invoice', target_id: inv.id, amount_paise }] })`.
+- The invoice row must already be status 'completed' with due_paise = total_paise. Allocations update paid_paise, due_paise and payment_status.
+- Supplier payment: `direction: 'out', party: {type: 'supplier', id}, allocations: purchase_bill`, with the bill status 'posted'.
+- Credit-note settlement:
+  - cash/upi: `direction: 'out'` allocated to the credit_note (updates settled_paise);
+  - store credit: `method: 'store_credit', direction: 'out'`;
+  - redeeming store credit: `method: 'store_credit', direction: 'in'` (checked against storeCreditBalance).
+- payment_intent_id requires status 'paid', unused, the same store and an amount equal to paid_amount_paise. The intent and the payment are linked both ways.
+
+`cancelPayment(tx, ctx, { payment_id, reason, date? })` → `{ reversal_entry_id }`
+- Sales/purchase cancellations should cancel their payments.
+
+ONBOARDING AND TEST FIXTURES
+`createTenant(systemDb, { business_name, business_name_ta?, legal_name?, business_type, gst_scheme?, gstin?, state_code, address?, locale?, owner: { full_name, phone, email?, password?, pin? }, phone_verified?, store_name?, mode, trial?, settings?, meta? })` → `{ tenant, user{created}, membership, store, register, roles: Record<SystemRoleCode, id>, subscription }`
+- createTenantTx(tx, input) runs inside an existing system transaction.
+
+Tests: `const t = await buildTestApp(); const shop = await createTestTenant(t, { business_type?, gst_scheme? (default 'regular' with a random valid GSTIN), plan_code? ('pro' default | 'trial' | 'free' | 'growth' | 'enterprise'), settings?, owner_pin?, state_code? })`.
+- shop gives: `{ tenant, store, register, roles, owner, ctx, asRole(code, { permissions?, store_ids?, pin? }), inject({ ...injectOptions, as? }), tx(fn, as?) }`.
+- Each member has `{ user, membership, password: TEST_PASSWORD, token, session{ id, family_id, refresh_token }, ctx, headers }`.
+- Raw master-data fixtures: `insertTestProduct(t.deps, tenantId, {pack_size, track_batches, kind, purchase_price_paise, …})`, `insertTestBatch(…, productId, {expiry_date, purchase_price_paise})`, `insertTestCustomer`, `insertTestSupplier`.
+- Vary `remoteAddress` in app.inject when a test hits per-IP auth limits.
+
+AUTH AND SESSION BEHAVIOUR THE WEB DEPENDS ON
+- Session endpoints return `{data: SessionResponse}`: signup 201, login 200, otp/verify (login purpose), select-tenant, refresh, pin-login, setup 201. They set the cookie kadai_rt (HttpOnly; SameSite=Strict; Path=/api/v1/auth; Secure only when PUBLIC_BASE_URL is https).
+- The body contains refresh_token only with the `X-Kadai-Token-Delivery: body` header, or when refresh was called with a body refresh_token.
+- tenant_id is set when the user has exactly one active membership, otherwise null. /me on a tenant-less token → 403 FORBIDDEN with details.reason 'tenant_selection_required'; the client then calls select-tenant, which rotates the session (the old cookie becomes a reused token).
+- Cookie refresh needs `X-Requested-With: kadai` (otherwise 403 reason 'csrf').
+  - Reuse, logout or lost access → 401 SESSION_REVOKED and the cookie is cleared.
+  - A revoked device → 403 DEVICE_NOT_TRUSTED.
+- Logout `{all?}` → 204 and clears the cookie; it also works with only the cookie.
+- password/change → 204; a wrong current password is 400 VALIDATION_ERROR on current_password.
+- password/reset → 204 (single-use token, all sessions revoked).
+- Lockouts: 423 ACCOUNT_LOCKED / PIN_LOCKED with details.retry_after_seconds and a Retry-After header.
+- OTP verify: wrong code → 400 OTP_INVALID {attempts_left}; expired or used → OTP_EXPIRED. Signup and reset_password return `{data: {otp_token, expires_in}}`.
+- GET /me → MeResponse: permissions expanded; store-scoped stores and registers including inactive ones; entitlements DTO; settings with defaults; mode; device for PIN sessions; server_time. A suspended tenant gets 403 TENANT_SUSPENDED.
+- /setup/status and /setup exist only on-prem (404 in cloud). token_required is true when KADAI_SETUP_TOKEN is set.
+- Identity must create device secrets with generateDeviceSecret() from core/tokens and store `hash` in devices.device_secret_hash.
+- After membership, role or device changes, call notifyAccessChanged. Login turns 'invited' memberships into 'active'.
+
+MIGRATION
+New migration 0009 is applied automatically by the test global setup. I applied it to the dev DB 'kadai' with db:migrate.
+
+===== WEB SHELL (apps/web) =====
+ADDING PAGES / ROUTES
+- Edit only your own src/features/<m>/routes.tsx (type FeatureRoutes from '@/app/route-types'). Groups:
+  - app: inside the shell.
+  - fullscreen: signed in, no shell (POS).
+  - public: no auth.
+  - guest: signed-out pages.
+  - session: signed in, no business needed.
+  - admin: platform staff.
+- Replace `Component: ModulePlaceholder` with `lazy: page(() => import('./pages/ProductsPage'))`. The page module must `export default` the component.
+- Keep the listed paths. Every route needs `handle`:
+  - title: a TranslationKey such as 'nav:titles.products' or 'catalog:pages.edit'. Add the key to both locale files.
+  - Optional access rules: permission (any-of), feature, mode, businessTypes, platformAdmin.
+  - Optional parent `{ title, to }` for breadcrumbs.
+- RouteAccess enforces the rules: missing permission → 403 page; missing plan feature → upgrade page; wrong deployment mode → "not available"; wrong business type → 404. The handle title also sets the document title.
+- New top-level screens get a nav item in src/app/nav.ts. Items use the same rule fields and are hidden when not allowed.
+
+CALLING THE API (src/lib/api.ts)
+- api.get<T>(path, { query, signal }), api.post / put / patch<T>(path, body, { idempotencyKey }), api.del. Paths are relative to /api/v1.
+- Methods return the whole envelope: Envelope<T> = { data } and ListEnvelope<T> = { data, page }.
+- Failures throw ApiError { status, code, message, details, requestId, retryAfterSeconds, validationIssues, is(...), isNetworkError }. A caller abort rejects with the AbortError itself.
+- api.call(route, { params, query, body, idempotencyKey }) works with shared defineRoutes catalogues and validates the response.
+- downloadFile(path, { query, filename }) for ?format=csv exports. subscribeSse(path, { onMessage, onOpen, onError, signal }) returns { close }; it sends the Authorization header and never puts the token in the URL.
+- Example features/catalog/api.ts:
+  ```ts
+  export const catalogKeys = { products: (q: ProductQuery) => ['catalog', 'products', q] as const }
+  export const useProducts = (q: ProductQuery) =>
+    useQuery({
+      queryKey: catalogKeys.products(q),
+      queryFn: ({ signal }) => api.get<ListEnvelope<Product>>('/products', { query: q, signal }),
+      placeholderData: keepPreviousData,
+    })
+  export const useCreateProduct = () => {
+    const qc = useQueryClient()
+    return useMutation({
+      mutationFn: (b: ProductCreate) =>
+        api.post<Envelope<Product>>('/products', b, { idempotencyKey: newId() }).then((r) => r.data),
+      onSuccess: () => qc.invalidateQueries({ queryKey: ['catalog', 'products'] }),
+    })
+  }
+  ```
+- Errors are toasted centrally. To suppress: `meta: { errorToast: false }`. A mutation that has its own onError is not toasted.
+- For forms, call applyServerFieldErrors(error, setError, fields) from '@/lib/form-errors', and notify.error(err) from '@/components/ui' for anything else.
+
+AUTH AND ACCESS
+- Hooks: useAuth(selector) (the selector must return a stable value), useMe, useCan, useFeature, useCurrentStore, useCurrentRegister, useDeployment.
+- Functions: can(), hasFeature(), acceptSession(session), selectStore / selectRegister, onAuthLifecycle (events: signed_in / tenant_changed / signed_out), reloadMe() after changes to settings or stores.
+- Components: <Can permission feature mode businessTypes fallback>, usePermission, checkAccess.
+- Device registration (settings) must call saveDeviceCredentials({ device_id, device_secret, tenant_id, store_id, register_id, name, registered_at }) after POST /devices.
+- The POS can import PinSwitchDialog, PinPad and ChangePasswordDialog from '@/features/auth'.
+
+UI KIT (import from '@/components/ui')
+- Inputs:
+  - Button { variant: primary | accent | secondary | outline | ghost | danger | success | link; size: sm | md | lg | xl; loading; leftIcon; rightIcon; fullWidth; asChild }.
+  - IconButton { icon, label (required, also the tooltip), variant, size }.
+  - Input { size, startAdornment, endAdornment } and Textarea.
+  - MoneyInput { value: paise | null, onChange, allowNegative, showSymbol }.
+  - QtyInput { value: milli | null, onChange, unit, allowDecimal, step = 1000, min, max, steppers, showUnit }.
+  - NumberInput { value, onChange, decimals, scale (100 = store basis points), min, max, prefix, suffix }.
+  - Select { value, onValueChange, options [{ value, label, description }], placeholder, size }.
+  - Combobox<T> { value, onChange, loadOptions(q, signal) | options, getOptionValue, getOptionLabel, renderOption, onCreate, minQueryLength, debounceMs }.
+  - Checkbox / Switch { label, description }; RadioGroup { options, variant: list | cards, orientation }.
+  - FormField { name (react-hook-form path), label, hint, required, optional, labelAction, error }: wires ids and aria, and localizes errors at render time.
+  - DatePicker { value: 'YYYY-MM-DD' | null, onChange, min, max }: type dd-MM-yyyy or use the native calendar.
+  - DateRangePicker { value: { from, to }, onChange, presets, presetsOnly }.
+- Overlays:
+  - Dialog { open, onOpenChange, title, description, footer, size: sm | md | lg | xl | full, dismissible }.
+  - Drawer { side: right | left | bottom, title, footer, hideHeader }.
+  - ConfirmDialog { tone: danger | primary, onConfirm (may return a promise) }; useConfirm() → `await confirm({ title, tone })`.
+  - DropdownMenu*, where items take icon, shortcut and tone='danger'; Popover*; Tooltip { content }; Tabs { variant: underline | pills }.
+- Data display:
+  - Badge { tone, appearance: soft | solid | outline, dot }; statusTone(status); StatusDot.
+  - Card*; Stat { label, value, change: { bp, goodWhen }, icon, loading }.
+  - DataTable<T> {
+    - columns: DataTableColumn<T>[], whose `meta` takes align, className, mobile ('title' | 'subtitle' | 'value' | 'hidden') and label;
+    - data, getRowId, loading, error, onRetry, empty, onRowClick;
+    - pagination: { offset, limit, total, onChange };
+    - sort: '-created_at', onSortChange;
+    - selection: { selected, onChange };
+    - renderCard }.
+    Below md it renders stacked cards.
+  - Pagination; EmptyState { icon, title, description, action, compact }; Skeleton; Spinner (label '' = decorative) / PageSpinner; Kbd { combo }.
+  - PageHeader { title, description, breadcrumbs, actions, backTo, meta }; FilterBar { search: { value, onChange }, filters, onReset, actions }; SearchInput (debounced).
+- Feedback and helpers:
+  - notify.success / info / warning / error / promise; ErrorBoundary { resetKeys }.
+  - Money { paise, decimals, compact, colorize }; Qty { milli, unit, packSize }; PhoneLink { phone, whatsapp, message }; CopyButton { value }; Avatar { name } (grapheme-aware Tamil initials).
+- Design tokens: bg-surface, bg-surface-2, text-muted-foreground, border-border, bg-primary / -soft, bg-accent, and success / warning / danger / info. Never hard-code hex values; dark mode is automatic.
+
+I18N
+- Your namespace files are src/locales/{ta,en}/<module>.json and are already registered as typed resources. Add the same keys to both; a parity test fails otherwise.
+- Use useTranslation('catalog') or useTranslation(['catalog', 'common']). Writing t('common:…') requires 'common' in the namespace list. Use translate(key) for keys held in data.
+- Common keys: actions.*, status.* (matches the SQL statuses), fields.*, misc.*, empty.*, pagination.*, dates.*, confirm.*.
+- For custom zod refinements, validationToken('password_mismatch') gives localized messages; ErrorCode strings set as field messages are localized too.
+
+FORMATTING (src/lib/format.ts)
+formatMoney (₹1,23,456.50), formatQty (in the UI language), formatPackQty, formatDate (dd-MM-yyyy; business dates are not shifted, instants are shown in IST), formatDateTime, formatTime, formatRelative, formatPhone, amountInWords, formatNumber, formatChangeBp.
+
+HOTKEYS (src/lib/hotkeys.ts)
+- useHotkeys({ F2: fn, 'ctrl+p': fn, 'F12, ctrl+s': fn }, { scope: 'pos', enabled, allowInInputs, preventDefault }).
+- Activate a scope with useHotkeyScope('pos'). Dialogs and drawers push the 'dialog' scope automatically, which suspends page shortcuts.
+- F-keys work inside inputs by default; letter shortcuts do not. Matching uses the physical key, so Tamil keyboard layouts work.
+- The shell binds F2 → /pos.
+
+PRINTING
+printHtml(html, { paper: 'thermal_58' | 'thermal_80' | 'a4' | 'a5', title, css, copies, onAfterPrint }). buildPrintDocument() builds the same document for previews.
+
+OFFLINE DB (src/lib/offline/db.ts, Dexie database 'kadai', schema v1)
+- Tables: products, barcodes, batches, promotions, tax_slab_rules, store_prices, outbox, held_carts, meta. Every row carries tenant_id. Schema changes go in a new version(n) block.
+- catalogCache: replaceAll, applyDelta, getCursor, findByBarcode, findBySku, findByScalePlu, search (word prefix, Latin and Tamil), getBatches / getPromotions / getTaxSlabRules / getStorePrice, clearTenant.
+- outbox: enqueue (idempotent by client_ref), pending (in seq order), markSyncing / markSynced / markFailed, countUnsynced, pruneSynced. Outbox rows are never cleared on logout.
+- heldCarts, meta and metaKeys (catalogCursor, series, …); deleteOfflineData({ force }).
+
+CUSTOMER DISPLAY (src/lib/display-channel.ts)
+openDisplayChannel() → { send, subscribe, close, supported }. Message types: hello, branding, idle, cart, upi_qr, payment_status, thank_you. openCustomerDisplayWindow() opens the window; /pos/display is a public route.
+
+CONNECTIVITY
+useOnline() → { online, browserOnline, serverReachable }.
+
+TESTING
+- MSW handlers live in src/test/msw.ts. Helpers in src/test/render.tsx: renderApp(path) renders the real route tree; signIn(me, session) signs in through the real store; signOutState().
+- Fixtures in src/test/fixtures.ts satisfy the shared schemas.
+
+===== DEPLOY/CI =====
+IMAGE CONTRACT
+- WORKDIR is /app with dist/, migrations/, web/, node_modules/ and package.json.
+- ENV: NODE_ENV=production, KADAI_DATA_DIR=/data, KADAI_WEB_DIST=/app/web, KADAI_MIGRATIONS_DIR=/app/migrations, KADAI_VERSION (build arg).
+- Entrypoint: `kadai-entrypoint server|worker|migrate|cli <cmd>|version`.
+- Runs as user kadai (uid/gid 10001). pg_dump/pg_restore/psql version 16 are on PATH, so the platform module's backup job can call `pg_dump -Fc "$DATABASE_SYSTEM_URL"` and write to `${KADAI_DATA_DIR}/backups`.
+- Any new server entry point must be added to tsup and to the entrypoint case statement.
+
+BACKUPS REGISTRY
+- Host scripts insert into `backups` with kind ∈ {scheduled, manual, pre_upgrade}, status 'completed', `location` = the path the app sees (/data/backups/<file> in Docker, KADAI_DATA_DIR/backups/<file> natively), size_bytes and checksum_sha256.
+- File naming: `kadai-<db>-<YYYYmmdd-HHMMSS>-<kind>[-label].dump`, with a `<file>.sha256` file (sha256sum format).
+- The platform module's /system/backups endpoints should list and download these rows. It should reuse this naming so retention in backup.sh/backup.ps1 also covers app-made backups.
+
+HEALTH, CONFIG AND SECRETS
+- K8s readiness relies on /health/ready failing while migrations are pending; don't remove that behaviour.
+- Cloud API pods run with KADAI_HEALTH_REQUIRE_WORKER=false.
+- New environment variables: add them to deploy/onprem/docker-compose.yml (explicit list, not env_file, so the Postgres superuser password never reaches the app), deploy/cloud/docker-compose.yml (x-kadai-env anchor), deploy/k8s/base/config.env for non-secret values or secret.example.yaml for secret ones, and the DEPLOYMENT.md §2 table.
+- Secret-like variables also belong in SECRET_VARS in deploy/docker/docker-entrypoint.sh (for `_FILE` support).
+
+WEBHOOKS AND STREAMING
+- Paths are fixed by ingress/Caddy assumptions: `/webhooks/payments/razorpay/<provider_account_id>`, `/webhooks/notifications/whatsapp_cloud`, `/webhooks/platform/razorpay`.
+- SSE routes should end in `/stream`; Caddy skips compression for `*/stream`.
+- Request bodies are capped at 25 MB at the edge.
+
+MIGRATIONS AND CI
+- CI fails PRs that modify, delete or rename a file in apps/server/migrations. Always add a new file.
+- `db:types:check` runs in CI, so regenerate schema.generated.ts after adding a migration.
+- Jobs needing PostgreSQL call `.github/scripts/pg-setup.sh [db…]`, which creates kadai_owner/kadai_app with the passwords from .env.example.
+
+USEFUL COMMANDS
+- `make help`, `make deploy-check`, `make deploy-test`, `make onprem-e2e IMAGE=…`, `make cloud-e2e IMAGE=…`.
+- `deploy/k8s/deploy.sh <staging|production> <tag>`.
+- validate.sh skips missing tools locally; CI sets KADAI_VALIDATE_STRICT=1.
+
+PROMETHEUS ALERTS
+- deploy/k8s/components/monitoring/prometheusrule.yaml references these metric names: kadai_http_request_duration_seconds, kadai_db_pool_connections, kadai_payment_intents_total, kadai_nodejs_eventloop_lag_p99_seconds.
+- The SSE rou
+
+===== INTEGRATION VERIFY (fixes & corrections) =====
+CONTRACT CHANGES (small, additive or a clear improvement; docs updated in the same change)
+1. `GET /setup/status` now answers in both modes; cloud returns `{setup_required: false, mode: 'cloud', version, token_required: false}`. Before, cloud answered 404, which logged a console error on every cloud page load. `POST /setup` is still on-prem only and 404 in cloud. The `mode: 'onprem'` flag was removed from `authRoutes.setupStatus`; API.md and ARCHITECTURE §2 are updated. The web still accepts a 404 as cloud.
+2. `MeMembershipSchema` and `PinUserSchema` gained `role_name_ta` (`z.string().nullable().default(null)`). The server returns `roles.name_ta`.
+3. Server behaviour, documented in ARCHITECTURE §7.3:
+   - responses under /api, /public and /webhooks carry `Cache-Control: no-store` unless a route sets its own;
+   - a route whose contract body may be omitted accepts a request with no body at all.
+4. `.env.example` no longer contains secrets: `JWT_SECRET` and `KADAI_ENCRYPTION_KEYS` are blank. Development falls back to the built-in insecure dev values with a warning; production refuses to start. `KADAI_API_DOCS` is empty, so docs are on outside production as §7.1 says. `KADAI_SETUP_TOKEN` and the optional tuning variables are listed. The local `.env` got the same edits but keeps its dev keys.
+5. The root `dev` script now selects `@kadai/server` and `@kadai/web` by name.
+
+ARCHITECTURE.md CORRECTIONS TO MATCH THE CODE
+- §7.2: the store guard is `requireStoreAccess((req) => storeId)` / `assertStoreAccess`.
+- §8.1: the result types of nextNumber, peekSeries and acceptOfflineNumber now include `series_id`, `next` and `offline_number`.
+- §8.4: `recordPayment` returns `PaymentRecord`.
+- §14: jobs are declared as `readonly KadaiJob[]` with `defineJob`, `cron` or `intervalSeconds`, and `enqueue(…, { tx })`.
+- §16: describes the real api client (get with query/signal, post/put/patch with a body, `api.call`, cross-tab refresh) and the session hint.
+- §7.8: OpenTelemetry is parsed only; no exporter is bundled yet.
+
+I did not change any migration.
+
+===== DECISIONS ADDED AFTER THE FOUNDATION (by the lead) =====
+- On-prem (Kadai Server) is the PRIMARY segment. The vendor control plane (module 'licensing', our cloud deployment with KADAI_VENDOR_CONSOLE=true) manages on-prem licences, AMC renewals, offers/coupons, partners, releases, announcements, Kadai Connect, cloud backups and a messaging relay. Shop-side on-prem features live in module 'onprem'. See docs/ARCHITECTURE.md §21, docs/PRODUCT.md and migration 0010_vendor_licensing.sql.
+- Shared: enums.ts now mirrors the 0010 enums (PlatformStaffRole, PartnerTier, LicenseType, VendorLicenseStatus, ActivationStatus, LicenseEventKind, ReleaseChannel, OfferKind, DeploymentChannel, VendorOrderKind/Status, VendorPaymentProvider, CommissionStatus, AnnouncementSeverity, CloudBackupStatus, ...). features.ts: PLAN_CODES = CLOUD_PLAN_CODES + ONPREM_PLAN_CODES (onprem_starter/standard/pro/enterprise); FEATURES gained add-ons 'connect' and 'cloud_backup' (ADDON_FEATURES); DEFAULT_LICENSE_PLAN = 'onprem_pro'.
+- api/common.ts has defineRoutes()/routeUrl()/RouteDef/RouteBody/RouteResponse; the server registers catalogue routes with route(app, def, handler) from apps/server/src/core/http.ts (response = full envelope dataOf/listOf). The web calls them via api.call / callRoute in apps/web/src/lib/api.ts.
