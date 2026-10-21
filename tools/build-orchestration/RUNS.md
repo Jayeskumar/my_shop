@@ -1,0 +1,11 @@
+# Workflow runs (resume with Workflow({scriptPath: modules.js, resumeFromRunId, args}))
+- foundation: wf_533ea0cf-e6e (done)
+- contracts:  wf_7e72ff1d-0e0 (done; reviewer finished manually, commit d5e83e8)
+- build A:    wf_b9d5667b-b8e  args {stage:'build', group:'A', notes: <pointer to foundation-notes.txt + contracts-notes.txt>}
+- build B:    wf_a57ae64c-0b4  args {stage:'build', group:'B', notes: same}
+- next: integrate.js stage 'merge' (order in script) then stage 'harden'
+- after restarts: pg_ctlcluster 16 main start; redis-server --daemonize yes
+- 2026-10-21 15:10 restart with skip lists (prefix-cache resume re-ran finished agents):
+  - build A2: wf_41ccc9b7-87f  modules [catalog, inventory, purchases, accounting, notifications, platform, onprem]  skip [catalog:backend, catalog:frontend, inventory:backend, purchases:backend]
+  - build B2: wf_cebe53ef-d97  modules [identity, sales, payments, reports, licensing]  skip [identity:backend, identity:frontend, sales:backend]
+  - parties: complete (reviewed) — merge only

@@ -578,6 +578,16 @@ if (STAGE === 'contracts') {
   return { contracts: reps, review }
 }
 // ---------------------------------------------------------------------------
+const SKIP = new Set((args && args.skip) || [])
+const skipStub = (label, m) => ({
+  summary: `${label} was completed in an earlier run; its work is committed on branch mod/${m.key} (see git log --oneline claude/laughing-hamilton-cleqkb..HEAD and the diff in /home/user/wt/${m.key}).`,
+  files: [],
+  verification: 'Completed earlier — re-verify as part of the review.',
+  contract_changes: 'See the CONTRACT CHANGELOG block at the top of the module contract file.',
+  cross_module_changes: 'Unknown from this run — inspect the branch diff against the integration branch.',
+  known_gaps: 'Unknown from this run — review carefully.',
+})
+const runOrSkip = (label, m, fn) => (SKIP.has(label) ? Promise.resolve(skipStub(label, m)) : fn())
 const selected = ALL.filter((m) => (args && args.modules ? args.modules.includes(m.key) : m.group === GROUP))
 log(`Group ${GROUP}: ${selected.map((m) => m.key).join(', ')}`)
 
@@ -585,8 +595,8 @@ const results = await pipeline(
   selected,
   // Stage 1: backend ∥ frontend(s) in the same worktree
   (m) => parallel([
-    () => agent(BACKEND(m), { label: `${m.key}:backend`, phase: 'Build', schema: REPORT }),
-    ...m.frontends.map((fe) => () => agent(FRONTEND(m, fe), { label: `${m.key}:frontend${fe.label ? '-' + fe.label.toLowerCase().replace(/\s+/g, '-') : ''}`, phase: 'Build', schema: REPORT })),
+    () => runOrSkip(`${m.key}:backend`, m, () => agent(BACKEND(m), { label: `${m.key}:backend`, phase: 'Build', schema: REPORT })),
+    ...m.frontends.map((fe) => { const lbl = `${m.key}:frontend${fe.label ? '-' + fe.label.toLowerCase().replace(/\s+/g, '-') : ''}`; return () => runOrSkip(lbl, m, () => agent(FRONTEND(m, fe), { label: lbl, phase: 'Build', schema: REPORT })) }),
   ]),
   // Stage 2: review, fix, commit on mod/<key>
   (built, m) => {
@@ -596,7 +606,7 @@ const results = await pipeline(
         ? `### ${who}\nSUMMARY: ${r.summary}\nVERIFICATION: ${r.verification}\nCONTRACT CHANGES: ${r.contract_changes}\nCROSS-MODULE: ${r.cross_module_changes}\nGAPS: ${r.known_gaps}`
         : `### ${who}\n(AGENT FAILED — inspect the worktree and complete this side yourself)`
     }).join('\n\n')
-    return agent(REVIEW(m, reports), { label: `${m.key}:review`, phase: 'Review', schema: REPORT })
+    return runOrSkip(`${m.key}:review`, m, () => agent(REVIEW(m, reports), { label: `${m.key}:review`, phase: 'Review', schema: REPORT }))
       .then((review) => ({ key: m.key, build: built, review }))
   },
 )
