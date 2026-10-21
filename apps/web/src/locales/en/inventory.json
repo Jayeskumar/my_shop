@@ -18,7 +18,7 @@
     "col_qty": "Stock",
     "col_avg_cost": "Avg cost",
     "col_value_cost": "Value at cost",
-    "col_value_mrp": "Value at MRP",
+    "col_value": "Value (cost / MRP)",
     "col_reorder": "Reorder at",
     "col_status": "Status",
     "totals_label": "Stock totals",

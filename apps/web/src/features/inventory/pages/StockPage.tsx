@@ -56,6 +56,7 @@ import { ProductName } from '../components/ProductName'
 import { ExpiryBadge, StockStatusBadge } from '../components/StockBadge'
 import { StockDrawer } from '../components/StockDrawer'
 import { useDefaultStoreId, useInventoryAccess, useToday } from '../lib/access'
+import { notifyInventoryError } from '../lib/errors'
 import { INVENTORY_HOTKEY_SCOPE, packUnitFor, pickLabel } from '../lib/labels'
 import { PAGE_SIZES, useUrlState } from '../lib/url-state'
 
@@ -158,7 +159,8 @@ export default function StockPage() {
       })
       notify.success(t('stock.exported'))
     } catch (error) {
-      notify.error(error)
+      // export_too_large (422) and other inventory reasons get their own text.
+      notifyInventoryError(error)
     } finally {
       setExporting(false)
     }
@@ -179,7 +181,7 @@ export default function StockPage() {
         id: 'name',
         header: t('stock.col_product'),
         enableSorting: true,
-        meta: { mobile: 'title', className: 'max-w-[20rem]' },
+        meta: { mobile: 'title', className: 'max-w-[18rem]' },
         cell: ({ row }) => (
           <ProductName
             name={row.original.name}
@@ -237,23 +239,25 @@ export default function StockPage() {
         ),
       },
       {
+        // Cost and MRP value share one column (two lines) so the table fits at 1366 px in Tamil.
         id: 'value',
-        header: t('stock.col_value_cost'),
+        header: t('stock.col_value'),
         enableSorting: true,
-        meta: { align: 'right', label: t('stock.col_value_cost') },
+        meta: { align: 'right', label: t('stock.col_value') },
         cell: ({ row }) => (
-          <Money
-            paise={row.original.value_cost_paise}
-            colorize={row.original.value_cost_paise < 0}
-          />
+          <div className="grid justify-items-end gap-0.5">
+            <Money
+              paise={row.original.value_cost_paise}
+              colorize={row.original.value_cost_paise < 0}
+              className="font-medium"
+            />
+            {row.original.value_mrp_paise !== null ? (
+              <span className="text-xs text-muted-foreground">
+                {t('stock.mrp')} <Money paise={row.original.value_mrp_paise} />
+              </span>
+            ) : null}
+          </div>
         ),
-      },
-      {
-        id: 'value_mrp',
-        header: t('stock.col_value_mrp'),
-        enableSorting: false,
-        meta: { align: 'right', label: t('stock.col_value_mrp') },
-        cell: ({ row }) => <Money paise={row.original.value_mrp_paise} />,
       },
       {
         id: 'reorder',
@@ -641,6 +645,12 @@ function StockCard({ row: r, language }: { row: StockRow; language: string }) {
         <span>
           {t('stock.col_value_cost')}:{' '}
           <Money paise={r.value_cost_paise} className="text-foreground" />
+          {r.value_mrp_paise !== null ? (
+            <>
+              {' · '}
+              {t('stock.mrp')} <Money paise={r.value_mrp_paise} />
+            </>
+          ) : null}
         </span>
         {r.reorder_level_milli !== null ? (
           <span title={pickLabel(STOCK_STATUS_LABELS[r.status], language)}>

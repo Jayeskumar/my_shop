@@ -4,7 +4,7 @@ import { PERMISSION_CODES } from '@kadai/shared/permissions'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { setLanguage } from '@/lib/i18n'
 import { makeMe } from '@/test/fixtures'
 import { server } from '@/test/msw'
@@ -16,6 +16,9 @@ import {
   type InventoryRouteKey,
   type Reply,
 } from '../testing/handlers'
+import { PRELOAD_TIMEOUT_MS, preloadInventoryPages } from '../testing/preload'
+
+beforeAll(preloadInventoryPages, PRELOAD_TIMEOUT_MS)
 
 const PRO = [...DEFAULT_PLAN_FEATURES.pro]
 
@@ -142,6 +145,23 @@ describe('Stock page', () => {
       expect(csv?.query.get('limit')).toBeNull()
     })
     expect(await screen.findByText('Stock list downloaded')).toBeInTheDocument()
+  })
+
+  it('explains an export that is too large instead of a generic error', async () => {
+    setup({
+      listStock: (c) =>
+        c.query.get('format') === 'csv'
+          ? apiError(422, 'UNPROCESSABLE', { reason: 'export_too_large' })
+          : HttpResponse.json(F.stockList()),
+    })
+    const user = userEvent.setup()
+    await signIn(makeMe({ features: PRO }))
+    renderApp('/inventory/stock')
+    await screen.findByRole('table', { name: 'Stock' })
+    await user.click(screen.getByRole('button', { name: 'Export CSV' }))
+    expect(
+      await screen.findByText('Too many rows to export at once. Narrow the filters and try again.'),
+    ).toBeInTheDocument()
   })
 
   it('hides opening stock, adjust and transfer actions from view-only members', async () => {

@@ -177,8 +177,15 @@ export default function BatchesPage() {
         enableSorting: true,
         meta: { label: t('batches.col_expiry') },
         cell: ({ row }) => (
-          <div className="grid grid-cols-1 gap-1">
-            <span className={cn('tabular-nums', expiryClass(row.original.days_to_expiry))}>
+          // Auto-sized grid track (not grid-cols-1 = minmax(0, 1fr)) so the table column is at
+          // least as wide as the badge.
+          <div className="grid justify-items-start gap-1">
+            <span
+              className={cn(
+                'whitespace-nowrap tabular-nums',
+                expiryClass(row.original.days_to_expiry),
+              )}
+            >
               {row.original.expiry_date ? formatDate(row.original.expiry_date) : '—'}
             </span>
             <ExpiryBadge

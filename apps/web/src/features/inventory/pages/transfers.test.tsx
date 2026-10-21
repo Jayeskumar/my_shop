@@ -6,13 +6,16 @@ import {
 import { DEFAULT_PLAN_FEATURES } from '@kadai/shared/features'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { printHtml } from '@/lib/print'
 import { makeMe } from '@/test/fixtures'
 import { server } from '@/test/msw'
 import { renderApp, signIn } from '@/test/render'
 import * as F from '../testing/fixtures'
 import { createInventoryApi, type InventoryRouteKey, type Reply } from '../testing/handlers'
+import { PRELOAD_TIMEOUT_MS, preloadInventoryPages } from '../testing/preload'
+
+beforeAll(preloadInventoryPages, PRELOAD_TIMEOUT_MS)
 
 vi.mock('@/lib/print', () => ({ printHtml: vi.fn(() => Promise.resolve()) }))
 

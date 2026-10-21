@@ -466,7 +466,7 @@ export function OpeningStockDialog({
       ) : (
         <div className="grid grid-cols-1 gap-2">
           <div
-            className="hidden gap-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground lg:grid lg:grid-cols-[minmax(0,1fr)_7rem_8.5rem_7.5rem_9.5rem_7.5rem_2.5rem]"
+            className="hidden gap-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground lg:grid lg:grid-cols-[minmax(0,1fr)_7rem_8.5rem_7.5rem_10.5rem_7.5rem_2.5rem]"
             aria-hidden
           >
             <span>{t('lines.product')}</span>
@@ -521,7 +521,7 @@ function OpeningRow({
   return (
     <li
       className={cn(
-        'grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-border bg-surface p-3 lg:grid-cols-[minmax(0,1fr)_7rem_8.5rem_7.5rem_9.5rem_7.5rem_2.5rem] lg:items-start lg:gap-2 lg:border-0 lg:bg-transparent lg:p-1',
+        'grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-border bg-surface p-3 lg:grid-cols-[minmax(0,1fr)_7rem_8.5rem_7.5rem_10.5rem_7.5rem_2.5rem] lg:items-start lg:gap-2 lg:border-0 lg:bg-transparent lg:p-1',
         Object.keys(errors).length > 0 && 'border-danger lg:bg-danger-soft/30',
       )}
     >

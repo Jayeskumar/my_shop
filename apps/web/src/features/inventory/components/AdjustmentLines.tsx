@@ -336,7 +336,7 @@ function DirectionToggle({
     <div
       role="group"
       aria-label={t('lines.change_of', { n })}
-      className="flex overflow-hidden rounded-md border border-input bg-surface shadow-card"
+      className="flex min-w-0 overflow-hidden rounded-md border border-input bg-surface shadow-card"
     >
       <button
         type="button"
@@ -348,7 +348,8 @@ function DirectionToggle({
         )}
       >
         <Plus className="size-4" aria-hidden />
-        {t('lines.add')}
+        {/* Icon-only on phones (the cell is half a card wide); the text stays for screen readers. */}
+        <span className="max-sm:sr-only">{t('lines.add')}</span>
       </button>
       <button
         type="button"
@@ -361,7 +362,7 @@ function DirectionToggle({
         )}
       >
         <Minus className="size-4" aria-hidden />
-        {t('lines.reduce')}
+        <span className="max-sm:sr-only">{t('lines.reduce')}</span>
       </button>
     </div>
   )

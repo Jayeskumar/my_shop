@@ -3,7 +3,7 @@ import { DEFAULT_PLAN_FEATURES } from '@kadai/shared/features'
 import { PERMISSION_CODES } from '@kadai/shared/permissions'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { makeMe } from '@/test/fixtures'
 import { server } from '@/test/msw'
 import { renderApp, signIn } from '@/test/render'
@@ -14,6 +14,9 @@ import {
   type InventoryRouteKey,
   type Reply,
 } from '../testing/handlers'
+import { PRELOAD_TIMEOUT_MS, preloadInventoryPages } from '../testing/preload'
+
+beforeAll(preloadInventoryPages, PRELOAD_TIMEOUT_MS)
 
 const PRO = [...DEFAULT_PLAN_FEATURES.pro]
 

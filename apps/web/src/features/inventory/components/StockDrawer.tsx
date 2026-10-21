@@ -112,8 +112,9 @@ export function StockDrawer({ productId, storeId, onOpenChange }: StockDrawerPro
         )
       ) : (
         <div className="grid grid-cols-1 gap-6">
-          <dl className="grid grid-cols-2 gap-3 rounded-xl bg-surface-2 p-3 text-sm">
-            <div>
+          <dl className="grid grid-cols-2 gap-3 rounded-xl bg-surface-2 p-3 text-sm sm:grid-cols-3">
+            {/* The quantity gets its own row: "23 strips + 5 tabs" is long, more so in Tamil. */}
+            <div className="col-span-2 sm:col-span-3">
               <dt className="text-xs text-muted-foreground">{t('stock.col_qty')}</dt>
               <dd className="flex flex-wrap items-center gap-2 text-lg font-bold">
                 <QtyAbs
@@ -126,7 +127,7 @@ export function StockDrawer({ productId, storeId, onOpenChange }: StockDrawerPro
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">{t('stock.col_value_cost')}</dt>
-              <dd className="text-lg font-bold">
+              <dd className="font-bold">
                 <Money paise={stock.total_value_cost_paise} />
               </dd>
             </div>

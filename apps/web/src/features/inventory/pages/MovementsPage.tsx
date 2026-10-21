@@ -38,6 +38,7 @@ import { FilterChips } from '../components/FilterChips'
 import { DocumentLink, ProductName } from '../components/ProductName'
 import { QtyChange } from '../components/StockBadge'
 import { useToday } from '../lib/access'
+import { notifyInventoryError } from '../lib/errors'
 import { movementTone, packUnitFor, pickLabel, reasonLabel } from '../lib/labels'
 import { PAGE_SIZES, splitList, useUrlState } from '../lib/url-state'
 
@@ -100,7 +101,8 @@ export default function MovementsPage() {
       })
       notify.success(t('movements.exported'))
     } catch (error) {
-      notify.error(error)
+      // export_too_large (422) and other inventory reasons get their own text.
+      notifyInventoryError(error)
     } finally {
       setExporting(false)
     }
@@ -296,6 +298,7 @@ export default function MovementsPage() {
         sort={query.sort === 'created_at' ? 'created_at' : '-created_at'}
         onSortChange={(s) => setState({ sort: s ?? '-created_at' })}
         density="compact"
+        renderCard={(m) => <MovementCard movement={m} language={i18n.language} />}
         pagination={
           page
             ? {
@@ -314,6 +317,62 @@ export default function MovementsPage() {
           />
         }
       />
+    </div>
+  )
+}
+
+/** Phone card of one movement: product, type and signed quantity, balance, value, document. */
+function MovementCard({ movement: m, language }: { movement: MovementRow; language: string }) {
+  const { t } = useTranslation('inventory')
+  return (
+    <div className="grid min-w-0 grid-cols-1 gap-2">
+      <div className="flex items-start justify-between gap-3">
+        <ProductName
+          name={m.product_name}
+          nameTa={m.product_name_ta}
+          sku={m.sku}
+          extra={[m.batch_no ? `${t('lines.batch')} ${m.batch_no}` : null]}
+          wrap
+        />
+        <QtyChange
+          milli={m.qty_milli}
+          unit={m.unit}
+          packSize={m.pack_size}
+          className="shrink-0 text-base font-bold"
+        />
+      </div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        <Badge tone={movementTone(m.movement_type)} size="sm">
+          {pickLabel(MOVEMENT_TYPE_LABELS[m.movement_type], language)}
+        </Badge>
+        <span className="tabular-nums">
+          {formatDate(m.created_at)} {formatTime(m.created_at)} · {m.store_code}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span>
+          {t('movements.col_balance')}:{' '}
+          <Qty
+            milli={m.balance_after_milli}
+            unit={m.unit}
+            packSize={m.pack_size}
+            packUnit={packUnitFor(m.unit)}
+            colorize
+            className="text-foreground"
+          />
+        </span>
+        <span>
+          {t('movements.col_value')}: <Money paise={m.value_paise} colorize />
+        </span>
+      </div>
+      {m.ref_number || m.reason ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <DocumentLink refType={m.ref_type} refId={m.ref_id} number={m.ref_number} />
+          {m.reason ? (
+            <span className="text-xs text-muted-foreground">{reasonLabel(m.reason, language)}</span>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }
