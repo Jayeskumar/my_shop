@@ -446,6 +446,64 @@ describe('POST /pos/sync', () => {
     expect(await stockOf(t, s.tenant.id, p)).toBe(4_000)
   })
 
+  it('a held bill billed offline is retired at sync (never billed twice)', async () => {
+    const s = await createTestTenant(t)
+    const p = await insertProduct(t, s, { sale_price_paise: 5_000, track_inventory: false })
+    const hold = async () =>
+      dataOf<{ invoice: { id: string; status: string } }>(
+        await s.inject({
+          method: 'POST',
+          url: `${API}/sales/invoices`,
+          payload: {
+            client_ref: clientRef(),
+            status: 'held',
+            channel: 'pos',
+            store_id: s.store.id,
+            register_id: s.register.id,
+            lines: [line(p, 2_000)],
+          },
+        }),
+        201,
+      ).invoice
+    const held = await hold()
+    const inv = offlineInvoice(s, p, { held_invoice_id: held.id })
+    const r = await sync(s, { invoices: [inv] })
+    expect(r.results[0]?.status).toBe('created')
+    const gone = await s.inject({ method: 'GET', url: `${API}/sales/invoices/${held.id}` })
+    expect(gone.statusCode).toBe(404)
+    const heldList = dataOf<Array<{ id: string }>>(
+      await s.inject({ method: 'GET', url: `${API}/sales/held?store_id=${s.store.id}` }),
+    )
+    expect(heldList.map((h) => h.id)).not.toContain(held.id)
+    const audit = await t.deps.db.systemDb
+      .selectFrom('audit_logs')
+      .select(['action', 'changes'])
+      .where('entity_id', '=', r.results[0]!.id!)
+      .execute()
+    expect(audit.map((a) => a.action)).toContain('sales_invoice.held_billed_offline')
+    // A retry of the same upload is a duplicate, not a second bill.
+    const again = await sync(s, { invoices: [inv] })
+    expect(again.results[0]).toMatchObject({ status: 'duplicate', id: r.results[0]!.id })
+
+    // Completed meanwhile at another counter: the offline bill is kept and flagged for review.
+    const other = await hold()
+    const done = await s.inject({
+      method: 'POST',
+      url: `${API}/sales/invoices/${other.id}/complete`,
+      payload: { tenders: [{ method: 'cash', amount_paise: 10_000 }] },
+    })
+    expect(done.statusCode).toBe(200)
+    const late = await sync(s, { invoices: [offlineInvoice(s, p, { held_invoice_id: other.id })] })
+    expect(late.results[0]?.status).toBe('created')
+    const flagged = await t.deps.db.systemDb
+      .selectFrom('audit_logs')
+      .select('action')
+      .where('entity_id', '=', late.results[0]!.id!)
+      .execute()
+    expect(flagged.map((a) => a.action)).toContain('sales_invoice.held_conflict')
+    await expectLedgerBalanced(t, s.tenant.id)
+  })
+
   it('rejects bills of another register / store and empty uploads', async () => {
     const p = await insertProduct(t, shop, { track_inventory: false })
     const other = await createTestTenant(t)

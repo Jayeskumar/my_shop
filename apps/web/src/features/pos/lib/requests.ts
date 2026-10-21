@@ -138,5 +138,7 @@ export function syncInvoiceBody(
     invoice_date: input.invoice_date,
     tenders: input.tenders,
     credit_limit_override: input.credit_limit_override === true,
+    // A recalled held bill billed offline: the server retires the held bill at sync.
+    ...(cart.held_invoice_id ? { held_invoice_id: cart.held_invoice_id } : {}),
   }
 }

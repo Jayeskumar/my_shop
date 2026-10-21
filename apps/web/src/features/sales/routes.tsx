@@ -38,9 +38,11 @@ export const routes: FeatureRoutes = {
     },
     {
       path: 'sales/returns/:id',
+      // Like GET /sales/credit-notes/:id: returns staff, or anyone who may read the bill it is
+      // linked from (invoice detail → credit notes).
       handle: {
         title: 'nav:titles.sales_return',
-        permission: 'sales.return',
+        permission: ['sales.return', 'sales.read'],
         parent: { title: 'nav:titles.sales_returns', to: '/sales/returns' },
       },
       lazy: page(() => import('./pages/ReturnDetailPage')),

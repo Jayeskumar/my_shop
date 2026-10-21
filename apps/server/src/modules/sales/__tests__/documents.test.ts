@@ -168,6 +168,52 @@ describe('estimates', () => {
     expect(conv.invoice.total_paise).toBe(10_000)
   })
 
+  it('pharmacy estimates keep the prescription when converted (or take a new one)', async () => {
+    const pharmacy = await createTestTenant(t, { business_type: 'pharmacy' })
+    const p = await insertProduct(t, pharmacy, {
+      sale_price_paise: 5_000,
+      attributes: { schedule: 'H' },
+    })
+    await addStock(pharmacy, { product_id: p, qty_milli: 10_000 })
+    const est = async (rx: Record<string, unknown> | null) =>
+      dataOf<Detail>(
+        await pharmacy.inject({
+          method: 'POST',
+          url: `${API}/sales/estimates`,
+          payload: {
+            store_id: pharmacy.store.id,
+            client_ref: clientRef(),
+            lines: [line(p)],
+            ...(rx ? { rx } : {}),
+          },
+        }),
+        201,
+      )
+    const convert = (id: string, extra: Record<string, unknown> = {}) =>
+      pharmacy.inject({
+        method: 'POST',
+        url: `${API}/sales/estimates/${id}/convert`,
+        payload: {
+          status: 'completed',
+          tenders: [{ method: 'cash', amount_paise: 5_000 }],
+          ...extra,
+        },
+      })
+    const withRx = await est({ doctor_name: 'Dr. Revathi', patient_name: 'Murugan' })
+    const kept = dataOf<SaleData>(await convert(withRx.id), 201)
+    expect(kept.invoice['rx']).toMatchObject({ doctor_name: 'Dr. Revathi' })
+
+    const without = await est(null)
+    const refused = await convert(without.id)
+    expect(refused.statusCode).toBe(422)
+    expect(errorOf(refused).code).toBe('RX_REQUIRED')
+    const given = dataOf<SaleData>(
+      await convert(without.id, { rx: { doctor_name: 'Dr. Selvam', patient_name: 'Lakshmi' } }),
+      201,
+    )
+    expect(given.invoice['rx']).toMatchObject({ patient_name: 'Lakshmi' })
+  })
+
   it('validates validity and permissions', async () => {
     const p = await insertProduct(t, shop, { track_inventory: false })
     const past = await estimate({ lines: [line(p)], valid_until: addDays(today, -1) })

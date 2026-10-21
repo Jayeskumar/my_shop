@@ -909,7 +909,7 @@ export async function cancelCreditNote(
         ]
       : [],
   )
-  if (movements.length) await postStock(tx, ctx, movements, { allowNegative: true })
+  const out = movements.length ? await postStock(tx, ctx, movements, { allowNegative: true }) : []
 
   await reverseJournal(tx, ctx, {
     source_type: 'credit_note',
@@ -917,6 +917,29 @@ export async function cancelCreditNote(
     entry_date: env.today,
     narration: `Cancelled ${note.number}: ${reason}`.slice(0, 500),
   })
+  // Outbound stock is valued at the current average cost, the reversal at the restock cost:
+  // book the difference so the inventory account keeps matching the stock valuation. Posted
+  // after the reversal (reverseJournal reverses every open entry of the document).
+  const costDiff = sumSafe(out.map((m) => m.cost_paise)) - note.cost_paise
+  if (costDiff !== 0) {
+    await postJournal(tx, ctx, {
+      entry_date: env.today,
+      store_id: note.store_id,
+      source_type: 'credit_note',
+      source_id: id,
+      narration: `Stock cost difference on cancelling ${note.number}`.slice(0, 500),
+      lines:
+        costDiff > 0
+          ? [
+              { account: { subtype: 'cogs' }, debit_paise: costDiff },
+              { account: { subtype: 'inventory' }, credit_paise: costDiff },
+            ]
+          : [
+              { account: { subtype: 'inventory' }, debit_paise: -costDiff },
+              { account: { subtype: 'cogs' }, credit_paise: -costDiff },
+            ],
+    })
+  }
 
   if (invoice) {
     for (const l of lines) {

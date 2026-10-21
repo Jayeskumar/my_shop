@@ -9,6 +9,10 @@
 //   entered), price_includes_tax — all optional.
 // - SalesPrintModelSchema.tax_breakup[].cgst_rate_bp / sgst_rate_bp: z.int() → z.number() (half of
 //   an odd rate such as 25 bp = 12.5 bp).
+// - EstimateConvertSchema: + rx (optional; default = the estimate's stored rx) — scheduled drugs
+//   of a pharmacy estimate can be billed on conversion (review).
+// - SyncInvoiceSchema: + held_invoice_id (optional) — a recalled held bill completed offline; the
+//   held bill is removed at sync in the same transaction so it cannot be billed twice (review).
 
 /**
  * Contract for the sales module — docs/API.md "sales & POS"; ARCHITECTURE.md §9 (pricing),
@@ -1177,6 +1181,8 @@ export const EstimateConvertSchema = z.object({
   invoice_date: zDateStr.optional(),
   credit_limit_override: z.boolean().default(false),
   client_ref: zIdempotencyKey.optional(),
+  /** Prescription for scheduled drugs (default: the one stored with the estimate). */
+  rx: RxSchema.nullable().optional(),
 })
 export type EstimateConvert = z.input<typeof EstimateConvertSchema>
 
@@ -2360,6 +2366,11 @@ export const SyncInvoiceSchema = z.object({
   invoice_date: zDateStr,
   tenders: z.array(TenderInputSchema).max(10).default([]),
   credit_limit_override: z.boolean().default(false),
+  /**
+   * A held bill recalled and completed offline: it is removed at sync (same store, still held /
+   * draft) in the bill's transaction, so it cannot be billed a second time.
+   */
+  held_invoice_id: zId.optional(),
 })
 export type SyncInvoice = z.input<typeof SyncInvoiceSchema>
 

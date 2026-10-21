@@ -16,6 +16,9 @@ import { renderApp, signIn } from '@/test/render'
 import { CUSTOMER_ID, ESTIMATE_ID, INVOICE_ID, pid } from '../testing/fixtures'
 import { createSalesApi } from '../testing/handlers'
 
+/** The first render loads the lazy route module (slow on a busy machine). */
+const FIRST_PAINT = { timeout: 5_000 }
+
 vi.mock('@/features/pos/print', async (importOriginal) => {
   const actual = await importOriginal<typeof PosPrint>()
   return {
@@ -43,7 +46,7 @@ describe('Invoice detail', () => {
     await signIn(makeMe())
     renderApp(PATH)
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'S1-A/2627/00412' }),
+      await screen.findByRole('heading', { level: 1, name: 'S1-A/2627/00412' }, FIRST_PAINT),
     ).toBeInTheDocument()
     const lines = screen.getByRole('table', { name: 'Bill items' })
     expect(within(lines).getByText('Aashirvaad Atta 5 kg')).toBeInTheDocument()
@@ -235,7 +238,7 @@ describe('Invoice detail', () => {
     setup()
     await signIn(makeMe({ permissions: ['sales.read'] }))
     renderApp(PATH)
-    await screen.findByRole('heading', { level: 1, name: 'S1-A/2627/00412' })
+    await screen.findByRole('heading', { level: 1, name: 'S1-A/2627/00412' }, FIRST_PAINT)
     expect(screen.queryByRole('button', { name: 'Collect payment' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Return items' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument()
@@ -249,7 +252,7 @@ describe('Invoice detail', () => {
     await signIn(makeMe())
     renderApp(`/sales/invoices/${ESTIMATE_ID}`)
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'EST/2627/00021' }),
+      await screen.findByRole('heading', { level: 1, name: 'EST/2627/00021' }, FIRST_PAINT),
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Collect payment' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Convert to bill' }))

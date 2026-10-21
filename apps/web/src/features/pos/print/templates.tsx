@@ -16,12 +16,26 @@ import {
   moneyPlain,
   nameLines,
   pct,
+  phoneText,
   primaryText,
 } from './labels'
 import { qrSvg } from './qr'
 
 type Model = SalesPrintModel
 type Line = Model['lines'][number]
+
+/**
+ * Rates are per pack. When the quantity is printed in loose units (1 tablet of a strip of 15),
+ * the pack size follows the rate (32.00/15) so the line reads right; whole packs need no hint.
+ */
+function perPack(l: Line, paise: number): string {
+  const loose = l.pack_size > 1 && l.qty_milli % (l.pack_size * 1000) !== 0
+  return loose ? `${moneyPlain(paise)}/${l.pack_size}` : moneyPlain(paise)
+}
+
+function rateText(l: Line): string {
+  return perPack(l, l.rate_paise)
+}
 
 function Qr({ text, size, caption }: { text: string; size: string; caption?: string }) {
   return (
@@ -91,7 +105,7 @@ function SellerHeader({ model, compact }: { model: Model; compact: boolean }) {
       ))}
       {s.phone ? (
         <div className="small">
-          {biText(model, label('phone'))}: {s.phone}
+          {biText(model, label('phone'))}: {phoneText(s.phone)}
         </div>
       ) : null}
       {s.gstin ? <div className="small bold">GSTIN: {s.gstin}</div> : null}
@@ -208,7 +222,7 @@ function Buyer({ model }: { model: Model }) {
     <div className="buyer small">
       <div>
         {biText(model, label('customer'))}: <b>{b.name}</b>
-        {b.phone ? ` · ${b.phone}` : ''}
+        {b.phone ? ` · ${phoneText(b.phone)}` : ''}
       </div>
       {b.gstin ? <div>GSTIN: {b.gstin}</div> : null}
       {b.address_lines.length ? <div>{b.address_lines.join(', ')}</div> : null}
@@ -329,7 +343,7 @@ function Footer({ model }: { model: Model }) {
 
 function lineMrp(model: Model, l: Line): string | null {
   return model.flags.show_mrp && l.mrp_paise !== null && l.mrp_paise > l.rate_paise
-    ? `MRP ${moneyPlain(l.mrp_paise)}`
+    ? `MRP ${perPack(l, l.mrp_paise)}`
     : null
 }
 
@@ -371,7 +385,7 @@ function CompactItems({ model }: { model: Model }) {
                 </div>
                 <LineDetails model={model} l={l} />
                 <div className="small">
-                  {primaryText(model, l.qty_display)} × {moneyPlain(l.rate_paise)}
+                  {primaryText(model, l.qty_display)} × {rateText(l)}
                   {mrp ? ` (${mrp})` : ''}
                 </div>
               </td>
@@ -415,7 +429,7 @@ function WideItems({ model }: { model: Model }) {
                   {mrp ? <div className="small">{mrp}</div> : null}
                 </td>
                 <td className="num top">{primaryText(model, l.qty_display)}</td>
-                <td className="num top">{moneyPlain(l.rate_paise)}</td>
+                <td className="num top">{rateText(l)}</td>
                 <td className="num top bold">{moneyPlain(l.total_paise)}</td>
               </tr>
             </Fragment>
@@ -527,7 +541,7 @@ function A4Page({ model, copy }: { model: Model; copy: Bi | null }) {
             ))}
             {s.phone ? (
               <div>
-                {biText(model, label('phone'))}: {s.phone}
+                {biText(model, label('phone'))}: {phoneText(s.phone)}
               </div>
             ) : null}
             {s.email ? <div>{s.email}</div> : null}
@@ -560,7 +574,7 @@ function A4Page({ model, copy }: { model: Model; copy: Bi | null }) {
                   {model.buyer.address_lines.map((a) => (
                     <div key={a}>{a}</div>
                   ))}
-                  {model.buyer.phone ? <div>{model.buyer.phone}</div> : null}
+                  {model.buyer.phone ? <div>{phoneText(model.buyer.phone)}</div> : null}
                   {model.buyer.gstin ? (
                     <div className="bold">GSTIN: {model.buyer.gstin}</div>
                   ) : null}
@@ -667,9 +681,9 @@ function A4Page({ model, copy }: { model: Model; copy: Bi | null }) {
                   <div className="small">{l.uqc}</div>
                 </td>
                 {model.flags.show_mrp ? (
-                  <td className="num">{l.mrp_paise !== null ? moneyPlain(l.mrp_paise) : ''}</td>
+                  <td className="num">{l.mrp_paise !== null ? perPack(l, l.mrp_paise) : ''}</td>
                 ) : null}
-                <td className="num">{moneyPlain(l.rate_paise)}</td>
+                <td className="num">{rateText(l)}</td>
                 <td className="num">{l.discount_paise > 0 ? moneyPlain(l.discount_paise) : ''}</td>
                 {showTax ? <td className="num">{moneyPlain(l.taxable_paise)}</td> : null}
                 {showTax ? <td className="num">{pct(l.gst_rate_bp)}</td> : null}
@@ -708,7 +722,7 @@ function A4Page({ model, copy }: { model: Model; copy: Bi | null }) {
                     </>
                   )}
                   <th className="num">{primaryText(model, label('cess'))}</th>
-                  <th className="num">{primaryText(model, label('gst_total'))}</th>
+                  <th className="num">{primaryText(model, label('tax_amount'))}</th>
                 </tr>
               </thead>
               <tbody>

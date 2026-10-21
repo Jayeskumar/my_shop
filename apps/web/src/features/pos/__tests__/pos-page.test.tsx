@@ -228,6 +228,49 @@ describe('POS counter', () => {
     expect(screen.queryByRole('dialog', { name: /Weigh/ })).not.toBeInTheDocument()
   })
 
+  it('a scheduled drug asks for the prescription; a doctor not on record is typed in', async () => {
+    serverApi()
+    server.use(
+      http.get(apiPath('/doctors'), () =>
+        HttpResponse.json({ data: [], page: { limit: 20, offset: 0, total: 0 } }),
+      ),
+      http.post(apiPath('/doctors'), () =>
+        HttpResponse.json(
+          { error: { code: 'INTERNAL', message: 'down', request_id: 'r1' } },
+          { status: 500 },
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    const search = await openCounter()
+    await user.type(search, 'dolo')
+    await user.click(await screen.findByRole('option', { name: /Dolo 650/ }, { timeout: 5_000 }))
+    const rx = await screen.findByRole(
+      'dialog',
+      { name: 'Prescription details' },
+      { timeout: 5_000 },
+    )
+    await user.click(within(rx).getByRole('combobox'))
+    await user.keyboard('Dr. Revathi')
+    await user.click(
+      await screen.findByRole('option', { name: 'Add “Dr. Revathi”' }, { timeout: 5_000 }),
+    )
+    // The doctors record could not be made: the name is kept as typed and billing goes on.
+    const doctor = await within(rx).findByRole(
+      'textbox',
+      { name: /^Doctor\s*\*?$/ },
+      { timeout: 5_000 },
+    )
+    expect(doctor).toHaveValue('Dr. Revathi')
+    await user.type(within(rx).getByRole('textbox', { name: /Patient name/ }), 'Meena')
+    await user.click(within(rx).getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Prescription details' }),
+      ).not.toBeInTheDocument(),
+    )
+  })
+
   it('F1 shows the keyboard help', async () => {
     serverApi()
     const user = userEvent.setup()

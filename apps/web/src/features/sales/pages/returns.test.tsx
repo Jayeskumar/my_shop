@@ -10,6 +10,9 @@ import { renderApp, signIn } from '@/test/render'
 import { CREDIT_NOTE_ID, INVOICE_ID, LINE_ATTA } from '../testing/fixtures'
 import { createSalesApi } from '../testing/handlers'
 
+/** The first render loads the lazy route module (slow on a busy machine). */
+const FIRST_PAINT = { timeout: 5_000 }
+
 vi.mock('@/features/pos/print', async (importOriginal) => {
   const actual = await importOriginal<typeof PosPrint>()
   return { ...actual, printSalesDocument: vi.fn(async () => undefined) }
@@ -81,7 +84,10 @@ describe('New sales return', () => {
     expect(call.headers.get('idempotency-key')).toBe(body.client_ref)
 
     // The credit note opens, ready to print.
-    expect(await screen.findByText('Return accepted · ₹285.00')).toBeInTheDocument()
+    // (The detail page module loads lazily on the first navigation.)
+    expect(
+      await screen.findByText('Return accepted · ₹285.00', undefined, FIRST_PAINT),
+    ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Print credit note' }))
     await waitFor(() =>
       expect(printSalesDocument).toHaveBeenCalledWith({
@@ -131,7 +137,7 @@ describe('Returns list and credit note', () => {
     const user = userEvent.setup()
     await signIn(makeMe())
     renderApp('/sales/returns')
-    const table = await screen.findByRole('table', { name: 'Sales returns' })
+    const table = await screen.findByRole('table', { name: 'Sales returns' }, FIRST_PAINT)
     expect(await within(table).findByRole('link', { name: 'CN/S1/2627/00007' })).toHaveAttribute(
       'href',
       `/sales/returns/${CREDIT_NOTE_ID}`,
@@ -153,7 +159,7 @@ describe('Returns list and credit note', () => {
     await signIn(makeMe())
     renderApp(`/sales/returns/${CREDIT_NOTE_ID}`)
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'CN/S1/2627/00007' }),
+      await screen.findByRole('heading', { level: 1, name: 'CN/S1/2627/00007' }, FIRST_PAINT),
     ).toBeInTheDocument()
     expect(screen.getByText("₹285.00 was adjusted against the bill's due.")).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Cancel return' }))
@@ -173,7 +179,7 @@ describe('Returns list and credit note', () => {
     setup()
     await signIn(makeMe({ permissions: ['sales.return'] }))
     renderApp(`/sales/returns/${CREDIT_NOTE_ID}`)
-    await screen.findByRole('heading', { level: 1, name: 'CN/S1/2627/00007' })
+    await screen.findByRole('heading', { level: 1, name: 'CN/S1/2627/00007' }, FIRST_PAINT)
     expect(screen.queryByRole('button', { name: 'Cancel return' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Print' })).toBeInTheDocument()
   })

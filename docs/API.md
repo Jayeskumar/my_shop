@@ -161,11 +161,11 @@ remainder). Every list takes `?format=csv` (needs `data.export` or `reports.read
 | `GET /sales/invoices/:id/print?format=thermal_80\|thermal_58\|a4&locale=` · `GET /sales/credit-notes/:id/print` | `sales.read` (credit notes: or `sales.return`) | `SalesPrintModel`: everything for a GST bilingual A4 / thermal document (no internal ids or costs) |
 | `POST /sales/invoices/:id/share` `{channel: whatsapp\|sms, phone?}` | `sales.read` | share link `/i/<token>` + notification `invoice_share` (+ `wa_me_url`) |
 | `GET /sales/held?store_id=&register_id=` | `pos.use` or `sales.create` | held bills / drafts |
-| `POST /sales/estimates` · `POST /sales/estimates/:id/convert` | `sales.create` | estimates are invoices with `doc_type: estimate` (list: `L /sales/invoices?doc_type=estimate`; valid until = `due_date`) |
+| `POST /sales/estimates` · `POST /sales/estimates/:id/convert` | `sales.create` | estimates are invoices with `doc_type: estimate` (list: `L /sales/invoices?doc_type=estimate`; valid until = `due_date`); convert keeps the estimate's `rx` unless one is sent |
 | `GET /sales/invoices/:id/returnable` | `sales.return` | sold / returned / returnable qty + credited amounts, `refundable_paise` |
 | `L/C /sales/credit-notes` · `G /sales/credit-notes/:id` | `sales.return` (L/G: or `sales.read`) | settlement `cash \| upi \| bank_transfer` (refund, ≤ refundable), `adjust_due`, `store_credit`; free-form returns need `store_id` and prices |
 | `POST /sales/credit-notes/:id/cancel` `{reason}` | `sales.cancel` | reverses stock, journal, settlement, loyalty |
-| `POST /pos/sync` `{register_id, invoices, credit_notes}` | `pos.use` (+feat `pos`) | invoices then credit notes, in order, one transaction each; per item `created \| duplicate \| renumbered \| failed`; returns the register series state |
+| `POST /pos/sync` `{register_id, invoices, credit_notes}` | `pos.use` (+feat `pos`) | invoices then credit notes, in order, one transaction each; per item `created \| duplicate \| renumbered \| failed`; an invoice with `held_invoice_id` (a recalled held bill billed offline) retires that held bill in its transaction (audited; already completed elsewhere → flagged `sales_invoice.held_conflict`); returns the register series state |
 | `GET /public/v1/invoices/:shareToken` | public | `{document: SalesPrintModel, pay: {upi_uri, amount_paise, …} \| null}` |
 
 ## payments & UPI

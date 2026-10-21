@@ -20,6 +20,7 @@ import {
 } from '@kadai/shared/api/sales'
 import type { z } from 'zod'
 import type { Tx } from '../../db/tenant'
+import { audit } from '../../core/audit'
 import { AppError, isAppError } from '../../core/errors'
 import { peekSeries } from '../../core/numbering'
 import { type SalesCtx, loadRegister, salesEnv } from './common'
@@ -52,6 +53,69 @@ function errorOf(err: unknown, log: FastifyBaseLogger): SyncItemResult['error'] 
   }
   log.error({ err }, 'pos sync item failed')
   return { code: 'INTERNAL', message: 'Unexpected error', details: null }
+}
+
+interface RetiredHeld {
+  id: string
+  /** removed: the held bill was deleted; conflict: it was already completed / cancelled. */
+  outcome: 'removed' | 'conflict'
+  status: string
+  number: string | null
+}
+
+/**
+ * The held bill (or draft) an offline bill was made from: deleted when it is still open in the
+ * register's store (drafts may be deleted, ARCHITECTURE.md §5); a held bill that was completed
+ * meanwhile elsewhere is reported (possible double billing) instead.
+ */
+async function retireHeldBill(
+  tx: Tx,
+  ctx: SalesCtx,
+  a: { id: string | null; store_id: string },
+): Promise<RetiredHeld | null> {
+  if (!a.id) return null
+  const row = await tx
+    .selectFrom('sales_invoices')
+    .select(['id', 'status', 'store_id', 'number'])
+    .where('tenant_id', '=', ctx.tenantId)
+    .where('id', '=', a.id)
+    .forUpdate()
+    .executeTakeFirst()
+  if (!row || row.store_id !== a.store_id) return null
+  if (row.status !== 'held' && row.status !== 'draft') {
+    return { id: row.id, outcome: 'conflict', status: row.status, number: row.number }
+  }
+  await tx
+    .deleteFrom('sales_invoices')
+    .where('tenant_id', '=', ctx.tenantId)
+    .where('id', '=', row.id)
+    .execute()
+  return { id: row.id, outcome: 'removed', status: row.status, number: null }
+}
+
+async function auditHeldRetired(
+  tx: Tx,
+  ctx: SalesCtx,
+  held: RetiredHeld,
+  bill: { id: string; number: string },
+): Promise<void> {
+  if (held.outcome === 'removed') {
+    await audit(tx, ctx, {
+      action: 'sales_invoice.held_billed_offline',
+      entity_type: 'sales_invoice',
+      entity_id: bill.id,
+      summary: `Held bill billed offline as ${bill.number}; the held bill was removed`,
+      changes: { held_invoice_id: held.id, held_status: held.status },
+    })
+    return
+  }
+  await audit(tx, ctx, {
+    action: 'sales_invoice.held_conflict',
+    entity_type: 'sales_invoice',
+    entity_id: bill.id,
+    summary: `Offline bill ${bill.number} was made from a held bill that is already ${held.status}${held.number ? ` (${held.number})` : ''}: check for double billing`,
+    changes: { held_invoice_id: held.id, held_status: held.status, held_number: held.number },
+  })
 }
 
 export async function posSync(
@@ -87,13 +151,21 @@ export async function posSync(
       const r = await runTx(async (tx) => {
         const dup = await tx
           .selectFrom('sales_invoices')
-          .select(['id', 'number'])
+          .select(['id', 'number', 'status'])
           .where('tenant_id', '=', ctx.tenantId)
           .where('client_ref', '=', inv.client_ref)
+          .forUpdate()
           .executeTakeFirst()
-        if (dup) {
+        const dupOpen = dup !== undefined && (dup.status === 'held' || dup.status === 'draft')
+        if (dup && !dupOpen) {
           return { status: 'duplicate' as const, id: dup.id, number: dup.number, warnings: [] }
         }
+        // A held bill (recalled, or stored under this client_ref) that was billed offline is
+        // retired in this transaction, so it cannot be recalled and billed a second time.
+        const held = await retireHeldBill(tx, ctx, {
+          id: inv.held_invoice_id ?? (dupOpen ? dup.id : null),
+          store_id: register.store_id,
+        })
         const res = await commitInvoice(
           tx,
           ctx,
@@ -124,6 +196,7 @@ export async function posSync(
             },
           },
         )
+        if (held) await auditHeldRetired(tx, ctx, held, { id: res.invoice_id, number: res.number })
         return {
           status: res.renumbered ? ('renumbered' as const) : ('created' as const),
           id: res.invoice_id,

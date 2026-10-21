@@ -32,7 +32,10 @@ export function RxDialog({ onClose }: { onClose: (saved: boolean) => void }) {
   const rx = pos.cart.rx
   const [doctor, setDoctor] = useState<Doctor | null>(null)
   const [creatingDoctor, setCreatingDoctor] = useState(false)
-  const pickDoctors = pos.online && pos.perms.customersRead
+  // Typed doctor name (no doctors record): offline, no list permission, or the record could not
+  // be created — the bill only needs the name, so a prescription never blocks the sale.
+  const [typedDoctor, setTypedDoctor] = useState(false)
+  const pickDoctors = pos.online && pos.perms.customersRead && !typedDoctor
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -60,6 +63,13 @@ export function RxDialog({ onClose }: { onClose: (saved: boolean) => void }) {
     onClose(true)
   })
 
+  const applyTypedDoctor = (name: string): void => {
+    setTypedDoctor(true)
+    setDoctor(null)
+    form.setValue('doctor_id', null)
+    form.setValue('doctor_name', name.trim(), { shouldValidate: true })
+  }
+
   const quickAddDoctor = async (name: string): Promise<void> => {
     setCreatingDoctor(true)
     try {
@@ -70,6 +80,8 @@ export function RxDialog({ onClose }: { onClose: (saved: boolean) => void }) {
       notify.success(t('rx.doctor_added', { name: res.data.name }))
     } catch (e) {
       notify.error(e)
+      // Keep billing: the name is recorded on the bill without a doctors record.
+      applyTypedDoctor(name)
     } finally {
       setCreatingDoctor(false)
     }
@@ -126,9 +138,12 @@ export function RxDialog({ onClose }: { onClose: (saved: boolean) => void }) {
                   form.setValue('doctor_name', d?.name ?? '', { shouldValidate: true })
                   form.setValue('doctor_reg_no', d?.registration_no ?? '')
                 }}
-                {...(pos.perms.customersWrite && !creatingDoctor
-                  ? { onCreate: (q: string) => void quickAddDoctor(q) }
-                  : {})}
+                {...(creatingDoctor
+                  ? {}
+                  : {
+                      onCreate: (q: string) =>
+                        pos.perms.customersWrite ? void quickAddDoctor(q) : applyTypedDoctor(q),
+                    })}
               />
             </FormField>
           ) : (

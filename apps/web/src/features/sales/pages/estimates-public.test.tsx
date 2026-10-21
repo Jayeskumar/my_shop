@@ -9,6 +9,9 @@ import { renderApp, signIn } from '@/test/render'
 import { ESTIMATE_ID, SHARE_TOKEN, publicInvoice } from '../testing/fixtures'
 import { apiError, createSalesApi, json } from '../testing/handlers'
 
+/** The first render loads the lazy route module (slow on a busy machine). */
+const FIRST_PAINT = { timeout: 5_000 }
+
 vi.mock('@/features/pos/print', async (importOriginal) => {
   const actual = await importOriginal<typeof PosPrint>()
   return { ...actual, printSalesModel: vi.fn(async () => undefined) }
@@ -26,7 +29,7 @@ describe('Estimates', () => {
     const user = userEvent.setup()
     await signIn(makeMe())
     renderApp('/sales/estimates')
-    const table = await screen.findByRole('table', { name: 'Estimates' })
+    const table = await screen.findByRole('table', { name: 'Estimates' }, FIRST_PAINT)
     expect(await within(table).findByRole('link', { name: 'EST/2627/00021' })).toHaveAttribute(
       'href',
       `/sales/invoices/${ESTIMATE_ID}`,
@@ -48,7 +51,7 @@ describe('Public invoice page', () => {
     const user = userEvent.setup()
     renderApp(`/i/${SHARE_TOKEN}`)
     expect(
-      await screen.findByRole('heading', { name: 'ஸ்ரீ முருகன் ஸ்டோர்ஸ்' }),
+      await screen.findByRole('heading', { name: 'ஸ்ரீ முருகன் ஸ்டோர்ஸ்' }, FIRST_PAINT),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'வரி விலைப்பட்டியல்' })).toBeInTheDocument()
     expect(api.callsTo('publicInvoice')[0]!.headers.get('authorization')).toBeNull()
@@ -71,7 +74,9 @@ describe('Public invoice page', () => {
   it('has no pay button when nothing is due', async () => {
     setup({ publicInvoice: () => json({ data: publicInvoice({ pay: null }) }) })
     renderApp(`/i/${SHARE_TOKEN}`)
-    expect(await screen.findByRole('heading', { name: 'வரி விலைப்பட்டியல்' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'வரி விலைப்பட்டியல்' }, FIRST_PAINT),
+    ).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /UPI/ })).not.toBeInTheDocument()
   })
 

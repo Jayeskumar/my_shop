@@ -472,6 +472,7 @@
     "taxable": "Taxable value",
     "gst_rate": "GST",
     "gst_total": "GST",
+    "tax_amount": "Tax amount",
     "cess": "Cess",
     "loyalty_redeemed": "Points redeemed",
     "round_off": "Round off",

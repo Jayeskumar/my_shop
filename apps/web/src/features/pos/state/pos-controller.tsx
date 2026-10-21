@@ -227,7 +227,8 @@ export function PosProvider({ children }: { children: ReactNode }) {
     return cart.lines.some((l) => lineRequiresRx(l.product.attributes, schedules))
   }, [cart, context])
 
-  const displayEnabled = context?.register?.settings.customer_display !== false
+  // Register setting (default off); nothing is broadcast before the counter context is known.
+  const displayEnabled = context?.register?.settings.customer_display === true
   const branding = useMemo(
     () =>
       context

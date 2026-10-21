@@ -393,6 +393,25 @@ describe('held bills and drafts', () => {
     expect(missing.statusCode).toBe(404)
   })
 
+  it('a client_ref of a held bill never completes as a replay of it', async () => {
+    const p = await insertProduct(t, shop, { sale_price_paise: 4_000, track_inventory: false })
+    const ref = clientRef()
+    const held = await sell(shop, { client_ref: ref, status: 'held', lines: [line(p)] })
+    expect(held.invoice.status).toBe('held')
+    const res = await createSale(shop, {
+      client_ref: ref,
+      lines: [line(p)],
+      tenders: [{ method: 'cash', amount_paise: 4_000 }],
+    })
+    expect(res.statusCode).toBe(409)
+    const row = await t.deps.db.systemDb
+      .selectFrom('sales_invoices')
+      .select(['status', 'number'])
+      .where('id', '=', held.invoice.id)
+      .executeTakeFirstOrThrow()
+    expect(row).toEqual({ status: 'held', number: null })
+  })
+
   it('held bills cannot carry tenders', async () => {
     const p = await insertProduct(t, shop, { track_inventory: false })
     const res = await createSale(shop, {

@@ -374,6 +374,47 @@ describe('returns', () => {
     await expectStockConsistent(t, shop.tenant.id)
   })
 
+  it('cancelling a return keeps the inventory account equal to the stock value moved', async () => {
+    const p = await insertProduct(t, shop, { sale_price_paise: 12_000 })
+    await addStock(shop, { product_id: p, qty_milli: 5_000, unit_cost_paise: 6_000 })
+    const r = await sell(shop, {
+      lines: [line(p, 2_000)],
+      tenders: [{ method: 'cash', amount_paise: 24_000 }],
+    })
+    const note = dataOf<Note>(
+      await returnGoods(shop, {
+        invoice_id: r.invoice.id,
+        lines: [{ invoice_line_id: r.invoice.lines[0]!.id, qty_milli: 1_000, restock: true }],
+      }),
+      201,
+    )
+    expect(note.cost_paise).toBe(6_000)
+    // The average cost moves before the return is cancelled (a dearer purchase arrives).
+    await addStock(shop, { product_id: p, qty_milli: 5_000, unit_cost_paise: 9_000 })
+    const cancelled = await shop.inject({
+      method: 'POST',
+      url: `${API}/sales/credit-notes/${note.id}/cancel`,
+      payload: { reason: 'Customer took it back' },
+    })
+    expect(cancelled.statusCode).toBe(200)
+    const moved = await t.deps.db.systemDb
+      .selectFrom('stock_movements')
+      .select(['qty_milli', 'unit_cost_paise'])
+      .where('tenant_id', '=', shop.tenant.id)
+      .where('ref_type', '=', 'credit_note')
+      .where('ref_id', '=', note.id)
+      .execute()
+    const stockValue = moved.reduce(
+      (s, m) => s + Math.round(((m.unit_cost_paise ?? 0) * m.qty_milli) / 1000),
+      0,
+    )
+    expect(stockValue).toBeLessThan(0) // went out dearer than it came back
+    const net = netBySubtype(await journalOf(t, shop.tenant.id, 'credit_note', note.id))
+    expect(net['inventory']).toBe(stockValue)
+    expect((net['inventory'] ?? 0) + (net['cogs'] ?? 0)).toBe(0)
+    await expectLedgerBalanced(t, shop.tenant.id)
+  })
+
   it('free-form returns need manager permission, a store and prices', async () => {
     const p = await insertProduct(t, shop, { sale_price_paise: 11_800, gst_rate_bp: 1800 })
     const cashier = await shop.asRole('cashier')

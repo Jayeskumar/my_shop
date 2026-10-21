@@ -472,6 +472,7 @@
     "taxable": "வரிக்குட்பட்ட மதிப்பு",
     "gst_rate": "GST",
     "gst_total": "GST",
+    "tax_amount": "வரித் தொகை",
     "cess": "செஸ்",
     "loyalty_redeemed": "புள்ளிக் கழிவு",
     "round_off": "முழுமையாக்கல்",

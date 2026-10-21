@@ -127,9 +127,13 @@ export function allowsDecimalQty(product: Pick<PosProduct, 'decimal_qty' | 'unit
   return product.decimal_qty || isDecimalUnit(product.unit)
 }
 
-/** Default quantity of one scan / tap: one pack for strips that cannot be sold loose. */
+/**
+ * Default quantity of one scan / tap: one pack (a strip) for pack-priced goods — the barcode is on
+ * the strip and the stepper moves by strips too; loose tablets are entered with F7 (packs +
+ * loose) when the product allows them.
+ */
 export function defaultQtyMilli(product: Pick<PosProduct, 'pack_size' | 'allow_loose'>): number {
-  return product.pack_size > 1 && !product.allow_loose ? product.pack_size * 1000 : 1000
+  return product.pack_size > 1 ? product.pack_size * 1000 : 1000
 }
 
 const MAX_QTY_MILLI = 1_000_000_000

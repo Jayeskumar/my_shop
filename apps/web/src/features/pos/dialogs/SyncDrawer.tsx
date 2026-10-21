@@ -5,10 +5,26 @@
  */
 import { AlertTriangle, CheckCircle2, CloudUpload, RefreshCcw, Shuffle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { errorMessage, isErrorCode } from '@kadai/shared/errors'
 import { Badge, Button, Drawer, EmptyState } from '@/components/ui'
 import { formatDateTime } from '@/lib/format'
+import { getLanguage, translate } from '@/lib/i18n'
 import type { OutboxEntry } from '@/lib/offline/db'
 import { usePos } from '../state/pos-context'
+
+const CLIENT_CODES = ['NETWORK_ERROR', 'TIMEOUT', 'BAD_RESPONSE'] as const
+
+/** Why an upload failed, in the cashier's language (the server text stays as detail in English). */
+function syncErrorText(error: { code: string; message: string }): string {
+  const lng = getLanguage()
+  const client = CLIENT_CODES.find((c) => c === error.code)
+  if (client) return translate(`errors:client.${client}`, { lng })
+  if (!isErrorCode(error.code)) return error.message
+  const text = errorMessage(error.code, lng)
+  return lng === 'en' && error.message && error.message !== text
+    ? `${text} (${error.message})`
+    : text
+}
 
 function lineCount(entry: OutboxEntry): number | null {
   const payload = entry.payload as { lines?: unknown[] } | null
@@ -87,9 +103,7 @@ export function SyncDrawer({ onClose }: { onClose: () => void }) {
                 ) : null}
               </div>
               {e.status === 'failed' && e.last_error ? (
-                <p className="mt-1 text-xs text-danger">
-                  {e.last_error.code}: {e.last_error.message}
-                </p>
+                <p className="mt-1 text-xs text-danger">{syncErrorText(e.last_error)}</p>
               ) : null}
             </li>
           ))}

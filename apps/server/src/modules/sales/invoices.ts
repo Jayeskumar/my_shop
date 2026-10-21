@@ -885,11 +885,18 @@ export async function replayResult(
 ): Promise<InvoiceSaveResult> {
   const invoice = await loadInvoiceDetail(tx, ctx, id, rt.publicBaseUrl)
   const tenders: InvoiceSaveResult['tenders'] = []
+  // Through the allocations (indexed by target); the tender payments carry client_ref
+  // `tender:<invoice id>:<index>` (paymentClientRef.salesTender).
   const payments = await tx
-    .selectFrom('payments')
-    .select(['id', 'method', 'amount_paise', 'notes', 'client_ref'])
-    .where('tenant_id', '=', ctx.tenantId)
-    .where('client_ref', 'like', `tender:${id}:%`)
+    .selectFrom('payment_allocations as a')
+    .innerJoin('payments as p', (j) =>
+      j.onRef('p.tenant_id', '=', 'a.tenant_id').onRef('p.id', '=', 'a.payment_id'),
+    )
+    .select(['p.id', 'p.method', 'p.amount_paise', 'p.notes', 'p.client_ref'])
+    .where('a.tenant_id', '=', ctx.tenantId)
+    .where('a.target_type', '=', 'sales_invoice')
+    .where('a.target_id', '=', id)
+    .where('p.client_ref', 'like', `tender:${id}:%`)
     .execute()
   for (const p of payments) {
     const index = Number(p.client_ref?.split(':')[2] ?? '0')
@@ -921,11 +928,25 @@ export async function createInvoice(
   if (body.client_ref) {
     const existing = await tx
       .selectFrom('sales_invoices')
-      .select('id')
+      .select(['id', 'status', 'doc_type'])
       .where('tenant_id', '=', ctx.tenantId)
       .where('client_ref', '=', body.client_ref)
       .executeTakeFirst()
-    if (existing) return replayResult(tx, ctx, rt, existing.id)
+    if (existing) {
+      // A replay answers the same kind of document only: a completed bill must never be
+      // "replayed" as a held bill / estimate that happens to carry the same client_ref.
+      const open = existing.status === 'held' || existing.status === 'draft'
+      const wantsOpen = body.status === 'held' || body.status === 'draft'
+      if (existing.doc_type === 'estimate' || open !== wantsOpen) {
+        throw conflict('client_ref is already used by another document', {
+          reason: 'client_ref_in_use',
+          invoice_id: existing.id,
+          status: existing.status,
+          doc_type: existing.doc_type,
+        })
+      }
+      return replayResult(tx, ctx, rt, existing.id)
+    }
   }
   const input: SaleInput & { channel: SalesChannel } = {
     store_id: body.store_id,
@@ -1453,7 +1474,8 @@ export async function convertEstimate(
     invoice_date: body.invoice_date ?? null,
     channel: body.channel,
     credit_limit_override: body.credit_limit_override,
-    rx: null,
+    // Scheduled drugs need the prescription on the bill: the one sent now, else the estimate's.
+    rx: body.rx !== undefined ? body.rx : (cart.rx ?? null),
   }
   const meta = { source_estimate_id: est.id, source_estimate_number: est.number }
   let result: InvoiceSaveResult

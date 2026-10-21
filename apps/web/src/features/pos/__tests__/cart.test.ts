@@ -53,8 +53,8 @@ describe('cartReducer: adding', () => {
       { type: 'add', line: newLineOf(paracetamol, { batch: older!, batch_auto: false }) },
     )
     expect(batched.lines.map((l) => [l.batch?.batch_no, l.qty_milli])).toEqual([
-      ['B-OLD', 2000],
-      ['B-NEW', 1000],
+      ['B-OLD', 30_000],
+      ['B-NEW', 15_000],
     ])
   })
 
@@ -169,8 +169,10 @@ describe('unit helpers', () => {
     expect(qtyStepMilli(paracetamol)).toBe(15_000)
     expect(allowsDecimalQty(sugar)).toBe(true)
     expect(allowsDecimalQty(rice)).toBe(false)
-    expect(defaultQtyMilli(paracetamol)).toBe(1000) // loose tablets allowed: one tablet
+    // One strip per scan / tap (loose tablets via the quantity dialog).
+    expect(defaultQtyMilli(paracetamol)).toBe(15_000)
     expect(defaultQtyMilli({ ...paracetamol, allow_loose: false })).toBe(15_000)
+    expect(defaultQtyMilli(rice)).toBe(1000)
     expect(packUnitOf(paracetamol)).toBe('STRIP')
     expect(packUnitOf(rice)).toBe('PACK')
   })

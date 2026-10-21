@@ -141,7 +141,6 @@ export function LinesTable({ lines, label }: { lines: readonly DocLine[]; label:
           <TableHead className="text-end">{t('lines.qty')}</TableHead>
           <TableHead className="text-end">{t('lines.rate')}</TableHead>
           {hasDiscount ? <TableHead className="text-end">{t('lines.discount')}</TableHead> : null}
-          <TableHead className="text-end">{t('lines.taxable')}</TableHead>
           <TableHead className="text-end">{t('lines.gst')}</TableHead>
           <TableHead className="text-end">{t('lines.amount')}</TableHead>
         </TableRow>
@@ -170,7 +169,7 @@ export function LinesTable({ lines, label }: { lines: readonly DocLine[]; label:
                 </div>
               ) : null}
             </TableCell>
-            <TableCell className="text-end align-top">
+            <TableCell className="text-end align-top whitespace-nowrap">
               <Money paise={line.unit_price_paise} />
               {line.mrp_paise && line.mrp_paise > line.unit_price_paise ? (
                 <div className="text-xs text-muted-foreground">
@@ -187,9 +186,7 @@ export function LinesTable({ lines, label }: { lines: readonly DocLine[]; label:
                 )}
               </TableCell>
             ) : null}
-            <TableCell className="text-end align-top">
-              <Money paise={line.taxable_paise} />
-            </TableCell>
+            {/* Taxable value under the tax (one column less: the Tamil table fits the card). */}
             <TableCell className="text-end align-top whitespace-nowrap">
               <Money paise={taxOf(line)} />
               <div className="text-xs text-muted-foreground">
@@ -198,8 +195,11 @@ export function LinesTable({ lines, label }: { lines: readonly DocLine[]; label:
                   ? ` + ${t('lines.cess', { rate: formatBp(line.cess_rate_bp) })}`
                   : ''}
               </div>
+              <div className="text-xs text-muted-foreground">
+                {t('lines.taxable')} <Money paise={line.taxable_paise} />
+              </div>
             </TableCell>
-            <TableCell className="text-end align-top">
+            <TableCell className="text-end align-top whitespace-nowrap">
               <Money paise={line.total_paise} className="font-semibold" />
             </TableCell>
           </TableRow>

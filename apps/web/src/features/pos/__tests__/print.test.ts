@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { SalesPrintModelSchema, type SalesPrintModel } from '@kadai/shared/api/sales'
 import { buildOfflinePrintModel, renderSalesDocumentBody, renderSalesDocumentHtml } from '../print'
 import { priceLocalCart } from '../lib/pricing'
-import { TODAY, cartOf, dal, lineOf, makeBootstrap, rice, sugar } from './fixtures'
+import { TODAY, cartOf, dal, lineOf, makeBootstrap, paracetamol, rice, sugar } from './fixtures'
 import { contextOf, pricingEnvOf } from './helpers'
 
 function offlineModel(locale: 'ta' | 'en' = 'ta'): SalesPrintModel {
@@ -106,6 +106,35 @@ describe('receipt templates', () => {
     expect(t).toContain('CN-S1/2627/00001')
     expect(t).toContain('S1-A/2627/00005')
     expect(t).toContain('Cash refund')
+  })
+
+  it('loose tablets show the per-strip rate with the strip size; phones print readable', () => {
+    const b = makeBootstrap()
+    const cart = cartOf([
+      lineOf(paracetamol, { key: 'loose', qty_milli: 5_000 }),
+      lineOf(paracetamol, { key: 'strip', qty_milli: 15_000, discount_bp: 1 }),
+    ])
+    const model = buildOfflinePrintModel({
+      context: contextOf(b),
+      cart,
+      pricing: priceLocalCart(cart, pricingEnvOf(b)),
+      tenders: [],
+      number: 'S1-A/2627/00006',
+      invoice_date: TODAY,
+      created_at: '2026-10-21T10:00:00.000Z',
+      cashier_name: null,
+      locale: 'en',
+    })
+    const withPhone: SalesPrintModel = {
+      ...model,
+      seller: { ...model.seller, phone: '+919876543210' },
+    }
+    const rate = (paracetamol.sale_price_paise / 100).toFixed(2)
+    const t = text(renderSalesDocumentBody(withPhone, 'thermal_58').html)
+    expect(t).toContain(`× ${rate}/${paracetamol.pack_size}`) // 5 tablets × ₹/strip of 15
+    expect(t).toContain(`× ${rate} `) // a whole strip needs no hint
+    expect(t).toContain('98765 43210')
+    expect(t).not.toContain('+919876543210')
   })
 
   it('renderSalesDocumentHtml returns a standalone document with the paper size', () => {

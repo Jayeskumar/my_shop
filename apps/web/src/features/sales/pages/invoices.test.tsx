@@ -10,6 +10,9 @@ import { renderApp, signIn } from '@/test/render'
 import { INVOICE_ID } from '../testing/fixtures'
 import { createSalesApi } from '../testing/handlers'
 
+/** The first render loads the lazy route module (slow on a busy machine). */
+const FIRST_PAINT = { timeout: 5_000 }
+
 function setup(replies: Parameters<typeof createSalesApi>[0] = {}) {
   const api = createSalesApi(replies)
   server.use(...api.handlers)
@@ -31,7 +34,7 @@ describe('Sales invoices list', () => {
     const api = setup()
     await signIn(makeMe())
     renderApp('/sales/invoices')
-    const table = await screen.findByRole('table', { name: 'Sales invoices' })
+    const table = await screen.findByRole('table', { name: 'Sales invoices' }, FIRST_PAINT)
     expect(await within(table).findByRole('link', { name: 'S1-A/2627/00412' })).toHaveAttribute(
       'href',
       `/sales/invoices/${INVOICE_ID}`,
@@ -57,7 +60,7 @@ describe('Sales invoices list', () => {
     const user = userEvent.setup()
     await signIn(makeMe())
     renderApp('/sales/invoices')
-    await screen.findByRole('table', { name: 'Sales invoices' })
+    await screen.findByRole('table', { name: 'Sales invoices' }, FIRST_PAINT)
     await user.type(screen.getByRole('searchbox', { name: /Bill number/ }), '00412{Enter}')
     await waitFor(() => expect(api.callsTo('listInvoices').at(-1)!.query.get('q')).toBe('00412'))
 
@@ -90,7 +93,7 @@ describe('Sales invoices list', () => {
     const user = userEvent.setup()
     await signIn(makeMe())
     renderApp('/sales/invoices')
-    await screen.findByRole('table', { name: 'Sales invoices' })
+    await screen.findByRole('table', { name: 'Sales invoices' }, FIRST_PAINT)
     await user.click(screen.getByRole('button', { name: 'Export CSV' }))
     await waitFor(() =>
       expect(api.callsTo('listInvoices').some((c) => c.query.get('format') === 'csv')).toBe(true),
@@ -104,7 +107,7 @@ describe('Sales invoices list', () => {
     setup()
     await signIn(makeMe({ permissions: ['sales.read'] }))
     renderApp('/sales/invoices')
-    await screen.findByRole('table', { name: 'Sales invoices' })
+    await screen.findByRole('table', { name: 'Sales invoices' }, FIRST_PAINT)
     expect(screen.queryByRole('button', { name: 'Export CSV' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Open billing' })).not.toBeInTheDocument()
   })

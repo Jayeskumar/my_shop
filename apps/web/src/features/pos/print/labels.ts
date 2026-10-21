@@ -5,6 +5,7 @@
  */
 import { formatDateDisplay, isDateStr } from '@kadai/shared/fy'
 import { formatINR } from '@kadai/shared/money'
+import { formatPhoneDisplay } from '@kadai/shared/phone'
 import type { SalesPrintModel } from '@kadai/shared/api/sales'
 import type { Resources } from '@/lib/i18n-resources'
 import { translate } from '@/lib/i18n'
@@ -53,6 +54,9 @@ export function nameLines(
 }
 
 export const money = (paise: number): string => formatINR(paise)
+
+/** Phones print the way shops write them: '+919876543210' → '98765 43210'. */
+export const phoneText = (phone: string): string => formatPhoneDisplay(phone)
 export const moneyPlain = (paise: number): string => formatINR(paise, { symbol: false })
 
 export function date(value: string | null | undefined): string {
