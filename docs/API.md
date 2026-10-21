@@ -118,6 +118,25 @@ core ledger posting; loyalty points only through `core/loyalty.ts`.
 | `L/C /suppliers` · `G/U/D /suppliers/:id` · `GET /suppliers/:id/ledger` (bank details: last 4 digits + IFSC only) | `suppliers.read` / `suppliers.write` |
 | `L/C /doctors` · `G/U/D /doctors/:id` | `customers.read` / `customers.write` |
 
+Notes (CONTRACT CHANGELOG at the top of `api/parties.ts`):
+
+- Changing an existing party's `opening_balance_paise` also needs `OPENING_BALANCE_EDIT_PERMISSION`
+  (`accounting.write`; 403 `{reason: 'opening_balance_permission'}`); the delta is posted as an
+  adjusting `opening` journal and audited. Creating a party with an opening balance needs only the
+  module's write permission.
+- `overdue_paise` (lists, detail, summary) is capped at the current due: an unallocated advance
+  offsets invoice / bill dues. A supplier bill without `due_date` is due on its invoice date +
+  `payment_terms_days`. A PATCH that changes a supplier's GSTIN without `pan` takes the PAN from it.
+- `POST /customers`, `/suppliers`, `/doctors`, `/customers/import` and
+  `/customers/:id/loyalty/adjust` replay on the same `Idempotency-Key`.
+- Statements: all stores (they always match the balance); `?format=csv` uses the request locale
+  (`x-locale`) for headings. The summary's sales figures follow the member's store access.
+- Customer import: CSV only (`import_file_type` for .xlsx), ≤ 1000 rows (`import_too_many_rows`),
+  rows with errors are skipped and listed (`CUSTOMER_IMPORT_ERROR_CODES`), every run is stored in
+  `imports` (kind `customers`).
+- Jobs: `parties.loyalty-expiry` (02:40 IST) fans out `parties.loyalty-expiry-tenant` (FIFO
+  expiry of points older than `settings.loyalty.expiry_days`).
+
 ## inventory
 
 Route catalogue: `inventoryRoutes` in `@kadai/shared/api/inventory`. Prefilled cross-module forms:

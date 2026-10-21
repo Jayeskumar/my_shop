@@ -417,14 +417,18 @@ export interface Imports {
   created_by: string | null;
   error_rows: Generated<number>;
   errors: Generated<Json>;
+  errors_truncated: Generated<boolean>;
   file_id: string | null;
   finished_at: Timestamp | null;
   id: Generated<string>;
   kind: string;
   options: Generated<Json>;
+  preview: Generated<Json>;
+  processed_rows: Generated<number>;
   status: Generated<string>;
   store_id: string | null;
   success_rows: Generated<number>;
+  summary: Generated<Json>;
   tenant_id: string;
   total_rows: Generated<number>;
   updated_at: Generated<Timestamp>;
