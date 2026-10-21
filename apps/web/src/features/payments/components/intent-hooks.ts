@@ -80,14 +80,11 @@ export function usePaymentIntentStatus(
   useEffect(() => {
     if (!id || !enabled) return undefined
     const seed = initialRef.current
-    setState((s) =>
-      s.id === id ? s : { id, intent: seed, mode: 'connecting', error: null },
-    )
+    setState((s) => (s.id === id ? s : { id, intent: seed, mode: 'connecting', error: null }))
     if (seed && isTerminalIntentStatus(seed.status)) return undefined
     const watch = watchIntent(id, {
       initial: seed,
-      onIntent: (intent) =>
-        setState((s) => ({ ...s, id, intent, error: null })),
+      onIntent: (intent) => setState((s) => ({ ...s, id, intent, error: null })),
       onMode: (mode) => setState((s) => (s.id === id ? { ...s, mode } : s)),
       onError: (error) => setState((s) => (s.id === id ? { ...s, error } : s)),
     })
@@ -105,7 +102,12 @@ export function usePaymentIntentStatus(
         const known = s.id === id ? s.intent : null
         if (known && isTerminalIntentStatus(known.status) && !isTerminalIntentStatus(intent.status))
           return s
-        return { id, intent, mode: isTerminalIntentStatus(intent.status) ? 'stopped' : s.mode, error: null }
+        return {
+          id,
+          intent,
+          mode: isTerminalIntentStatus(intent.status) ? 'stopped' : s.mode,
+          error: null,
+        }
       })
       if (isTerminalIntentStatus(intent.status)) watchRef.current?.close()
     },

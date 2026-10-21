@@ -98,7 +98,7 @@ export function ProviderCard({
 
   return (
     <Card
-      className={cn('grid gap-4 p-4 sm:p-5', !account.is_active && 'opacity-75')}
+      className={cn('flex flex-col gap-4 p-4 sm:p-5', !account.is_active && 'opacity-75')}
       data-testid={`provider-${account.id}`}
     >
       <div className="flex items-start gap-3">
@@ -187,7 +187,7 @@ export function ProviderCard({
       ) : null}
 
       {account.is_active ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="mt-auto flex flex-wrap gap-2">
           <Button variant="outline" leftIcon={<PlugZap />} onClick={onTest} loading={testing}>
             {isVpa ? t('settings.test_qr') : t('settings.test_connection')}
           </Button>
@@ -203,7 +203,7 @@ export function ProviderCard({
           ) : null}
         </div>
       ) : (
-        <div>
+        <div className="mt-auto">
           <Button variant="outline" leftIcon={<Power />} onClick={onReactivate} disabled={busy}>
             {t('settings.reactivate')}
           </Button>

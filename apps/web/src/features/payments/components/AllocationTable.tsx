@@ -88,7 +88,9 @@ export function AllocationTable({
               </div>
               <MoneyInput
                 value={amount > 0 ? amount : null}
-                onChange={(v) => onChange(key, v !== null && v > item.due_paise ? item.due_paise : v)}
+                onChange={(v) =>
+                  onChange(key, v !== null && v > item.due_paise ? item.due_paise : v)
+                }
                 size="sm"
                 className="col-span-3 sm:col-span-1"
                 aria-label={t('allocation.amount_for', { number: label })}

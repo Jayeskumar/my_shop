@@ -89,7 +89,14 @@ const IN_METHODS: readonly PaymentMethod[] = [
   'cheque',
   'other',
 ]
-const OUT_METHODS: readonly PaymentMethod[] = ['cash', 'upi', 'bank_transfer', 'cheque', 'card', 'other']
+const OUT_METHODS: readonly PaymentMethod[] = [
+  'cash',
+  'upi',
+  'bank_transfer',
+  'cheque',
+  'card',
+  'other',
+]
 
 function mapPath(path: string): string | null {
   if (path === 'party_id' || path === 'party_type') return 'party'
@@ -170,7 +177,9 @@ function PaymentEntryBody({
     if (!open || !party || seededFor.current === party.id) return
     seededFor.current = party.id
     if (!form.getFieldState('amount_paise').isDirty && open.total_due_paise > 0) {
-      form.setValue('amount_paise', open.total_due_paise, { shouldValidate: form.formState.isSubmitted })
+      form.setValue('amount_paise', open.total_due_paise, {
+        shouldValidate: form.formState.isSubmitted,
+      })
     }
   }, [open, party, form])
 
@@ -371,9 +380,7 @@ function PaymentEntryBody({
                 type="button"
                 variant="secondary"
                 size="lg"
-                onClick={() =>
-                  form.setValue('amount_paise', due, { shouldDirty: true })
-                }
+                onClick={() => form.setValue('amount_paise', due, { shouldDirty: true })}
               >
                 {t('entry.full_due', { amount: formatMoney(due) })}
               </Button>
@@ -400,7 +407,11 @@ function PaymentEntryBody({
                       </span>
                     ),
                     ...(m === 'store_credit'
-                      ? { description: t('entry.store_credit_available', { amount: formatMoney(storeCredit) }) }
+                      ? {
+                          description: t('entry.store_credit_available', {
+                            amount: formatMoney(storeCredit),
+                          }),
+                        }
                       : {}),
                   }))}
                 />

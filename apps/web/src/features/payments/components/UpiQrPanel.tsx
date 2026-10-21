@@ -47,7 +47,8 @@ export interface StaticUpiQr {
   merchant_code?: string | null
 }
 
-type Source = { intent: PaymentIntent; static?: undefined } | { static: StaticUpiQr; intent?: undefined }
+type Source =
+  { intent: PaymentIntent; static?: undefined } | { static: StaticUpiQr; intent?: undefined }
 
 export type UpiQrPanelProps = Source & {
   /** Intent mode: called once when the intent is paid (live update or manual confirm). */
@@ -167,7 +168,9 @@ function IntentPanel({
           notify.success(t('qr.confirmed_toast', { amount: formatMoney(res.data.amount_paise) }))
         },
         onError: (error) => {
-          const issue = isApiError(error) ? error.validationIssues.find((i) => i.path === 'utr') : null
+          const issue = isApiError(error)
+            ? error.validationIssues.find((i) => i.path === 'utr')
+            : null
           if (issue) setUtrError(issue.message)
           else if (isApiError(error) && error.status === 409) void live.refresh().catch(() => null)
           else notifyPaymentError(error)
@@ -249,9 +252,7 @@ function IntentPanel({
         <form onSubmit={submitManual} className="flex w-full max-w-sm flex-col gap-2" noValidate>
           <label htmlFor={utrId} className="text-start text-sm font-medium">
             {t('qr.utr_label')}
-            <span className="ms-1 font-normal text-muted-foreground">
-              ({t('qr.optional')})
-            </span>
+            <span className="ms-1 font-normal text-muted-foreground">({t('qr.optional')})</span>
           </label>
           <Input
             id={utrId}
@@ -315,7 +316,8 @@ function IntentPanel({
 function IntentQr({ intent, label }: { intent: PaymentIntent; label: string }) {
   const { t } = useTranslation('payments')
   const value = intent.upi_uri ?? intent.short_url
-  if (value) return <QrCode value={value} label={label} className="w-56 border border-border p-1 sm:w-64" />
+  if (value)
+    return <QrCode value={value} label={label} className="w-56 border border-border p-1 sm:w-64" />
   if (intent.image_url) {
     return (
       <img
@@ -414,7 +416,11 @@ function ClosedState({
       )}
     >
       <Icon className="size-12" aria-hidden />
-      <p className="font-medium">{t(`qr.closed.${status === 'failed' ? 'failed' : status === 'expired' ? 'expired' : 'cancelled'}`)}</p>
+      <p className="font-medium">
+        {t(
+          `qr.closed.${status === 'failed' ? 'failed' : status === 'expired' ? 'expired' : 'cancelled'}`,
+        )}
+      </p>
       {status === 'failed' && reason ? <p className="text-xs">{reason}</p> : null}
     </div>
   )
@@ -495,9 +501,7 @@ function StaticPanel({
         <form onSubmit={submit} className="flex w-full max-w-sm flex-col gap-2" noValidate>
           <label htmlFor={utrId} className="text-start text-sm font-medium">
             {t('qr.utr_label')}
-            <span className="ms-1 font-normal text-muted-foreground">
-              ({t('qr.optional')})
-            </span>
+            <span className="ms-1 font-normal text-muted-foreground">({t('qr.optional')})</span>
           </label>
           <Input
             id={utrId}

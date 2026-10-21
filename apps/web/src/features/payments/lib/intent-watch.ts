@@ -81,7 +81,8 @@ export function watchIntent(intentId: string, options: IntentWatchOptions): Inte
   let polling = false
 
   const setMode = (next: IntentWatchMode): void => {
-    if (mode === next) return
+    // 'stopped' is final: a frame already buffered when the watch stopped changes nothing.
+    if (mode === next || mode === 'stopped') return
     mode = next
     options.onMode?.(next)
   }
@@ -159,7 +160,7 @@ export function watchIntent(intentId: string, options: IntentWatchOptions): Inte
     sse = subscribeSse(routeUrl(paymentsRoutes.streamIntent, { id: intentId }), {
       signal: controller.signal,
       onMessage: (message) => {
-        if (message.event !== INTENT_STREAM_EVENT) return
+        if (stopped || message.event !== INTENT_STREAM_EVENT) return
         const intent = parseIntentFrame(message.data)
         if (!intent) return
         sawFrame = true

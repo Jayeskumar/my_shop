@@ -102,7 +102,9 @@ function PayCard({
         ? page.shop.name
         : page.shop.name_ta
       : null
-  const payable = (page.status === 'pending' || page.status === 'created') && Boolean(page.upi_uri ?? page.short_url)
+  const payable =
+    (page.status === 'pending' || page.status === 'created') &&
+    Boolean(page.upi_uri ?? page.short_url)
   const amount = formatMoney(page.amount_paise)
 
   return (
@@ -120,7 +122,9 @@ function PayCard({
         <div>
           <h1 className="text-xl font-bold leading-tight">{shopName}</h1>
           {otherName ? <p className="text-sm text-muted-foreground">{otherName}</p> : null}
-          {page.shop.city ? <p className="text-sm text-muted-foreground">{page.shop.city}</p> : null}
+          {page.shop.city ? (
+            <p className="text-sm text-muted-foreground">{page.shop.city}</p>
+          ) : null}
         </div>
       </header>
 
@@ -151,14 +155,26 @@ function PayCard({
         <div className={cn('flex flex-col gap-4', desktop && 'flex-col-reverse')}>
           <div className="grid gap-2">
             {page.upi_uri ? (
-              <Button asChild size="xl" fullWidth leftIcon={<Smartphone />}>
+              <Button
+                asChild
+                size="xl"
+                fullWidth
+                className="h-auto min-h-14 py-3 whitespace-normal"
+              >
                 <a href={page.upi_uri} onClick={onTap}>
+                  <Smartphone aria-hidden />
                   {t('pay_page.pay_upi', { amount })}
                 </a>
               </Button>
             ) : null}
             {page.short_url ? (
-              <Button asChild size="lg" variant={page.upi_uri ? 'outline' : 'primary'} fullWidth>
+              <Button
+                asChild
+                size="lg"
+                variant={page.upi_uri ? 'outline' : 'primary'}
+                fullWidth
+                className="h-auto min-h-12 py-2.5 whitespace-normal"
+              >
                 <a href={page.short_url} target="_blank" rel="noopener noreferrer" onClick={onTap}>
                   {t('pay_page.pay_online')}
                 </a>
@@ -213,7 +229,9 @@ function PayCard({
         <p>
           {t('pay_page.payee')}: <span className="font-medium">{page.payee.name}</span>
         </p>
-        {page.payee.vpa ? <p className="font-mono text-xs text-muted-foreground">{page.payee.vpa}</p> : null}
+        {page.payee.vpa ? (
+          <p className="font-mono text-xs text-muted-foreground">{page.payee.vpa}</p>
+        ) : null}
         {page.shop.phone ? (
           <div className="flex justify-center">
             <PhoneLink phone={page.shop.phone} />

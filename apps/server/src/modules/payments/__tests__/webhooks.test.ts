@@ -331,6 +331,59 @@ describe('payments: webhooks', () => {
     expect(payment.number).toMatch(/^RCS1\//)
   })
 
+  it('leaves a dues link paid with a different amount unapplied until it is applied', async () => {
+    const c = await insertTestCustomer(t.deps, shop.tenant.id, { phone: '+919876500012' })
+    const inv = await insertInvoice(t, shop, { customerId: c.id, total: 5_000, date: '2026-09-02' })
+    const link = expectStatus<Data<{ intent: PaymentIntent }>>(
+      await shop.inject({
+        method: 'POST',
+        url: api('/payments/links'),
+        payload: { customer_id: c.id, store_id: shop.store.id, amount_paise: 5_000 },
+      }),
+      201,
+    ).data
+    expectStatus(
+      await sendWebhook(t, accountId, {
+        event: 'payment_link.paid',
+        payload: {
+          payment_link: {
+            entity: {
+              id: link.intent.provider_ref,
+              status: 'paid',
+              amount: 5_000,
+              amount_paid: 3_000,
+              reference_id: link.intent.reference_code,
+              notes: { intent_id: link.intent.id },
+            },
+          },
+          payment: {
+            entity: { id: 'pay_link_short', amount: 3_000, status: 'captured', vpa: 'c@okaxis' },
+          },
+        },
+      }),
+      200,
+    )
+    const row = await intentRow(t, link.intent.id)
+    expect(row).toMatchObject({ status: 'paid', paid_amount_paise: 3_000, payment_id: null })
+    expect(row.failure_reason).toContain('amount_mismatch')
+    expect(await invoiceState(t, inv.id)).toMatchObject({ due_paise: 5_000 })
+
+    // Reconciliation: applied to the customer (FIFO) by hand.
+    const applied = expectStatus<Data<{ payment: { amount_paise: number } }>>(
+      await shop.inject({
+        method: 'POST',
+        url: api(`/payments/intents/${link.intent.id}/apply`),
+        payload: { target_type: 'customer', target_id: c.id },
+      }),
+      201,
+    ).data
+    expect(applied.payment.amount_paise).toBe(3_000)
+    expect(await invoiceState(t, inv.id)).toMatchObject({
+      due_paise: 2_000,
+      payment_status: 'partial',
+    })
+  })
+
   it('stores processing failures and retries them from the process-webhook job', async () => {
     const intent = await newIntent(3_000)
     const job = jobs.find((j) => j.name === 'payments.process-webhook')!

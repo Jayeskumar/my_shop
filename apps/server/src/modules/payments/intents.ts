@@ -845,7 +845,7 @@ export async function openIntent(
     }
     throw err
   }
-  const row = await withTenant(deps.db.appDb, ctx, async (tx) => {
+  const opened = await withTenant(deps.db.appDb, ctx, async (tx) => {
     const updated = await tx
       .updateTable('payment_intents')
       .set({
@@ -860,6 +860,22 @@ export async function openIntent(
       .where('status', '=', 'created')
       .returning('id')
       .executeTakeFirst()
+    if (!updated && outcome.provider_ref) {
+      // Cancelled / expired / paid while the provider call ran: keep the provider reference so
+      // the expire job can still close the QR / link at the provider (and late payments match).
+      await tx
+        .updateTable('payment_intents')
+        .set({
+          provider_ref: outcome.provider_ref,
+          upi_uri: outcome.upi_uri,
+          image_url: outcome.image_url,
+          short_url: outcome.short_url,
+        })
+        .where('tenant_id', '=', ctx.tenantId)
+        .where('id', '=', claimed.row.id)
+        .where('provider_ref', 'is', null)
+        .execute()
+    }
     let current = await intentQuery(tx, ctx)
       .where('i.id', '=', claimed.row.id)
       .executeTakeFirstOrThrow()
@@ -878,9 +894,10 @@ export async function openIntent(
       }
     }
     if (updated) await notifyIntent(tx, ctx.tenantId, current.id, 'pending')
-    return current
+    return { current, opened: Boolean(updated) }
   })
-  deps.metrics.paymentIntents.inc({ provider: row.provider, status: 'pending' })
+  const row = opened.current
+  if (opened.opened) deps.metrics.paymentIntents.inc({ provider: row.provider, status: 'pending' })
   if (
     row.status === 'pending' &&
     row.provider_ref &&

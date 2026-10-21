@@ -24,12 +24,7 @@ import {
 } from '@/components/ui'
 import { useCan, useDeployment, useFeature, useMe } from '@/lib/auth'
 import { cn } from '@/lib/cn'
-import {
-  useDeactivateProvider,
-  useProviders,
-  useTestProvider,
-  useUpdateProvider,
-} from '../api'
+import { useDeactivateProvider, useProviders, useTestProvider, useUpdateProvider } from '../api'
 import { bilingualName } from '../lib/labels'
 import { ProviderCard, type ProviderTestState } from './ProviderCard'
 import { RazorpayDialog } from './RazorpayDialog'
@@ -148,7 +143,7 @@ export default function PaymentSettingsPage() {
   const upgradeTo = mode === 'onprem' ? '/settings/system' : '/settings/billing'
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-6">
+    <div className="mx-auto grid w-full max-w-5xl gap-6 [&>*]:min-w-0">
       <PageHeader
         title={t('nav:titles.settings_payments')}
         description={t('settings.page_hint')}

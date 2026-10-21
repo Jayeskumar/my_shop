@@ -119,7 +119,9 @@ export function receiptHtml(payment: PaymentDetail, shop: ShopHeader): string {
 }
 
 /** Receipt paper from the shop's invoice print format (A4 shops get a half-page A5 receipt). */
-export function receiptPaper(format: 'thermal_80' | 'thermal_58' | 'a4' | null | undefined): PaperSize {
+export function receiptPaper(
+  format: 'thermal_80' | 'thermal_58' | 'a4' | null | undefined,
+): PaperSize {
   if (format === 'thermal_58') return 'thermal_58'
   if (format === 'a4') return 'a5'
   return 'thermal_80'

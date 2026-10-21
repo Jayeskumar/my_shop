@@ -13,7 +13,7 @@ import { isPaymentCancellable } from '@kadai/shared/api/payments'
 import { Badge, Button, Drawer, Skeleton } from '@/components/ui'
 import { useCan } from '@/lib/auth'
 import { cn } from '@/lib/cn'
-import { formatDate, formatDateTime, formatMoney } from '@/lib/format'
+import { formatDate, formatDateTime, formatMoney, formatTime } from '@/lib/format'
 import { usePayment } from '../api'
 import { methodLabel, signedAmount } from '../lib/labels'
 import { usePrintReceipt } from '../lib/use-print-receipt'
@@ -131,7 +131,12 @@ export function PaymentDetailDrawer({
               </Fact>
               <Fact label={t('fields.date')}>
                 {formatDate(payment.payment_date)}
-                <span className="ms-2 text-muted-foreground">{formatDateTime(payment.paid_at)}</span>
+                <span className="ms-2 text-muted-foreground">
+                  {/* A backdated entry shows when it was recorded; otherwise the time is enough. */}
+                  {formatDate(payment.paid_at) === formatDate(payment.payment_date)
+                    ? formatTime(payment.paid_at)
+                    : formatDateTime(payment.paid_at)}
+                </span>
               </Fact>
               <Fact label={t('fields.method')}>
                 <span className="inline-flex items-center gap-1.5">
@@ -184,7 +189,10 @@ export function PaymentDetailDrawer({
                         ? t('allocation.opening_balance')
                         : (a.document_number ?? t('allocation.unnumbered'))
                     return (
-                      <li key={a.id} className="flex items-start justify-between gap-3 px-3 py-2 text-sm">
+                      <li
+                        key={a.id}
+                        className="flex items-start justify-between gap-3 px-3 py-2 text-sm"
+                      >
                         <div className="min-w-0">
                           <div className="truncate font-medium">
                             {path ? (
@@ -200,7 +208,9 @@ export function PaymentDetailDrawer({
                               t(`target.${a.target_type}`),
                               a.document_date ? formatDate(a.document_date) : null,
                               a.document_total_paise !== null
-                                ? t('detail.doc_total', { amount: formatMoney(a.document_total_paise) })
+                                ? t('detail.doc_total', {
+                                    amount: formatMoney(a.document_total_paise),
+                                  })
                                 : null,
                             ]
                               .filter(Boolean)
@@ -208,11 +218,15 @@ export function PaymentDetailDrawer({
                           </div>
                         </div>
                         <div className="text-end">
-                          <div className="font-medium tabular-nums">{formatMoney(a.amount_paise)}</div>
+                          <div className="font-medium tabular-nums">
+                            {formatMoney(a.amount_paise)}
+                          </div>
                           {a.document_due_paise !== null ? (
                             a.document_due_paise > 0 ? (
                               <div className="text-xs text-warning-soft-foreground">
-                                {t('detail.still_due', { amount: formatMoney(a.document_due_paise) })}
+                                {t('detail.still_due', {
+                                  amount: formatMoney(a.document_due_paise),
+                                })}
                               </div>
                             ) : (
                               <Badge tone="success" size="sm">
@@ -235,7 +249,9 @@ export function PaymentDetailDrawer({
                 </p>
               ) : null}
               {!cancellable && payment.status === 'completed' && payment.origin !== 'manual' ? (
-                <p className="text-xs text-muted-foreground">{t(`detail.cancel_via.${payment.origin}`)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t(`detail.cancel_via.${payment.origin}`)}
+                </p>
               ) : null}
             </section>
           </div>

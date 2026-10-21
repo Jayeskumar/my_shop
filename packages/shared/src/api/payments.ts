@@ -4,6 +4,8 @@
 // 2026-10-21 Semantics (no shape change): createIntent / createLink idempotency = body idempotency_key, else the Idempotency-Key header; replays answer 201 with header idempotent-replayed: true; a replay of an intent whose provider call failed answers the same 502 PROVIDER_ERROR (details.reason 'intent_failed', details.intent_id).
 // 2026-10-21 Semantics: PROVIDER_ERROR details = {provider, provider_error_code, http_status, retryable, intent_id?}; webhook with a bad signature → 401 UNAUTHENTICATED details.reason 'invalid_signature'.
 // 2026-10-21 Semantics: listIntents from/to filter the paid instant of paid intents and the creation instant of the others (tenant timezone).
+// 2026-10-21 PAYMENTS_ERROR_REASONS: + 'whatsapp_opt_out'. Semantics: createLink send_via (sms / whatsapp) needs plan feature notifications (402 FEATURE_NOT_IN_PLAN); without send_via every plan gets url + message + wa_me_url.
+// 2026-10-21 Semantics: a dues link paid with a different amount is NOT auto-applied (intent paid, payment_id null, failure_reason amount_mismatch) — apply it via POST /payments/intents/:id/apply.
 /**
  * Contract for the payments module — docs/API.md "payments & UPI"; ARCHITECTURE.md §8.4 (core
  * recordPayment / cancelPayment), §11 (providers, intents, webhooks, dues collection).
@@ -166,6 +168,7 @@ export const PAYMENTS_ERROR_REASONS = [
   // links
   'no_due', // 422: the customer has nothing due
   'phone_required', // 422: send_via needs a mobile number
+  'whatsapp_opt_out', // 422: send_via whatsapp to a customer who opted out of WhatsApp
   // receipts & vouchers
   'payment_not_completed', // 409: already cancelled
   'payment_not_cancellable', // 409: POS tender / return settlement — cancel the document (details.origin)
@@ -989,8 +992,10 @@ export function allocateFifo(
 /**
  * POST /payments/links — collect a customer's dues. A dynamic provider (Razorpay) creates a
  * hosted payment link; otherwise a Kadai pay page `PUBLIC_BASE_URL/pay/<reference_code>` with a
- * UPI deep link to the shop VPA (`tr` = reference_code). When the link intent is paid a receipt is
- * recorded for the customer and allocated FIFO to the oldest dues.
+ * UPI deep link to the shop VPA (`tr` = reference_code). When the link intent is paid with the
+ * link amount a receipt is recorded for the customer and allocated FIFO to the oldest dues (a
+ * different amount stays unapplied for reconciliation). `send_via` needs plan feature
+ * notifications (and, for WhatsApp, the customer's opt-in).
  */
 export const PaymentLinkCreateSchema = z.object({
   customer_id: zId,

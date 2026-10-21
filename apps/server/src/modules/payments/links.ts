@@ -5,7 +5,8 @@
  *  - POST /payments/links: a link intent (kind 'link', purpose customer_due) for the customer's
  *    due (or an amount). A dynamic provider with links (Razorpay; mock in development) creates a
  *    hosted payment link; otherwise the Kadai pay page PUBLIC_BASE_URL/pay/<reference_code> with a
- *    UPI deep link to the shop's UPI ID (tr = reference_code). `send_via` queues the
+ *    UPI deep link to the shop's UPI ID (tr = reference_code). `send_via` (plan feature
+ *    notifications; WhatsApp only to customers who did not opt out) queues the
  *    `payment_link` notification in the same transaction; the response always carries a
  *    ready-made message and a wa.me link for manual sharing. When the link is paid, the receipt
  *    is recorded FIFO against the customer's oldest dues (markIntentPaid).
@@ -14,7 +15,7 @@
  *    enters it) or with one.
  */
 import { type PaymentProviderCode, buildUpiUri, formatINR } from '@kadai/shared'
-import { renderNotification, waMeUrl } from '@kadai/shared/api/notifications'
+import { renderNotification, requiresWhatsAppOptIn, waMeUrl } from '@kadai/shared/api/notifications'
 import {
   PAYMENT_LINK_TEMPLATE,
   PROVIDER_CAPABILITIES,
@@ -132,11 +133,25 @@ export async function createPaymentLink(
     assertStoreAccess(ctx, body.store_id)
     const customer = await tx
       .selectFrom('customers')
-      .select(['id', 'name', 'phone', 'balance_paise', 'is_active'])
+      .select(['id', 'name', 'phone', 'balance_paise', 'is_active', 'whatsapp_opt_in'])
       .where('tenant_id', '=', ctx.tenantId)
       .where('id', '=', body.customer_id)
       .executeTakeFirst()
     if (!customer) throw notFound('customer', body.customer_id)
+    if (body.send_via) {
+      // Sending by SMS / WhatsApp is a plan feature; sharing the returned wa.me link is not.
+      await assertFeature(ctx, 'notifications')
+      if (
+        requiresWhatsAppOptIn(PAYMENT_LINK_TEMPLATE, body.send_via) &&
+        !customer.whatsapp_opt_in
+      ) {
+        throw reasonError(
+          'UNPROCESSABLE',
+          'The customer opted out of WhatsApp messages',
+          'whatsapp_opt_out',
+        )
+      }
+    }
     // A retry of an earlier link (same key) keeps its amount even after the due changed.
     const earlier = idempotencyKey
       ? await tx

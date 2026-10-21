@@ -152,6 +152,43 @@ describe('payments: links, pay page, static QR', () => {
     )
   })
 
+  it('sends links only on plans with notifications and to customers who allow WhatsApp', async () => {
+    const free = await createTestTenant(t, { plan_code: 'free' })
+    await createUpiAccount(free)
+    const fc = await insertTestCustomer(t.deps, free.tenant.id, { phone: '+919876500021' })
+    expectError(
+      await link(free, { customer_id: fc.id, amount_paise: 900, send_via: 'sms' }),
+      402,
+      'FEATURE_NOT_IN_PLAN',
+    )
+    // Without send_via every plan gets the link, the text and a wa.me link to share by hand.
+    const shared = expectStatus<Data<PaymentLinkResult>>(
+      await link(free, { customer_id: fc.id, amount_paise: 900 }),
+      201,
+    ).data
+    expect(shared).toMatchObject({ link_kind: 'pay_page', notification_id: null })
+    expect(shared.wa_me_url).toMatch(/^https:\/\/wa\.me\/919876500021\?text=/)
+
+    const optedOut = await insertTestCustomer(t.deps, shop.tenant.id, { phone: '+919876500022' })
+    await t.deps.db.systemDb
+      .updateTable('customers')
+      .set({ whatsapp_opt_in: false })
+      .where('id', '=', optedOut.id)
+      .execute()
+    expectError(
+      await link(shop, { customer_id: optedOut.id, amount_paise: 900, send_via: 'whatsapp' }),
+      422,
+      'UNPROCESSABLE',
+      'whatsapp_opt_out',
+    )
+    // SMS is still allowed for them.
+    const sms = expectStatus<Data<PaymentLinkResult>>(
+      await link(shop, { customer_id: optedOut.id, amount_paise: 900, send_via: 'sms' }),
+      201,
+    ).data
+    expect(sms.notification_id).not.toBeNull()
+  })
+
   it('serves the public pay page and records the receipt FIFO once confirmed', async () => {
     const c = await insertTestCustomer(t.deps, shop.tenant.id, {
       name: 'Kannan Raj',

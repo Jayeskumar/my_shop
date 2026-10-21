@@ -9,13 +9,14 @@
  *    `metadata.duplicate_of`) so it shows up in reconciliation for refund / apply.
  *  - Amount check: a different amount is still recorded as paid (the money arrived) with
  *    `failure_reason 'amount_mismatch: …'`; core recordPayment refuses to consume it for the
- *    original amount, so it lands in reconciliation (unapplied).
+ *    original amount, so it lands in reconciliation (unapplied). Dues links are not
+ *    auto-applied in that case either.
  *  - Late payments (after expiry / cancel / failure) are recorded the same way
  *    (`late_payment: …`).
- *  - Payment-link intents (kind 'link', purpose customer_due) are applied at once: a receipt for
- *    the customer allocated FIFO to their oldest dues (rest = advance). That step runs in a
- *    savepoint: if it fails the intent stays paid and unapplied (with a note) instead of losing
- *    the confirmation.
+ *  - Payment-link intents (kind 'link', purpose customer_due) paid with the exact amount are
+ *    applied at once (also when the payment came after expiry): a receipt for the customer
+ *    allocated FIFO to their oldest dues (rest = advance). That step runs in a savepoint: if it
+ *    fails the intent stays paid and unapplied (with a note) instead of losing the confirmation.
  *  - NOTIFY kadai_payment_intents {tenant_id, intent_id, status} inside the transaction (SSE).
  */
 import {
@@ -171,7 +172,16 @@ export async function markIntentPaid(
   opts.metrics?.paymentIntents.inc({ provider: row.provider, status: 'paid' })
 
   let paymentId: string | null = null
-  if (row.kind === 'link' && row.purpose === 'customer_due' && row.customer_id && !row.payment_id) {
+  // A different amount is never applied automatically, not even for a dues link: it stays
+  // unapplied (reconciliation) until someone applies it to the customer or a bill.
+  const amountMatches = p.amount_paise === row.amount_paise
+  if (
+    row.kind === 'link' &&
+    row.purpose === 'customer_due' &&
+    row.customer_id &&
+    !row.payment_id &&
+    amountMatches
+  ) {
     paymentId = await applyLinkPayment(tx, ctx, {
       intent_id: row.id,
       store_id: row.store_id,

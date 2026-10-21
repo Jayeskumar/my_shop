@@ -45,9 +45,7 @@ export function WebhookSetup({
         </ol>
       ) : null}
       <div className="grid gap-1">
-        <span className="text-xs font-medium text-muted-foreground">
-          {t('fields.webhook_url')}
-        </span>
+        <span className="text-xs font-medium text-muted-foreground">{t('fields.webhook_url')}</span>
         <div className="flex min-w-0 items-center gap-1 rounded-md border border-border bg-surface-2 ps-3">
           <code className="min-w-0 flex-1 truncate py-2 text-xs" title={account.webhook_url}>
             {account.webhook_url}

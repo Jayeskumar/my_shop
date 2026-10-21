@@ -14,6 +14,7 @@ import type {
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { type TestApp, buildTestApp } from '../../../test/helpers'
 import { type TestShop, createTestTenant, insertTestCustomer } from '../../../test/tenants'
+import { retryClose } from '../polling'
 import {
   type Data,
   type FakeRazorpay,
@@ -308,6 +309,43 @@ describe('payments: intents', () => {
     )
     const row = await intentRow(t, paidMeanwhile.id)
     expect(row).toMatchObject({ status: 'paid', confirmation: 'poll', paid_amount_paise: 4_000 })
+  })
+
+  it('keeps the QR reference of an intent cancelled while Razorpay was still creating it', async () => {
+    const amount = 2_513
+    rzp.delayNextCreateMs = 800
+    const inFlight = create(rzpShop, { amount_paise: amount })
+    let intentId: string | undefined
+    for (let i = 0; i < 100 && !intentId; i++) {
+      const r = await t.deps.db.systemDb
+        .selectFrom('payment_intents')
+        .select('id')
+        .where('tenant_id', '=', rzpShop.tenant.id)
+        .where('status', '=', 'created')
+        .where('amount_paise', '=', amount)
+        .executeTakeFirst()
+      intentId = r?.id
+      if (!intentId) await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+    if (!intentId) throw new Error('the intent was not created')
+    const cancelled = expectStatus<Data<PaymentIntent>>(
+      await rzpShop.inject({ method: 'POST', url: api(`/payments/intents/${intentId}/cancel`) }),
+      200,
+    ).data
+    expect(cancelled).toMatchObject({ status: 'cancelled', provider_ref: null })
+
+    // The create request finishes after the cancel: the intent stays cancelled, but the QR id
+    // Razorpay returned is kept so it can still be closed there.
+    const created = expectStatus<Data<PaymentIntent>>(await inFlight, 201).data
+    expect(created).toMatchObject({ id: intentId, status: 'cancelled' })
+    expect(created.provider_ref).toMatch(/^qr_/)
+    expect((await intentRow(t, intentId)).provider_closed_at).toBeNull()
+
+    expect(await retryClose(t.deps, rzpShop.tenant.id, intentId)).toBe('closed')
+    expect(
+      rzp.requests.some((r) => r.url === `/v1/payments/qr_codes/${created.provider_ref}/close`),
+    ).toBe(true)
+    expect((await intentRow(t, intentId)).provider_closed_at).not.toBeNull()
   })
 
   it('confirms UPI ID payments by hand (audited) and refuses re-used UTRs', async () => {

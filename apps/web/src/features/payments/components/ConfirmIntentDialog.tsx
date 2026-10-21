@@ -100,7 +100,11 @@ function ConfirmBody({
       })}
       footer={
         <>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={confirm.isPending}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={confirm.isPending}
+          >
             {t('common:actions.cancel')}
           </Button>
           <Button variant="success" type="submit" form={formId} loading={confirm.isPending}>

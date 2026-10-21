@@ -126,8 +126,7 @@ function UpiVpaDialogBody({
     display_name: account?.display_name ?? t('settings.upi.default_name'),
     vpa: account?.vpa ?? '',
     payee_name: account?.payee_name ?? shopName.slice(0, 50),
-    merchant_code:
-      account?.merchant_code ?? (me ? defaultMccFor(me.tenant.business_type) : '5411'),
+    merchant_code: account?.merchant_code ?? (me ? defaultMccFor(me.tenant.business_type) : '5411'),
     store_id: account?.store_id ?? ALL_STORES,
     settlement_account_id: account?.settlement_account_id ?? null,
     is_default: account?.is_default ?? suggestDefault,
@@ -290,7 +289,11 @@ function UpiVpaDialogBody({
               </PaymentsField>
             </div>
             {multiStore ? (
-              <PaymentsField name="store_id" label={t('fields.store')} hint={t('settings.store_hint')}>
+              <PaymentsField
+                name="store_id"
+                label={t('fields.store')}
+                hint={t('settings.store_hint')}
+              >
                 <Controller
                   control={form.control}
                   name="store_id"
@@ -338,7 +341,7 @@ function UpiVpaDialogBody({
           </div>
 
           <aside
-            className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface-2 p-4 text-center"
+            className="flex flex-col items-center gap-3 self-start rounded-lg border border-border bg-surface-2 p-4 text-center"
             aria-label={t('settings.upi.test_title')}
           >
             <p className="text-sm font-semibold">{t('settings.upi.test_title')}</p>

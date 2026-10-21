@@ -30,6 +30,7 @@ import {
   Badge,
   Button,
   Card,
+  CopyButton,
   DataTable,
   type DataTableColumn,
   DatePicker,
@@ -152,7 +153,10 @@ export default function UpiReconciliationPage() {
     const waiting = intent.status === 'created' || intent.status === 'pending'
     const unapplied = intent.status === 'paid' && !intent.payment_id
     return (
-      <div className="flex flex-wrap justify-end gap-1.5">
+      <div className="flex flex-wrap items-center justify-end gap-1.5 lg:flex-nowrap">
+        {waiting && intent.kind === 'link' && intent.short_url ? (
+          <CopyButton value={intent.short_url} label={t('upi.copy_link')} variant="outline" />
+        ) : null}
         {waiting && intent.provider === 'upi_vpa' ? (
           <Button size="sm" variant="success" onClick={() => setConfirming(intent)}>
             {t('upi.action_confirm')}
@@ -198,7 +202,7 @@ export default function UpiReconciliationPage() {
         id: 'status',
         header: t('fields.status'),
         cell: ({ row }) => (
-          <div className="grid gap-1">
+          <div className="grid justify-items-start gap-1">
             <IntentStatusBadge status={row.original.status} size="sm" />
             {row.original.confirmation ? (
               <span className="text-xs text-muted-foreground">
@@ -265,7 +269,7 @@ export default function UpiReconciliationPage() {
   }
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-5 [&>*]:min-w-0">
       <PageHeader
         title={t('nav:titles.upi')}
         description={t('upi.hint')}
@@ -277,9 +281,12 @@ export default function UpiReconciliationPage() {
                 <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60 motion-reduce:animate-none" />
                 <span className="relative inline-flex size-2 rounded-full bg-success" />
               </span>
-              {t('upi.live', {
-                time: list.dataUpdatedAt ? formatTime(new Date(list.dataUpdatedAt)) : '—',
-              })}
+              {/* Phones keep the title readable: the live dot stays, the text is for screen readers. */}
+              <span className="sr-only sm:not-sr-only">
+                {t('upi.live', {
+                  time: list.dataUpdatedAt ? formatTime(new Date(list.dataUpdatedAt)) : '—',
+                })}
+              </span>
             </span>
           ) : null
         }
@@ -302,7 +309,9 @@ export default function UpiReconciliationPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
           label={t('upi.stat_paid', { date: date === today ? t('upi.today') : formatDate(date) })}
-          value={formatMoney(summary?.paid_total_paise ?? 0)}
+          value={
+            <span className="whitespace-nowrap">{formatMoney(summary?.paid_total_paise ?? 0)}</span>
+          }
           hint={t('upi.stat_count', { count: paidStats.count })}
           icon={<CheckCircle2 />}
           loading={daySummary.isPending}
@@ -310,7 +319,7 @@ export default function UpiReconciliationPage() {
         />
         <Stat
           label={t('upi.stat_pending')}
-          value={formatMoney(pendingStats.amount)}
+          value={<span className="whitespace-nowrap">{formatMoney(pendingStats.amount)}</span>}
           hint={t('upi.stat_count', { count: pendingStats.count })}
           icon={<Clock />}
           tone="accent"
@@ -319,7 +328,7 @@ export default function UpiReconciliationPage() {
         />
         <Stat
           label={t('upi.stat_unapplied')}
-          value={formatMoney(unappliedTotal)}
+          value={<span className="whitespace-nowrap">{formatMoney(unappliedTotal)}</span>}
           hint={t('upi.stat_count', { count: unappliedCount })}
           icon={<AlertTriangle />}
           tone={unappliedCount > 0 ? 'danger' : 'default'}
@@ -463,7 +472,9 @@ export default function UpiReconciliationPage() {
                 </div>
                 <IntentAmount intent={intent} />
               </div>
-              <LinkedTo intent={intent} />
+              <div className="flex">
+                <LinkedTo intent={intent} />
+              </div>
               {actionsFor(intent)}
             </div>
           )}
@@ -489,7 +500,9 @@ function IntentAmount({ intent }: { intent: PaymentIntent }) {
   const received = intent.paid_amount_paise
   return (
     <div className="text-end">
-      <div className="font-semibold tabular-nums">{formatMoney(received ?? intent.amount_paise)}</div>
+      <div className="font-semibold whitespace-nowrap tabular-nums">
+        {formatMoney(received ?? intent.amount_paise)}
+      </div>
       {intent.amount_mismatch && received !== null ? (
         <Badge tone="warning" size="sm">
           {t('upi.expected', { amount: formatMoney(intent.amount_paise) })}
@@ -516,7 +529,10 @@ function LinkedTo({ intent }: { intent: PaymentIntent }) {
   const { t } = useTranslation('payments')
   if (intent.payment_id) {
     return (
-      <Link to={`/payments?id=${intent.payment_id}`} className="text-sm text-primary hover:underline">
+      <Link
+        to={`/payments?id=${intent.payment_id}`}
+        className="text-sm text-primary hover:underline"
+      >
         {intent.payment_number ?? t('upi.view_receipt')}
       </Link>
     )
@@ -528,7 +544,8 @@ function LinkedTo({ intent }: { intent: PaymentIntent }) {
       </Badge>
     )
   }
-  const path = intent.ref_type === 'sales_invoice' ? documentPath('sales_invoice', intent.ref_id) : null
+  const path =
+    intent.ref_type === 'sales_invoice' ? documentPath('sales_invoice', intent.ref_id) : null
   const label =
     intent.ref_type === 'pos_cart'
       ? t('purpose.pos_sale')

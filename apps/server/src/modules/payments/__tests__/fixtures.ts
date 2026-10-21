@@ -308,6 +308,8 @@ export interface FakeRazorpay {
   failNextCreate: { status: number; code: string; description: string } | null
   /** Close / cancel calls answer 500 while set. */
   failCloses: boolean
+  /** The next QR create answers only after this many milliseconds (in-flight races). */
+  delayNextCreateMs: number
   close(): Promise<void>
 }
 
@@ -325,6 +327,7 @@ export async function startFakeRazorpay(): Promise<FakeRazorpay> {
     payments: new Map(),
     failNextCreate: null,
     failCloses: false,
+    delayNextCreateMs: 0,
   }
   const authOk = (h: string | undefined) => decodeAuth(h) === `${RZP_KEY_ID}:${RZP_KEY_SECRET}`
   const authError = {
@@ -352,6 +355,9 @@ export async function startFakeRazorpay(): Promise<FakeRazorpay> {
   }
   app.post('/v1/payments/qr_codes', async (req, reply) => {
     if (!authOk(req.headers.authorization)) return reply.code(401).send(authError)
+    const delay = state.delayNextCreateMs
+    state.delayNextCreateMs = 0
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay))
     const failed = createGuard(reply)
     if (failed) return failed
     const id = `qr_${prefix}${++seq}`
@@ -370,11 +376,9 @@ export async function startFakeRazorpay(): Promise<FakeRazorpay> {
     const { id } = req.params as { id: string }
     const items = state.qrPayments.get(id)
     if (!items)
-      return reply
-        .code(400)
-        .send({
-          error: { code: 'BAD_REQUEST_ERROR', description: 'The id provided does not exist' },
-        })
+      return reply.code(400).send({
+        error: { code: 'BAD_REQUEST_ERROR', description: 'The id provided does not exist' },
+      })
     return {
       entity: 'collection',
       count: items.length,

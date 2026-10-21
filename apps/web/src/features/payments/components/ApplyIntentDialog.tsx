@@ -231,9 +231,10 @@ function ApplyBody({
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{inv.number ?? '—'}</span>
                         <span className="block truncate text-xs text-muted-foreground">
-                          {[formatDate(inv.invoice_date), inv.customer_name ?? t('common:misc.walk_in')].join(
-                            ' · ',
-                          )}
+                          {[
+                            formatDate(inv.invoice_date),
+                            inv.customer_name ?? t('common:misc.walk_in'),
+                          ].join(' · ')}
                         </span>
                       </span>
                       <span className="text-end tabular-nums">

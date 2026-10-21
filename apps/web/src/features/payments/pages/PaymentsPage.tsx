@@ -18,11 +18,7 @@ import {
 import { useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import {
-  type Payment,
-  type PaymentListQuery,
-  paymentsRoutes,
-} from '@kadai/shared/api/payments'
+import { type Payment, type PaymentListQuery, paymentsRoutes } from '@kadai/shared/api/payments'
 import type { PaymentMethod, PaymentStatus } from '@kadai/shared/enums'
 import { PaymentMethodSchema } from '@kadai/shared/enums'
 import { CustomerPicker, SupplierPicker } from '@/components/pickers'
@@ -249,14 +245,17 @@ export default function PaymentsPage() {
   const partyValue = state.party_id ? { id: state.party_id, name: state.party_name } : null
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-5 [&>*]:min-w-0">
       <PageHeader
         title={t('nav:titles.payments')}
         description={t('list.hint')}
         actions={
           <>
-            <Button asChild variant="ghost" leftIcon={<QrCode />}>
-              <Link to="/payments/upi">{t('nav:titles.upi')}</Link>
+            <Button asChild variant="ghost">
+              <Link to="/payments/upi">
+                <QrCode aria-hidden />
+                {t('nav:titles.upi')}
+              </Link>
             </Button>
             {canPay ? (
               <Button
@@ -269,7 +268,11 @@ export default function PaymentsPage() {
               </Button>
             ) : null}
             {canCollect ? (
-              <Button leftIcon={<HandCoins />} onClick={() => setState({ new: 'receive' })} title="Alt+R">
+              <Button
+                leftIcon={<HandCoins />}
+                onClick={() => setState({ new: 'receive' })}
+                title="Alt+R"
+              >
                 {t('list.receive')}
                 <Kbd combo="alt+r" className="ms-1 hidden lg:inline-flex" />
               </Button>
@@ -281,14 +284,14 @@ export default function PaymentsPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
           label={t('list.stat_in')}
-          value={formatMoney(summary?.in_paise ?? 0)}
+          value={<span className="whitespace-nowrap">{formatMoney(summary?.in_paise ?? 0)}</span>}
           icon={<ArrowDownLeft />}
           loading={list.isPending}
           onClick={() => setState({ dir: 'in', party_id: '', party_name: '' })}
         />
         <Stat
           label={t('list.stat_out')}
-          value={formatMoney(summary?.out_paise ?? 0)}
+          value={<span className="whitespace-nowrap">{formatMoney(summary?.out_paise ?? 0)}</span>}
           icon={<ArrowUpRight />}
           tone="danger"
           loading={list.isPending}
@@ -296,7 +299,7 @@ export default function PaymentsPage() {
         />
         <Stat
           label={t('list.stat_net')}
-          value={formatMoney(summary?.net_paise ?? 0)}
+          value={<span className="whitespace-nowrap">{formatMoney(summary?.net_paise ?? 0)}</span>}
           icon={<Scale />}
           tone="accent"
           loading={list.isPending}
@@ -380,9 +383,7 @@ export default function PaymentsPage() {
                 {partyType === 'supplier' ? (
                   <SupplierPicker
                     value={partyValue}
-                    onChange={(s) =>
-                      setState({ party_id: s?.id ?? '', party_name: s?.name ?? '' })
-                    }
+                    onChange={(s) => setState({ party_id: s?.id ?? '', party_name: s?.name ?? '' })}
                     placeholder={t('list.any_supplier')}
                     showBalance={false}
                     aria-label={t('fields.supplier')}
@@ -390,9 +391,7 @@ export default function PaymentsPage() {
                 ) : (
                   <CustomerPicker
                     value={partyValue}
-                    onChange={(c) =>
-                      setState({ party_id: c?.id ?? '', party_name: c?.name ?? '' })
-                    }
+                    onChange={(c) => setState({ party_id: c?.id ?? '', party_name: c?.name ?? '' })}
                     placeholder={t('list.any_customer')}
                     showBalance={false}
                     aria-label={t('fields.customer')}
@@ -493,7 +492,7 @@ function SignedAmount({ payment }: { payment: Payment }) {
     <div className="text-end">
       <div
         className={cn(
-          'font-semibold tabular-nums',
+          'font-semibold whitespace-nowrap tabular-nums',
           cancelled
             ? 'text-muted-foreground line-through'
             : payment.direction === 'in'
@@ -525,9 +524,7 @@ function PaymentCard({ payment }: { payment: Payment }) {
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
-        <div className="truncate font-medium">
-          {payment.party_name ?? t('common:misc.walk_in')}
-        </div>
+        <div className="truncate font-medium">{payment.party_name ?? t('common:misc.walk_in')}</div>
         <div className="text-xs text-muted-foreground">
           {[payment.number ?? t(`origin.${payment.origin}`), formatDate(payment.payment_date)].join(
             ' · ',
