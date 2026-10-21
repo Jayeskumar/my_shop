@@ -89,8 +89,12 @@ describe('route guards', () => {
 
   it('serves public pages without signing in', async () => {
     await signOutState()
+    // The public invoice page (sales) renders without a session; a malformed token is refused
+    // in place without asking the server.
     renderApp('/i/share-token-123')
-    expect(await screen.findByRole('heading', { level: 1, name: 'Invoice' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'This bill link is not valid' }),
+    ).toBeInTheDocument()
   })
 })
 
