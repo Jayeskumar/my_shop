@@ -297,7 +297,9 @@ export interface DebitNoteLines {
 }
 
 export interface DebitNotes {
+  adjusted_paise: Generated<Int8>;
   bill_id: string | null;
+  cancel_reason: string | null;
   cancelled_at: Timestamp | null;
   cancelled_by: string | null;
   cess_paise: Generated<Int8>;

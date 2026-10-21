@@ -1,3 +1,13 @@
+// CONTRACT CHANGELOG (purchases backend; one line per change — web counterpart please read)
+// - PURCHASES_VALIDATION_KEYS += 'future_date', 'batch_no_required', 'expiry_required' (bill lines of batch-tracked products; dates after today).
+// - Added PURCHASES_ERROR_REASONS (details.reason of 4xx errors raised by the purchases routes; translate as purchases:errors.<reason>).
+// - DebitNoteDetailSchema += adjusted_paise (part applied against the bill due for adjust_due; the rest is the supplier's advance). Default 0.
+// - DebitNoteDetailSchema.cancel_reason now comes from the new debit_notes.cancel_reason column (migration 0600), not the audit log.
+// - reverse_charge documented: the supplier is owed total − tax (the GST is the shop's own liability); due_paise starts there.
+// - itc_eligible documented: forced false for composition / unregistered tenants (tax goes into cost).
+// - PurchaseBillLineSchema.discount_paise documented: the flat discount as entered (round-trips with discount_bp); line discount total = gross − taxable.
+// - PurchaseBillPostResultSchema.stock_lines documented: number of stock movements posted (one per stock-tracked line).
+// - PO received quantities count the charged quantity of posted bill lines (free quantity is a bonus, not a receipt against the order).
 /**
  * Contract for the purchases module — docs/API.md "purchases"; ARCHITECTURE.md §9 (purchase
  * maths in pricing.ts), §10 (posting rules).
@@ -93,8 +103,46 @@ export const PURCHASES_VALIDATION_KEYS = [
   'reason_required',
   'date_order',
   'empty_patch',
+  'future_date',
+  'batch_no_required',
+  'expiry_required',
 ] as const
 export type PurchasesValidationKey = (typeof PURCHASES_VALIDATION_KEYS)[number]
+
+/**
+ * `details.reason` of the 4xx errors raised by the purchases routes (web:
+ * purchases:errors.<reason>). Status in the comment.
+ */
+export const PURCHASES_ERROR_REASONS = [
+  'duplicate_supplier_invoice', // 409 DUPLICATE (DuplicateSupplierInvoiceDetailsSchema)
+  'order_not_draft', // 409: only draft purchase orders can be edited / deleted
+  'order_not_sendable', // 409: only draft / sent orders can be sent
+  'order_has_receipts', // 409: goods were received against the order → close it instead
+  'order_not_cancellable', // 409: only draft / sent orders can be cancelled
+  'order_not_closable', // 409: only sent / partially received orders can be closed
+  'order_has_bills', // 409: bills reference the draft order (delete / cancel them first)
+  'order_not_receivable', // 422: the order is cancelled / closed / received
+  'order_mismatch', // 422: the order belongs to another supplier / store
+  'order_line_mismatch', // 422: purchase_order_line_id is not a line of the bill's order / product
+  'bill_not_draft', // 409: only draft bills can be edited / deleted / posted
+  'bill_not_posted', // 409 / 422: cancelling or returning against a bill that is not posted
+  'bill_has_payments', // 409: cancel the supplier payments allocated to the bill first
+  'bill_has_debit_notes', // 409: cancel the debit notes against the bill first
+  'supplier_invoice_no_required', // 422: a draft from a purchase order needs the invoice number to post
+  'expired_batch', // 422 EXPIRED_BATCH: expiry before today (post with allow_past_expiry)
+  'batch_expiry_mismatch', // 422: the batch exists with another expiry date
+  'product_not_purchasable', // 422: services / variant templates / inactive products
+  'supplier_inactive', // 422
+  'store_inactive', // 422
+  'returnable_exceeded', // 422: more than charged + free − returned
+  'batch_mismatch', // 422: the batch belongs to another product / is required / not allowed
+  'debit_note_cancelled', // 409: already cancelled
+  'debit_note_has_payments', // 409: cancel the supplier receipts allocated to the note first
+  'bill_mismatch', // 422: supplier_id / store_id differ from the debit note's bill
+  'refund_account_invalid', // 422: refund_bank account must be an active asset (cash / bank) account
+  'recipient_phone_required', // 422: sending a PO needs the supplier's (or a given) phone
+] as const
+export type PurchasesErrorReason = (typeof PURCHASES_ERROR_REASONS)[number]
 
 type Bilingual = Readonly<BilingualLabel>
 
@@ -611,8 +659,16 @@ const BillFields = {
     .optional()
     .describe("Default: supplier invoice date + supplier's payment terms"),
   is_interstate: z.boolean().optional().describe('Default: supplier state ≠ store state'),
-  reverse_charge: z.boolean().default(false),
-  itc_eligible: z.boolean().default(true),
+  reverse_charge: z
+    .boolean()
+    .default(false)
+    .describe(
+      'Reverse charge: the supplier is owed total − tax; the GST is the shop’s own liability (output tax)',
+    ),
+  itc_eligible: z
+    .boolean()
+    .default(true)
+    .describe('Input tax credit; always false for composition / unregistered shops (tax → cost)'),
   other_charges_paise: zPaise.default(0),
   round_off_paise: z
     .int()
@@ -721,6 +777,7 @@ export const PurchaseBillLineSchema = z.object({
   mrp_paise: zPaise.nullable(),
   unit_cost_paise: zPaise,
   discount_bp: zBp,
+  /** Flat discount as entered (with discount_bp); the line's total discount is gross − taxable. */
   discount_paise: zPaise,
   gross_paise: zPaise,
   ...TaxAmountFields,
@@ -833,7 +890,7 @@ export const PurchaseBillPostResultSchema = z.object({
   bill: PurchaseBillDetailSchema,
   price_updates: z.array(PriceUpdateSchema),
   batches_created: z.int().min(0),
-  /** Stock received (Σ charged + free, milli) per line count. */
+  /** Number of stock movements posted (one per stock-tracked line, charged + free quantity). */
   stock_lines: z.int().min(0),
 })
 export type PurchaseBillPostResult = z.output<typeof PurchaseBillPostResultSchema>
@@ -1040,10 +1097,14 @@ export const DebitNoteDetailSchema = DebitNoteListRowSchema.extend({
   /** Refund receipts (refund_cash / refund_bank). */
   payments: z.array(PurchasePaymentRefSchema),
   journal_entry_id: zId.nullable(),
+  /**
+   * adjust_due: the part applied against the bill's due (bill returned_paise); the rest of the
+   * note is the supplier's advance. 0 for refunds and free-form notes.
+   */
+  adjusted_paise: zPaise.default(0),
   cancelled_at: zTimestamp.nullable(),
   cancelled_by: zId.nullable(),
   cancelled_by_name: z.string().nullable(),
-  /** From the audit log (debit_notes has no reason column). */
   cancel_reason: z.string().nullable(),
   created_by: zId.nullable(),
   created_by_name: z.string().nullable(),
