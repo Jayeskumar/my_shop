@@ -145,11 +145,12 @@ one as `salesIssueErrorCode()` with `details.reason` (e.g. 422 `RX_REQUIRED`, `E
 `CREDIT_LIMIT_EXCEEDED`, `INSUFFICIENT_STOCK`; 403 for overrides). Tenders follow
 `allocateTenders()` (non-cash first, must fit; cash = money handed over, change returned; the rest is
 due/credit). Returns are pro-rata with `prorateReturnLine()` (the final return takes the exact
-remainder). Every list takes `?format=csv`.
+remainder). Every list takes `?format=csv` (needs `data.export` or `reports.read`; audited). Costs
+(`unit_cost_paise`, `cost_paise`) are 0 for users without `reports.read`.
 
 | Method & path | perm | Notes |
 |---|---|---|
-| `GET /pos/bootstrap?register_id=&store_id=&since=` | `pos.use` (+feat `pos`) | full catalogue / delta since the cursor (products, barcodes, store prices, FEFO batches with stock, promotions, slab rules, categories, quick keys, settings, register series state, open shift, public provider fields, 200 recent customers, removed ids) |
+| `GET /pos/bootstrap?register_id=&store_id=&since=` | `pos.use` (+feat `pos`) | full catalogue / delta since the cursor (products, barcodes, store prices, FEFO batches with stock, promotions, slab rules, categories, quick keys, settings, register series state, open shift, public provider fields, 200 recent customers, removed ids — deactivations and hard deletes via `pos_tombstones`, pruned by job `sales.prune-pos-tombstones`); an unknown, foreign or > 30-day-old cursor answers a full bootstrap |
 | `POST /pos/quote` | `pos.use` or `sales.create` | priced lines (FEFO splits `key#2`…), totals, tax breakup, promotions, credit & loyalty, `issues`, `can_complete`, `requires` |
 | `POST /sales/invoices` | `sales.create` | `status: completed \| held \| draft`; POS needs `client_ref` (idempotent, also `Idempotency-Key`); plan limit `invoices_per_month`; result `{invoice, tenders, change_paise, warnings}` |
 | `L /sales/invoices` (`q`, `status`, `doc_type`, `payment_status`, `channel`, `store_id`, `register_id`, `customer_id`, `created_by`, `shift_id`, `has_due`, `offline`, `from`, `to`, `sort`) · `G /sales/invoices/:id` | `sales.read` | default excludes estimates and held/draft; list carries `summary` totals; detail has lines, payments, credit notes, journal entry, shift, customer khata, rx, audit |
