@@ -17,7 +17,6 @@ import { MeTenantSchema, PasswordSchema, PinSchema } from './auth'
 import {
   AddressSchema,
   type BilingualLabel,
-  ExportFormatSchema,
   PageQuerySchema,
   dataOf,
   defineRoutes,
@@ -31,11 +30,8 @@ import {
   zIfUpdatedAt,
   zNullableText,
   zPhone,
-  zQueryIds,
-  zQueryInt,
   zSearchQuery,
   zStateCode,
-  zStoreScope,
   zTimestamp,
 } from './common'
 import {
@@ -517,6 +513,33 @@ export const MemberListQuerySchema = PageQuerySchema.extend({
   sort: sortQuery(['full_name', 'last_login_at', 'created_at'] as const).prefault('full_name'),
 })
 export type MemberListQuery = z.input<typeof MemberListQuerySchema>
+
+/**
+ * GET /users/directory — names of the business's members for pickers and filters (any member:
+ * "billed by", shift / report filters, salesperson). No phone, email or security fields.
+ */
+export const UserDirectoryQuerySchema = z.object({
+  q: zSearchQuery.optional().describe('Name match'),
+  store_id: zId.optional().describe('Members with access to this store (incl. all-store members)'),
+  include_disabled: zBooleanQuery
+    .default(false)
+    .describe('Also disabled members (filters over old documents)'),
+})
+export type UserDirectoryQuery = z.input<typeof UserDirectoryQuerySchema>
+
+export const UserDirectoryEntrySchema = MemberSchema.pick({
+  id: true,
+  full_name: true,
+  role_code: true,
+  role_name: true,
+  role_name_ta: true,
+  status: true,
+  store_ids: true,
+})
+export type UserDirectoryEntry = z.output<typeof UserDirectoryEntrySchema>
+
+/** Most entries GET /users/directory returns (ordered by name). */
+export const USER_DIRECTORY_LIMIT = 500
 
 const StoreIdsSchema = z
   .array(zId)
@@ -1320,6 +1343,13 @@ export const identityRoutes = defineRoutes({
     query: MemberListQuerySchema,
     response: listOf(MemberSchema),
     summary: 'Members of the business with role, stores, status and last sign-in',
+  },
+  userDirectory: {
+    method: 'GET',
+    path: '/users/directory',
+    query: UserDirectoryQuerySchema,
+    response: dataOf(z.array(UserDirectoryEntrySchema)),
+    summary: 'Member names for pickers and filters (any member; not paginated, ≤ 500)',
   },
   createUser: {
     method: 'POST',

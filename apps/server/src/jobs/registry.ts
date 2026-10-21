@@ -7,7 +7,9 @@ import { jobs as authJobs } from '../modules/auth/jobs'
 import { jobs as catalogJobs } from '../modules/catalog/jobs'
 import { jobs as identityJobs } from '../modules/identity/jobs'
 import { jobs as inventoryJobs } from '../modules/inventory/jobs'
+import { jobs as licensingJobs } from '../modules/licensing/jobs'
 import { jobs as notificationsJobs } from '../modules/notifications/jobs'
+import { jobs as onpremJobs } from '../modules/onprem/jobs'
 import { jobs as partiesJobs } from '../modules/parties/jobs'
 import { jobs as paymentsJobs } from '../modules/payments/jobs'
 import { jobs as platformJobs } from '../modules/platform/jobs'
@@ -53,4 +55,6 @@ export const JOB_DEFINITIONS: readonly KadaiJob[] = buildRegistry([
   reportsJobs,
   notificationsJobs,
   platformJobs,
+  licensingJobs,
+  onpremJobs,
 ])

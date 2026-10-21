@@ -223,5 +223,78 @@
     "ready": "Kadai-இன் புதிய பதிப்பு தயார்",
     "reload": "இப்போதே புதுப்பி",
     "offline_ready": "Kadai இணையமின்றியும் இயங்கத் தயார்"
+  },
+  "pickers": {
+    "product": {
+      "placeholder": "பொருளைத் தேர்ந்தெடுக்கவும்",
+      "search_placeholder": "பெயர், SKU அல்லது பார்கோடு ஸ்கேன்",
+      "variants_one": "{{count}} வகை",
+      "variants_other": "{{count}} வகைகள்",
+      "variants_of": "{{name}} – வகைகள்",
+      "back": "எல்லாப் பொருட்களும்",
+      "stock": "இருப்பு",
+      "not_found": "{{code}} குறியீட்டில் பொருள் இல்லை",
+      "inactive": "செயலில் இல்லை"
+    },
+    "customer": {
+      "placeholder": "வாடிக்கையாளரைத் தேர்ந்தெடுக்கவும்",
+      "search_placeholder": "பெயர் அல்லது மொபைல் எண்",
+      "due": "நிலுவை {{amount}}",
+      "overdue": "தவணை கடந்தது {{amount}}",
+      "advance": "முன்பணம் {{amount}}",
+      "points": "{{points}} புள்ளிகள்",
+      "create_with_phone": "{{phone}} எண்ணுடன் வாடிக்கையாளரைச் சேர்",
+      "not_found": "{{phone}} எண்ணில் வாடிக்கையாளர் இல்லை"
+    },
+    "supplier": {
+      "placeholder": "சப்ளையரைத் தேர்ந்தெடுக்கவும்",
+      "search_placeholder": "பெயர், மொபைல் அல்லது GSTIN",
+      "payable": "செலுத்த வேண்டியது {{amount}}",
+      "advance": "முன்பணம் {{amount}}"
+    },
+    "doctor": {
+      "placeholder": "மருத்துவரைத் தேர்ந்தெடுக்கவும்",
+      "search_placeholder": "பெயர், பதிவு எண் அல்லது கிளினிக்",
+      "reg_no": "பதிவு {{no}}"
+    },
+    "account": {
+      "placeholder": "கணக்கைத் தேர்ந்தெடுக்கவும்",
+      "search_placeholder": "கணக்குக் குறியீடு அல்லது பெயர்",
+      "store_only": "இந்தக் கிளைக்கு மட்டும்"
+    },
+    "category": {
+      "placeholder": "வகையைத் தேர்ந்தெடுக்கவும்",
+      "search_placeholder": "வகைகளைத் தேடு"
+    },
+    "brand": {
+      "placeholder": "பிராண்டைத் தேர்ந்தெடுக்கவும்",
+      "search_placeholder": "பிராண்டுகளைத் தேடு"
+    },
+    "store": {
+      "placeholder": "கிளையைத் தேர்ந்தெடுக்கவும்",
+      "all": "எல்லாக் கிளைகளும்",
+      "inactive": "செயலில் இல்லை"
+    },
+    "register": {
+      "placeholder": "கவுண்டரைத் தேர்ந்தெடுக்கவும்"
+    },
+    "user": {
+      "placeholder": "பயனரைத் தேர்ந்தெடுக்கவும்",
+      "search_placeholder": "பெயரால் தேடு",
+      "disabled": "முடக்கப்பட்டது"
+    },
+    "batch": {
+      "placeholder": "பேட்சைத் தேர்ந்தெடுக்கவும்",
+      "search_placeholder": "பேட்ச் எண்",
+      "select_product_first": "முதலில் பொருளைத் தேர்ந்தெடுக்கவும்",
+      "expiry": "காலாவதி {{date}}",
+      "no_expiry": "காலாவதி இல்லை",
+      "expired": "காலாவதியானது",
+      "expiring_one": "{{count}} நாளில் காலாவதி",
+      "expiring_other": "{{count}} நாட்களில் காலாவதி",
+      "expires_today": "இன்று காலாவதி",
+      "mrp": "MRP {{amount}}",
+      "none": "இருப்பில் பேட்ச் இல்லை"
+    }
   }
 }

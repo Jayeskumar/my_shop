@@ -1,10 +1,10 @@
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { SessionResponseSchema } from '@kadai/shared/api/auth'
 import { defineRoutes, dataOf } from '@kadai/shared/api/common'
 import { z } from 'zod'
 import { makeMe, makeSession } from '@/test/fixtures'
-import { apiPath, errorResponse, server } from '@/test/msw'
+import { ORIGIN, apiPath, errorResponse, server } from '@/test/msw'
 import {
   ApiError,
   api,
@@ -15,6 +15,7 @@ import {
   onAuthEvent,
   refreshSession,
   setSession,
+  type RouteCallInput,
   type SseMessage,
 } from './api'
 import { getOnlineStatus } from './online'
@@ -228,21 +229,79 @@ describe('callRoute', () => {
     getThing: {
       method: 'GET',
       path: '/things/:id',
+      params: z.object({ id: z.string() }),
+      query: z.object({ ids: z.array(z.string()).optional(), q: z.string().optional() }),
       response: dataOf(z.object({ id: z.string(), qty_milli: z.int() })),
     },
+    createThing: {
+      method: 'POST',
+      path: '/things',
+      idempotent: true,
+      body: z.object({ name: z.string() }),
+      response: dataOf(z.object({ id: z.string() })),
+      status: 201,
+    },
+    publicThing: {
+      method: 'GET',
+      path: '/things/:token',
+      scope: 'public',
+      auth: 'public',
+      params: z.object({ token: z.string() }),
+      response: dataOf(z.object({ ok: z.boolean() })),
+    },
+    removeThing: { method: 'DELETE', path: '/things/:id', params: z.object({ id: z.string() }) },
   })
 
-  it('builds the URL from the route definition and validates the response', async () => {
+  it('builds the URL, query, body and headers from the route definition', async () => {
+    setSession(makeSession({ access_token: 'tok-r' }), { broadcast: false })
+    let url: URL | null = null
+    let seen: Request | null = null
     server.use(
-      http.get(apiPath('/things/abc'), () =>
-        HttpResponse.json({ data: { id: 'abc', qty_milli: 1500, extra: true } }),
-      ),
+      http.get(apiPath('/things/abc'), ({ request }) => {
+        url = new URL(request.url)
+        return HttpResponse.json({ data: { id: 'abc', qty_milli: 1500 } })
+      }),
+      http.post(apiPath('/things'), async ({ request }) => {
+        seen = request.clone()
+        return HttpResponse.json({ data: { id: 'new' } }, { status: 201 })
+      }),
     )
-    const res = await callRoute(routes.getThing, { params: { id: 'abc' } })
+    const res = await callRoute(routes.getThing, {
+      params: { id: 'abc' },
+      query: { ids: ['a', 'b'], q: 'dal' },
+    })
+    expectTypeOf(res).toEqualTypeOf<{ data: { id: string; qty_milli: number } }>()
     expect(res.data).toEqual({ id: 'abc', qty_milli: 1500 })
+    expect((url as URL | null)?.search).toBe('?ids=a&ids=b&q=dal')
+
+    const created = await callRoute(routes.createThing, {
+      body: { name: 'x' },
+      idempotencyKey: 'idem-thing-1',
+    })
+    expect(created.data.id).toBe('new')
+    const req = seen as unknown as Request
+    expect(req.headers.get('idempotency-key')).toBe('idem-thing-1')
+    expect(req.headers.get('authorization')).toBe('Bearer tok-r')
+    expect(await req.json()).toEqual({ name: 'x' })
   })
 
-  it('returns the raw body (and logs) when the response drifts from the contract', async () => {
+  it('sends no token to public routes and resolves 204 routes to undefined', async () => {
+    setSession(makeSession({ access_token: 'tok-p' }), { broadcast: false })
+    let auth: string | null = 'unset'
+    server.use(
+      http.get(`${ORIGIN}/public/v1/things/t-1`, ({ request }) => {
+        auth = request.headers.get('authorization')
+        return HttpResponse.json({ data: { ok: true } })
+      }),
+      http.delete(apiPath('/things/abc'), () => new HttpResponse(null, { status: 204 })),
+    )
+    const res = await callRoute(routes.publicThing, { params: { token: 't-1' } })
+    expect(res.data.ok).toBe(true)
+    expect(auth).toBeNull()
+    await expect(callRoute(routes.removeThing, { params: { id: 'abc' } })).resolves.toBeUndefined()
+  })
+
+  it('logs contract drift in development but still returns the body', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     server.use(
       http.get(apiPath('/things/abc'), () =>
@@ -251,7 +310,26 @@ describe('callRoute', () => {
     )
     const res = await callRoute(routes.getThing, { params: { id: 'abc' } })
     expect((res.data as { qty_milli: unknown }).qty_milli).toBe('x')
-    expect(log).toHaveBeenCalled()
+    expect(log).toHaveBeenCalledTimes(1)
+    log.mockClear()
+    await callRoute(routes.getThing, { params: { id: 'abc' }, validate: false })
+    expect(log).not.toHaveBeenCalled()
+    log.mockRestore()
+  })
+
+  it('requires params exactly when the route has path params (types)', () => {
+    // Never invoked: the assertions are the compile-time errors below.
+    const typeOnly = () => {
+      // @ts-expect-error params are required for routes with path params
+      void callRoute(routes.publicThing)
+      // @ts-expect-error the param names come from the route's params schema
+      void callRoute(routes.publicThing, { params: { id: 'x' } })
+      void callRoute(routes.createThing, { body: { name: 'ok' } })
+      // @ts-expect-error bodies are typed by the route's body schema
+      void callRoute(routes.createThing, { body: { title: 'no' } })
+    }
+    expectTypeOf<RouteCallInput<typeof routes.createThing>['params']>().toEqualTypeOf<undefined>()
+    expect(typeof typeOnly).toBe('function')
   })
 })
 

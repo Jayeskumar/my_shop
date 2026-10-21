@@ -75,6 +75,7 @@ import {
   TenantSettingsSchema,
 } from '../settings'
 import { isUnitCode } from '../units'
+import { ShiftSchema } from './accounting'
 import { loyaltyRedeemIssue, loyaltyValuePaise } from './parties'
 import {
   AddressSchema,
@@ -1065,7 +1066,7 @@ export const InvoiceCreateSchema = z
   .object({
     ...CartFields,
     client_ref: zIdempotencyKey.optional(),
-    status: z.enum(['completed', 'held', 'draft']).default('completed'),
+    status: SalesInvoiceStatusSchema.extract(['completed', 'held', 'draft']).default('completed'),
     channel: SalesChannelSchema.default('pos'),
     tenders: z.array(TenderInputSchema).max(10).default([]),
     credit_limit_override: z.boolean().default(false),
@@ -1095,7 +1096,7 @@ export const InvoiceUpdateSchema = z
     rx: RxSchema.nullable().optional(),
     salesperson_id: zId.nullable().optional(),
     notes: zNullableText(1000),
-    status: z.enum(['held', 'draft']).optional(),
+    status: SalesInvoiceStatusSchema.extract(['held', 'draft']).optional(),
     if_updated_at: zIfUpdatedAt,
   })
   .refine((v) => Object.entries(v).some(([k, x]) => x !== undefined && k !== 'if_updated_at'), {
@@ -1156,7 +1157,7 @@ export type EstimateCreate = z.input<typeof EstimateCreateSchema>
  * with converted_to_id.
  */
 export const EstimateConvertSchema = z.object({
-  status: z.enum(['completed', 'draft']).default('draft'),
+  status: SalesInvoiceStatusSchema.extract(['completed', 'draft']).default('draft'),
   keep_prices: z.boolean().default(false),
   tenders: z.array(TenderInputSchema).max(10).default([]),
   register_id: zId.optional(),
@@ -1653,7 +1654,7 @@ export type InvoiceShareResult = z.output<typeof InvoiceShareResultSchema>
 
 export const HeldBillSchema = z.object({
   id: zId,
-  status: z.enum(['held', 'draft']),
+  status: SalesInvoiceStatusSchema.extract(['held', 'draft']),
   store_id: zId,
   register_id: zId.nullable(),
   register_code: z.string().nullable(),
@@ -1671,7 +1672,7 @@ export type HeldBill = z.output<typeof HeldBillSchema>
 export const HeldBillsQuerySchema = z.object({
   store_id: zId,
   register_id: zId.optional(),
-  status: zQueryList(z.enum(['held', 'draft'])).optional(),
+  status: zQueryList(SalesInvoiceStatusSchema.extract(['held', 'draft'])).optional(),
 })
 
 /** Default list excludes estimates and held / draft bills (pass doc_type / status). */
@@ -1697,7 +1698,7 @@ export const InvoiceListQuerySchema = PageQuerySchema.extend({
     'total_paise',
     'due_paise',
     'created_at',
-  ]).optional(),
+  ]).prefault('-invoice_at'),
   format: zListFormat,
 }).refine(dateOrderOk, DATE_ORDER_ISSUE)
 export type InvoiceListQuery = z.input<typeof InvoiceListQuerySchema>
@@ -1869,7 +1870,7 @@ export const CreditNoteListQuerySchema = PageQuerySchema.extend({
   customer_id: zId.optional(),
   invoice_id: zId.optional(),
   ...DATE_RANGE_FIELDS,
-  sort: sortQuery(['note_date', 'number', 'total_paise', 'created_at']).optional(),
+  sort: sortQuery(['note_date', 'number', 'total_paise', 'created_at']).prefault('-note_date'),
   format: zListFormat,
 }).refine(dateOrderOk, DATE_ORDER_ISSUE)
 export type CreditNoteListQuery = z.input<typeof CreditNoteListQuerySchema>
@@ -2090,7 +2091,7 @@ export const PrintQuerySchema = z.object({
 })
 export type PrintQuery = z.input<typeof PrintQuerySchema>
 
-/** GET /public/v1/invoices/:share_token */
+/** GET /public/v1/invoices/:shareToken */
 export const PublicInvoiceSchema = z.object({
   document: SalesPrintModelSchema,
   /** Pay the due by UPI (null when nothing is due or the shop has no UPI ID). */
@@ -2107,7 +2108,7 @@ export const PublicInvoiceSchema = z.object({
 })
 export type PublicInvoice = z.output<typeof PublicInvoiceSchema>
 
-export const ShareTokenParamsSchema = z.object({ share_token: z.string().regex(SHARE_TOKEN_RE) })
+export const ShareTokenParamsSchema = z.object({ shareToken: z.string().regex(SHARE_TOKEN_RE) })
 
 // =============================================================================================
 // POS bootstrap & offline sync
@@ -2281,22 +2282,20 @@ export const PosBootstrapSchema = z.object({
   register: z
     .object({ id: zId, code: z.string(), name: z.string(), settings: RegisterSettingsSchema })
     .nullable(),
-  doc_type: z.enum(['tax_invoice', 'bill_of_supply']),
+  doc_type: SalesDocTypeSchema.extract(['tax_invoice', 'bill_of_supply']),
   tax_mode: GstSchemeSchema.describe('Tax mode of the document (= the GST scheme)'),
   settings: TenantSettingsSchema,
   features: z.array(FeatureSchema),
   /** The register's invoice series (offline numbering; per register, used by this device only). */
   series: SeriesStateSchema.nullable(),
   /** Open shift of the register (feature shifts). */
-  open_shift: z
-    .object({
-      id: zId,
-      opened_at: zTimestamp,
-      opened_by: zId,
-      opened_by_name: z.string().nullable(),
-      opening_cash_paise: zPaise,
-    })
-    .nullable(),
+  open_shift: ShiftSchema.pick({
+    id: true,
+    opened_at: true,
+    opened_by: true,
+    opened_by_name: true,
+    opening_cash_paise: true,
+  }).nullable(),
   /** settings.pos.require_open_shift and feature shifts: bills need an open shift. */
   shift_required: z.boolean(),
   quick_keys: z.array(zId),
@@ -2602,7 +2601,7 @@ export const salesRoutes = defineRoutes({
   // ---- public ----
   publicInvoice: {
     method: 'GET',
-    path: '/invoices/:share_token',
+    path: '/invoices/:shareToken',
     scope: 'public',
     auth: 'public',
     params: ShareTokenParamsSchema,

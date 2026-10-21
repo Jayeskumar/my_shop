@@ -26,6 +26,8 @@ export const MODULE_NAMES = [
   'reports',
   'notifications',
   'platform',
+  'licensing',
+  'onprem',
 ] as const
 export type ModuleName = (typeof MODULE_NAMES)[number]
 

@@ -867,7 +867,7 @@ const productUpdateShape = Object.fromEntries(
 export const ProductUpdateSchema = z
   .object({
     ...productUpdateShape,
-    kind: z.enum(['standard', 'service']).optional(),
+    kind: ProductKindSchema.extract(['standard', 'service']).optional(),
     allow_mrp_below_sale: z.boolean().optional(),
     if_updated_at: zIfUpdatedAt,
   })

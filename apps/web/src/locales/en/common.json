@@ -223,5 +223,78 @@
     "ready": "A new version of Kadai is ready",
     "reload": "Update now",
     "offline_ready": "Kadai is ready to work offline"
+  },
+  "pickers": {
+    "product": {
+      "placeholder": "Select product",
+      "search_placeholder": "Name, SKU or scan barcode",
+      "variants_one": "{{count}} variant",
+      "variants_other": "{{count}} variants",
+      "variants_of": "Variants of {{name}}",
+      "back": "All products",
+      "stock": "Stock",
+      "not_found": "No product with code {{code}}",
+      "inactive": "Inactive"
+    },
+    "customer": {
+      "placeholder": "Select customer",
+      "search_placeholder": "Name or mobile number",
+      "due": "Due {{amount}}",
+      "overdue": "Overdue {{amount}}",
+      "advance": "Advance {{amount}}",
+      "points": "{{points}} pts",
+      "create_with_phone": "Add customer with {{phone}}",
+      "not_found": "No customer with {{phone}}"
+    },
+    "supplier": {
+      "placeholder": "Select supplier",
+      "search_placeholder": "Name, mobile or GSTIN",
+      "payable": "To pay {{amount}}",
+      "advance": "Advance {{amount}}"
+    },
+    "doctor": {
+      "placeholder": "Select doctor",
+      "search_placeholder": "Name, registration no. or clinic",
+      "reg_no": "Reg. {{no}}"
+    },
+    "account": {
+      "placeholder": "Select account",
+      "search_placeholder": "Account code or name",
+      "store_only": "This store only"
+    },
+    "category": {
+      "placeholder": "Select category",
+      "search_placeholder": "Search categories"
+    },
+    "brand": {
+      "placeholder": "Select brand",
+      "search_placeholder": "Search brands"
+    },
+    "store": {
+      "placeholder": "Select store",
+      "all": "All stores",
+      "inactive": "Inactive"
+    },
+    "register": {
+      "placeholder": "Select counter"
+    },
+    "user": {
+      "placeholder": "Select user",
+      "search_placeholder": "Search by name",
+      "disabled": "Disabled"
+    },
+    "batch": {
+      "placeholder": "Select batch",
+      "search_placeholder": "Batch number",
+      "select_product_first": "Choose a product first",
+      "expiry": "Exp {{date}}",
+      "no_expiry": "No expiry",
+      "expired": "Expired",
+      "expiring_one": "Expires in {{count}} day",
+      "expiring_other": "Expires in {{count}} days",
+      "expires_today": "Expires today",
+      "mrp": "MRP {{amount}}",
+      "none": "No batches in stock"
+    }
   }
 }

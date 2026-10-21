@@ -317,10 +317,16 @@ app.post('/products', {
   `/api/v1`, `/public/v1` or `/webhooks`), `permission`, `feature`, `mode`, `idempotent`, and the
   `params`/`query`/`body`/`response` schemas (`response` is the complete body, i.e. the envelope:
   `dataOf(X)` / `listOf(X)`). The server registers each route from its definition with
-  `route(app, def, handler)` (`core/http.ts`: schemas + permission/feature/mode guards applied
-  automatically) and the web calls it through a
-  typed client (`routeUrl()`, `RouteBody<R>`, `RouteResponse<R>`), so paths and payloads cannot
-  drift. docs/API.md is the human-readable index of the same catalogue.
+  `route(app, def, handler)` / `registerRoute(app, def, impl)` or a whole catalogue with
+  `registerRoutes(app, routes, impls)` / `defineModule({ name, ...routePlugins(routes, impls) })`
+  (`core/http.ts`: schemas, permission any-of / feature / mode guards, `auth: 'public'` and the
+  scope prefix applied automatically; `idempotent` routes validate `Idempotency-Key`, and a
+  `{ tx }` implementation runs in one tenant transaction replayed through `idempotentTx`;
+  `unimplementedRoutes()` lists what a module still lacks). The web calls routes through
+  `callRoute()` / `useRouteQuery()` / `useRouteMutation()` (`lib/api.ts`, `lib/query.ts`:
+  `routeUrl()`, `RouteBody<R>`, `RouteResponse<R>`), so paths and payloads cannot drift.
+  `ROUTE_CATALOGUES` (`api/catalogues.ts`) lists every catalogue; docs/API.md is the
+  human-readable index.
 
 ### 7.4 Authentication
 
@@ -808,8 +814,10 @@ sends the public invoice link `/i/<share_token>` (+ UPI pay link when due).
 * **State** — server state in TanStack Query (keys `[module, resource, params]`); auth/session in
   a small store (`lib/auth`); POS cart in a reducer + IndexedDB persistence.
 * **API client** — `lib/api.ts`: `api.get<T>(path, {query, signal})`, `api.post/put/patch<T>(path,
-  body, {idempotencyKey})`, `api.del`, and `api.call(route, {params, query, body})` for the shared
-  route catalogues (response validated). Automatic access-token refresh on 401 (single-flight,
+  body, {idempotencyKey})`, `api.del`, and `callRoute(route, {params, query, body,
+  idempotencyKey})` (= `api.call`) for the shared route catalogues (typed by the route; responses
+  are validated against the contract in development, or with `validate: true`), plus
+  `useRouteQuery` / `useRouteMutation` (`lib/query.ts`). Automatic access-token refresh on 401 (single-flight,
   serialised across tabs with Web Locks + BroadcastChannel), error → `ApiError{code, message,
   details, requestId}`; module hooks in `features/<m>/api.ts`. A non-secret `session_hint` in
   localStorage lets a signed-out browser skip the start-up refresh request.
@@ -817,6 +825,13 @@ sends the public invoice link `/i/<share_token>` (+ UPI pay link when due).
   (unit-aware), Select, Combobox (async search), DatePicker, Dialog, Drawer, Tabs, Table
   (TanStack Table with server pagination), Badge, Card, EmptyState, Skeleton, Toast (sonner),
   ConfirmDialog, PageHeader, FormField, Kbd. Tailwind tokens: primary teal, accent saffron.
+* **Pickers** — `components/pickers` (cross-module, built on the route catalogues + Combobox):
+  ProductPicker (debounced search, Enter on a code → `GET /products/lookup`, variant parents
+  open their variants, price & stock), CustomerPicker (name / phone search, phone lookup on
+  Enter, due chips, inline create callback), SupplierPicker, DoctorPicker, BrandPicker,
+  AccountPicker (type / subtype / cash-bank filters), CategoryPicker (indented tree, exclude a
+  subtree, max depth), StorePicker / RegisterPicker (from /me), UserPicker
+  (`GET /users/directory`), BatchPicker (FEFO, stock, expired disabled). Texts: `common:pickers.*`.
 * **i18n** — `t('catalog:product.name')`; Tamil default; numbers/currency via `Intl` `en-IN`;
   dates `dd-MM-yyyy`. Fonts: Noto Sans Tamil + Inter (self-hosted via @fontsource).
 * **Accessibility** — keyboard reachable, visible focus, labels on inputs, colour contrast AA.

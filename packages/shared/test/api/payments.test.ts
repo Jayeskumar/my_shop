@@ -305,9 +305,9 @@ describe('intent requests', () => {
     ).toBe(false)
     expect(UpiQrQuerySchema.parse({ amount_paise: '100' }).amount_paise).toBe(100)
     expect(
-      ReferenceCodeParamsSchema.safeParse({ reference_code: generateReferenceCode() }).success,
+      ReferenceCodeParamsSchema.safeParse({ referenceCode: generateReferenceCode() }).success,
     ).toBe(true)
-    expect(ReferenceCodeParamsSchema.safeParse({ reference_code: 'kd123' }).success).toBe(false)
+    expect(ReferenceCodeParamsSchema.safeParse({ referenceCode: 'kd123' }).success).toBe(false)
   })
 })
 
@@ -558,10 +558,10 @@ describe('responses', () => {
 
 describe('payments route catalogue', () => {
   it('paths', () => {
-    expect(routeUrl(paymentsRoutes.webhook, { provider: 'razorpay', account_id: 'a' })).toBe(
+    expect(routeUrl(paymentsRoutes.webhook, { provider: 'razorpay', accountId: 'a' })).toBe(
       '/webhooks/payments/razorpay/a',
     )
-    expect(routeUrl(paymentsRoutes.publicPayPage, { reference_code: 'KD7Q2M9X4LZ0' })).toBe(
+    expect(routeUrl(paymentsRoutes.publicPayPage, { referenceCode: 'KD7Q2M9X4LZ0' })).toBe(
       '/public/v1/pay/KD7Q2M9X4LZ0',
     )
     expect(routeUrl(paymentsRoutes.streamIntent, { id: 'x' })).toBe(

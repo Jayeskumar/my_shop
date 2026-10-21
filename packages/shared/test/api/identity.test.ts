@@ -50,7 +50,7 @@ import {
   zQueryIds,
   zTags,
 } from '../../src/api/identity'
-import { dataOf } from '../../src/api/common'
+import { dataOf, routePermissions } from '../../src/api/common'
 import { makeGstin } from '../../src/gst'
 import { newId } from '../../src/ids'
 import { PERMISSION_CODES } from '../../src/permissions'
@@ -603,5 +603,34 @@ describe('address helpers', () => {
     const { TAMIL_NADU_DISTRICTS } = await import('../../src/api/identity')
     expect(TAMIL_NADU_DISTRICTS).toHaveLength(38)
     expect(new Set(TAMIL_NADU_DISTRICTS.map((d) => d.en)).size).toBe(38)
+  })
+})
+
+describe('user directory', () => {
+  it('lists member names only (no contact or security fields)', async () => {
+    const {
+      UserDirectoryEntrySchema,
+      UserDirectoryQuerySchema,
+      identityRoutes: r,
+    } = await import('../../src/api/identity')
+    const entry = UserDirectoryEntrySchema.parse({
+      id: '0192e3a0-0000-7000-8000-000000000001',
+      full_name: 'Selvi',
+      role_code: 'cashier',
+      role_name: 'Cashier',
+      role_name_ta: 'காசாளர்',
+      status: 'active',
+      store_ids: null,
+      phone: '+919876543210',
+      pin_locked_until: null,
+    })
+    expect(Object.keys(entry).sort()).toEqual(
+      ['full_name', 'id', 'role_code', 'role_name', 'role_name_ta', 'status', 'store_ids'].sort(),
+    )
+    expect(UserDirectoryQuerySchema.parse({ include_disabled: 'true' })).toEqual({
+      include_disabled: true,
+    })
+    expect(routePermissions(r.userDirectory)).toEqual([])
+    expect(r.userDirectory.path).toBe('/users/directory')
   })
 })

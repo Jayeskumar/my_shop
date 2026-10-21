@@ -12,8 +12,19 @@
  *   }
  *
  * Route catalogues from @kadai/shared/api/<module> (`defineRoutes`) are registered with
- * {@link route}, which applies schemas, permission/feature/mode guards and auth config from the
- * definition.
+ * {@link route} / {@link registerRoute}, which apply schemas, permission/feature/mode guards,
+ * the idempotency-key check and auth config from the definition. A whole catalogue is wired with
+ * {@link registerRoutes} (inside a scope plugin) or {@link routePlugins} (all three scopes):
+ *
+ *   export const catalogModule = defineModule({
+ *     name: 'catalog',
+ *     ...routePlugins(catalogRoutes, {
+ *       getBrand: async (req) => ({ data: await loadBrand(req) }),
+ *       // `tx` implementations run in ONE tenant transaction — idempotently (Idempotency-Key /
+ *       // client_ref replay) when the definition is `idempotent`.
+ *       createProduct: { tx: async (tx, req) => ({ data: await createProduct(tx, req.ctx, req.body) }) },
+ *     }),
+ *   })
  */
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type {
@@ -33,6 +44,7 @@ import {
   ROUTE_SCOPE_PREFIX,
   type RouteDef,
   type RouteResponse,
+  type RouteScope,
   routePermissions,
 } from '@kadai/shared/api/common'
 import type { DB } from '../db/schema.generated'
@@ -298,20 +310,37 @@ export interface RouteExtras {
   bodyLimit?: number
 }
 
+/** Scope of a module plugin instance from its prefix (/api/v1 → 'api'); null for other prefixes. */
+export function scopeOfPrefix(prefix: string): RouteScope | null {
+  const entry = Object.entries(ROUTE_SCOPE_PREFIX).find(([, p]) => p === prefix)
+  return entry ? (entry[0] as RouteScope) : null
+}
+
+/** Rejects a malformed `Idempotency-Key` header early (400) on idempotent catalogue routes. */
+const checkIdempotencyKeyHeader: preHandlerAsyncHookHandler = async (req) => {
+  const header = req.headers['idempotency-key']
+  const value = Array.isArray(header) ? header[0] : header
+  if (value !== undefined && value.trim() !== '') assertIdempotencyKey(value.trim())
+}
+
 /**
  * Registers a route from its catalogue definition on the scope instance the module was given
  * (`/api/v1`, `/public/v1` or `/webhooks`). Applies params/query/body/response schemas, the
- * permission (any-of) and feature guards, `auth`/scope → `config.public`, and the deployment
- * `mode` (the route is not registered — 404 — in the other mode).
+ * permission (any-of) and feature guards, `auth`/scope → `config.public`, the deployment
+ * `mode` (the route is not registered — 404 — in the other mode) and, for `idempotent`
+ * definitions, validation of the `Idempotency-Key` header (the handler still decides how to
+ * replay: `idempotentTx`, or a `tx` implementation through {@link registerRoute}).
+ *
+ * Returns false when the route was skipped because of its `mode`.
  */
 export function route<R extends RouteDef>(
   app: KadaiInstance,
   def: R,
   handler: RouteHandlerFor<R>,
   extras: RouteExtras = {},
-): void {
+): boolean {
   const scope = def.scope ?? 'api'
-  if (def.mode && def.mode !== app.kadai.config.mode) return
+  if (def.mode && def.mode !== app.kadai.config.mode) return false
   const expected = ROUTE_SCOPE_PREFIX[scope]
   if (app.prefix !== expected) {
     throw new Error(
@@ -322,6 +351,7 @@ export function route<R extends RouteDef>(
   const preHandler: preHandlerAsyncHookHandler[] = []
   if (perms.length) preHandler.push(requirePermission(...perms))
   if (def.feature) preHandler.push(requireFeature(def.feature))
+  if (def.idempotent) preHandler.push(checkIdempotencyKeyHeader)
   preHandler.push(...(extras.preHandler ?? []))
   const status = def.status ?? 200
   const isPublic = scope !== 'api' || def.auth === 'public'
@@ -360,4 +390,132 @@ export function route<R extends RouteDef>(
       return reply.code(status).send(result)
     },
   })
+  return true
+}
+
+// ---------------------------------------------------------------------------------------------
+// Catalogue implementations (registerRoute / registerRoutes / routePlugins)
+// ---------------------------------------------------------------------------------------------
+
+/** `{ handler, ...extras }`: a plain handler with route-specific extras (rate limit, config). */
+export interface RouteHandlerImpl<R extends RouteDef> extends RouteExtras {
+  handler: RouteHandlerFor<R>
+}
+
+/**
+ * `{ tx, ...extras }`: runs in ONE tenant transaction (`req.tx`) and returns the response body.
+ * For `idempotent` definitions the transaction goes through {@link idempotentTx} with the
+ * definition's status: a retry with the same `Idempotency-Key` header (or body `client_ref`)
+ * replays the stored response (`Idempotent-Replayed: true`), a different body → 409.
+ */
+export interface RouteTxImpl<R extends RouteDef> extends RouteExtras {
+  tx: (tx: Tx, req: RouteRequestFor<R>, reply: FastifyReply) => Promise<RouteResponse<R>>
+}
+
+export type RouteImpl<R extends RouteDef> =
+  RouteHandlerFor<R> | RouteHandlerImpl<R> | RouteTxImpl<R>
+
+/** Implementations for (some of) a catalogue's routes, by route key. */
+export type RouteImpls<C extends Record<string, RouteDef>> = {
+  [K in keyof C]?: RouteImpl<C[K]>
+}
+
+/** Extras applied to every route of a {@link registerRoutes} call (e.g. a staff guard). */
+export type RouteExtrasFor = (def: RouteDef, key: string) => RouteExtras | undefined
+
+function mergeExtras(...parts: Array<RouteExtras | undefined>): RouteExtras {
+  const out: RouteExtras = {}
+  for (const p of parts) {
+    if (!p) continue
+    if (p.preHandler?.length) out.preHandler = [...(out.preHandler ?? []), ...p.preHandler]
+    if (p.config) out.config = { ...out.config, ...p.config }
+    if (p.bodyLimit !== undefined) out.bodyLimit = p.bodyLimit
+  }
+  return out
+}
+
+/**
+ * Registers one catalogue route with a handler, `{ handler, ...extras }` or `{ tx, ...extras }`
+ * (see {@link RouteTxImpl}). Returns false when skipped for the deployment mode.
+ */
+export function registerRoute<R extends RouteDef>(
+  app: KadaiInstance,
+  def: R,
+  impl: RouteImpl<R>,
+  extras: RouteExtras = {},
+): boolean {
+  if (typeof impl === 'function') return route(app, def, impl, extras)
+  const { preHandler, config, bodyLimit } = impl
+  const merged = mergeExtras(extras, { preHandler, config, bodyLimit })
+  if ('handler' in impl) return route(app, def, impl.handler, merged)
+  // Same status as route() registers the response schema under (idempotentTx serialises with it).
+  const status = def.status ?? 200
+  const handler: RouteHandlerFor<R> = def.idempotent
+    ? (req, reply) => idempotentTx(req, reply, (tx) => impl.tx(tx, req, reply), { status })
+    : (req, reply) => req.tx((tx) => impl.tx(tx, req, reply))
+  return route(app, def, handler, merged)
+}
+
+/**
+ * Registers the implemented routes of a catalogue whose scope is the instance's scope (call it
+ * from the module's `routes`, `publicRoutes` and `webhooks` plugins with the same arguments, or
+ * use {@link routePlugins}). Unimplemented routes are simply absent (404) — module tests should
+ * assert `unimplementedRoutes(...)` is empty once the module is complete. Returns the keys
+ * registered on this instance.
+ */
+export function registerRoutes<C extends Record<string, RouteDef>>(
+  app: KadaiInstance,
+  routes: C,
+  impls: RouteImpls<C>,
+  opts: { extras?: RouteExtrasFor } = {},
+): string[] {
+  const scope = scopeOfPrefix(app.prefix)
+  if (!scope) throw new Error(`registerRoutes: "${app.prefix || '/'}" is not a route scope prefix`)
+  const registered: string[] = []
+  for (const [key, impl] of Object.entries(impls) as Array<[string, RouteImpl<RouteDef>]>) {
+    if (impl === undefined) continue
+    const def = routes[key]
+    if (!def) throw new Error(`registerRoutes: "${key}" is not a route of this catalogue`)
+    if ((def.scope ?? 'api') !== scope) continue
+    if (registerRoute(app, def, impl, opts.extras?.(def, key))) registered.push(key)
+  }
+  return registered
+}
+
+/** Catalogue route keys without an implementation (routes of the other deployment mode excluded). */
+export function unimplementedRoutes<C extends Record<string, RouteDef>>(
+  routes: C,
+  impls: RouteImpls<C>,
+  mode?: 'cloud' | 'onprem',
+): Array<keyof C & string> {
+  return (Object.keys(routes) as Array<keyof C & string>).filter((key) => {
+    const def = routes[key]!
+    if (mode && def.mode && def.mode !== mode) return false
+    return impls[key] === undefined
+  })
+}
+
+/**
+ * The module plugins for a catalogue: `{ routes, publicRoutes, webhooks }` (only the scopes the
+ * implementations use), ready to spread into `defineModule({...})`.
+ */
+export function routePlugins<C extends Record<string, RouteDef>>(
+  routes: C,
+  impls: RouteImpls<C>,
+  opts: { extras?: RouteExtrasFor } = {},
+): { routes?: KadaiPlugin; publicRoutes?: KadaiPlugin; webhooks?: KadaiPlugin } {
+  const scopes = new Set<RouteScope>()
+  for (const key of Object.keys(impls)) {
+    const def = routes[key]
+    if (!def) throw new Error(`routePlugins: "${key}" is not a route of this catalogue`)
+    if (impls[key] !== undefined) scopes.add(def.scope ?? 'api')
+  }
+  const plugin: KadaiPlugin = async (app) => {
+    registerRoutes(app, routes, impls, opts)
+  }
+  return {
+    ...(scopes.has('api') ? { routes: plugin } : {}),
+    ...(scopes.has('public') ? { publicRoutes: plugin } : {}),
+    ...(scopes.has('webhook') ? { webhooks: plugin } : {}),
+  }
 }

@@ -28,6 +28,8 @@ import {
   type PaymentMethod,
   SalesChannelSchema,
   ShiftStatusSchema,
+  SalesInvoiceStatusSchema,
+  SalesDocTypeSchema,
 } from '../enums'
 import type { Feature } from '../features'
 import { addDays, addMonths, diffDays, isPeriod, periodRange, periodToFp } from '../fy'
@@ -2318,8 +2320,8 @@ export const SalesRegisterRowSchema = z.object({
   document_id: zId,
   number: z.string(),
   date: zDateStr,
-  doc_type: z.enum(['tax_invoice', 'bill_of_supply']).nullable(),
-  status: z.enum(['completed', 'cancelled']),
+  doc_type: SalesDocTypeSchema.extract(['tax_invoice', 'bill_of_supply']).nullable(),
+  status: SalesInvoiceStatusSchema.extract(['completed', 'cancelled']),
   customer_id: zId.nullable(),
   customer_name: z.string().nullable(),
   customer_gstin: z.string().nullable(),

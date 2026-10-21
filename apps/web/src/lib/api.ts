@@ -13,7 +13,14 @@
  *  - Errors are thrown as {@link ApiError} with the server's `code`, `details` and `request_id`.
  */
 import type { SessionResponse } from '@kadai/shared/api/auth'
-import type { Page, RouteBody, RouteDef, RouteQuery, RouteResponse } from '@kadai/shared/api/common'
+import type {
+  Page,
+  RouteBody,
+  RouteDef,
+  RouteParams,
+  RouteQuery,
+  RouteResponse,
+} from '@kadai/shared/api/common'
 import { routeUrl } from '@kadai/shared/api/common'
 import type { ErrorCode, ValidationIssue } from '@kadai/shared/errors'
 import { reportNetworkFailure, reportNetworkSuccess } from './online'
@@ -581,40 +588,90 @@ export const api = {
   call: callRoute,
 }
 
-export interface RouteCallInput<R extends RouteDef> {
-  params?: Record<string, string | number>
+/** `params` is required exactly when the route has path params. */
+type RouteParamsInput<R extends RouteDef> = R['params'] extends object
+  ? { params: RouteParams<R> }
+  : { params?: undefined }
+
+export type RouteCallInput<R extends RouteDef> = RouteParamsInput<R> & {
   query?: RouteQuery<R>
   body?: RouteBody<R>
+  /** Sent as `Idempotency-Key` (routes with `idempotent: true`). */
   idempotencyKey?: string
   signal?: AbortSignal
   timeoutMs?: number
+  /**
+   * Check the response against the route's schema (contract drift is logged, the body is still
+   * returned). Default: on in development builds and tests, off in production.
+   */
+  validate?: boolean
+}
+
+/** `[input]` — required when the route has path params, optional otherwise. */
+export type RouteCallArgs<R extends RouteDef> = R['params'] extends object
+  ? [input: RouteCallInput<R>]
+  : [input?: RouteCallInput<R>]
+
+const VALIDATE_RESPONSES_DEFAULT = import.meta.env.DEV
+
+function routeTarget(route: RouteDef, params: unknown): string {
+  return routeUrl(route, params as Record<string, string | number> | undefined)
 }
 
 /**
- * Calls an endpoint described by a shared `RouteDef`. The response is validated with the route's
- * response schema; a mismatch is logged (contract drift) and the raw body is returned so the UI
- * keeps working with a slightly newer/older server.
+ * Calls an endpoint described by a shared `RouteDef` (`@kadai/shared/api/<module>` catalogues):
+ * URL from the definition and `params`, `query` (arrays repeat the key), JSON `body`, the
+ * `Idempotency-Key` header and auth (public / webhook scopes and `auth: 'public'` send no token).
+ *
+ * Returns the response body typed as the route's response (`z.output` — the server serialises
+ * through the same schema, so no client-side parsing is needed). In development the body is
+ * checked against the schema and drift is logged (`validate`).
  */
 export async function callRoute<R extends RouteDef>(
   route: R,
-  input: RouteCallInput<R> = {},
+  ...[input]: RouteCallArgs<R>
 ): Promise<RouteResponse<R>> {
-  const raw = await request<unknown>(route.method, routeUrl(route, input.params), {
-    query: input.query as QueryParams | undefined,
-    body: input.body,
-    idempotencyKey: input.idempotencyKey,
-    signal: input.signal,
-    timeoutMs: input.timeoutMs,
+  const opts = (input ?? {}) as RouteCallInput<RouteDef> & { params?: unknown }
+  const raw = await request<unknown>(route.method, routeTarget(route, opts.params), {
+    query: opts.query as QueryParams | undefined,
+    body: opts.body,
+    idempotencyKey: opts.idempotencyKey,
+    signal: opts.signal,
+    timeoutMs: opts.timeoutMs,
     auth: route.auth !== 'public' && (route.scope ?? 'api') === 'api',
   })
-  if (!route.response) return raw as RouteResponse<R>
-  const parsed = route.response.safeParse(raw)
-  if (parsed.success) return parsed.data as RouteResponse<R>
-  console.error(
-    `Response of ${route.method} ${route.path} does not match its contract`,
-    parsed.error,
-  )
+  if (route.response && (opts.validate ?? VALIDATE_RESPONSES_DEFAULT)) {
+    const parsed = route.response.safeParse(raw)
+    if (!parsed.success) {
+      console.error(
+        `Response of ${route.method} ${route.path} does not match its contract`,
+        parsed.error,
+      )
+    }
+  }
   return raw as RouteResponse<R>
+}
+
+/**
+ * Downloads a catalogued file / CSV route (`stream: 'csv' | 'file'`, or a list's `?format=csv`)
+ * with the user's auth. Returns the filename used.
+ */
+export function downloadRoute<R extends RouteDef>(
+  route: R,
+  input: RouteParamsInput<R> & { query?: RouteQuery<R>; filename?: string; signal?: AbortSignal },
+): Promise<string> {
+  const { params, query, filename, signal } = input as {
+    params?: unknown
+    query?: QueryParams
+    filename?: string
+    signal?: AbortSignal
+  }
+  return downloadFile(routeTarget(route, params), {
+    query,
+    signal,
+    ...(filename ? { filename } : {}),
+    method: route.method === 'POST' ? 'POST' : 'GET',
+  })
 }
 
 // ---------------------------------------------------------------------------------------------

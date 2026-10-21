@@ -9,6 +9,24 @@ paths and semantics below (other modules' UIs are built against them).
 Legend: **C** create, **L** list (paginated, filterable), **G** get one, **U** partial update
 (PATCH), **D** delete/deactivate.
 
+Contract conventions shared by every catalogue (`ROUTE_CATALOGUES` in
+`@kadai/shared/api/catalogues` lists them all; `test/api/catalogues.test.ts` checks them together):
+
+- `response` is the full envelope (`dataOf` / `listOf`); lists may extend it with `summary`
+  (aggregates over the whole filtered range) or, for tabular views (stock, reports), `totals`.
+  No response schema = 204.
+- Field helpers come from `@kadai/shared/api/common`: `zQueryList` / `zQueryIds` (repeated keys or
+  comma lists), `zQueryInt`, `zStoreScope` (id or `all`), `zIfUpdatedAt` (PATCH → 409
+  `STALE_WRITE`), `zNullableText` (missing = unchanged, null/'' = clear), `zAmountPaise`, `zMilli0`,
+  `zReason`, `zListFormat` (`?format=json|csv`), `DATE_RANGE_FIELDS` + `dateOrderOk`.
+- `?sort=` is `sortQuery([...]).prefault('<default>')`, so handlers always receive
+  `{field, direction}`.
+- Users on documents are the flat pair `<x>_by` (user id) + `<x>_by_name` (`created_by`,
+  `posted_by`, `cancelled_by`, `opened_by`; `salesperson_id` + `salesperson_name`).
+- Path params are camelCase (`:id`, `:productId`, `:shareToken`); paths are kebab-case.
+- Validation messages of custom rules are snake_case keys (`<MODULE>_VALIDATION_KEYS`); errors
+  carry `details.reason`.
+
 ---
 
 ## auth (foundation)
@@ -42,14 +60,15 @@ Route catalogue: `authRoutes` in `@kadai/shared/api/auth`.
 
 ## identity (users, roles, org, settings)
 
-Route catalogue: `identityRoutes` in `@kadai/shared/api/identity` (also hosts the shared contract
-helpers: query/PATCH field helpers, `DeleteResultSchema`, CSV helpers, `ImportJobSchema`,
-`documentPath()`).
+Route catalogue: `identityRoutes` in `@kadai/shared/api/identity` (also hosts `DeleteResultSchema`,
+CSV helpers, `ImportJobSchema` and `documentPath()`; the query / PATCH field helpers are defined
+once in `@kadai/shared/api/common` and re-exported here).
 
 | Method & path | perm | Notes |
 |---|---|---|
 | `L/C /users` · `G/U /users/:id` · `POST /users/:id/disable` · `POST /users/:id/enable` · `POST /users/:id/reset-pin` · `POST /users/:id/reset-password` | `users.manage` | `:id` = user id. Create = invite by phone (`first_login`: `temporary_password` returned once / `password` / `otp`), role, `store_ids` (null = all), PIN; plan limit `users`; cannot disable yourself or the last owner; admin password reset needs no SMS (on-prem) |
 | `L/C /roles` · `G/U/D /roles/:id` | `users.manage` (+feat `custom_roles` to create; checked for custom roles on U/D) | system roles: rename only; delete → 409 when assigned |
+| `GET /users/directory?q=&store_id=&include_disabled=` | any member | member names for pickers / filters (id, name, role, status, store_ids; ≤ 500, no contact or security fields) |
 | `GET /permissions` | `users.manage` | permission catalogue grouped by area with ta/en labels and implications (`permissionCatalog()`) |
 | `L /stores` · `G /stores/:id` | any member | store pickers / transfer destinations |
 | `C /stores` · `U /stores/:id` | `settings.manage` | plan limit `stores` (+feat `multi_store` beyond one); code `A-Z0-9` ≤ 4 (changeable only before its first number series); GSTIN prefix = state; deactivating the last active store → 409 |
@@ -146,7 +165,7 @@ remainder). Every list takes `?format=csv`.
 | `L/C /sales/credit-notes` · `G /sales/credit-notes/:id` | `sales.return` (L/G: or `sales.read`) | settlement `cash \| upi \| bank_transfer` (refund, ≤ refundable), `adjust_due`, `store_credit`; free-form returns need `store_id` and prices |
 | `POST /sales/credit-notes/:id/cancel` `{reason}` | `sales.cancel` | reverses stock, journal, settlement, loyalty |
 | `POST /pos/sync` `{register_id, invoices, credit_notes}` | `pos.use` (+feat `pos`) | invoices then credit notes, in order, one transaction each; per item `created \| duplicate \| renumbered \| failed`; returns the register series state |
-| `GET /public/v1/invoices/:share_token` | public | `{document: SalesPrintModel, pay: {upi_uri, amount_paise, …} \| null}` |
+| `GET /public/v1/invoices/:shareToken` | public | `{document: SalesPrintModel, pay: {upi_uri, amount_paise, …} \| null}` |
 
 ## payments & UPI
 
@@ -170,8 +189,8 @@ allocations, the rest is the customer's advance). Payment `origin` comes from `c
 | `L /payments` (`direction`, `party_type`, `party_id`, `method`, `status`, `origin`, `store_id`, `register_id`, `shift_id`, `from`, `to`, `q`) · `G /payments/:id` | `payments.read` (G: or `payments.collect`) | list `summary` (in / out / by method); detail with allocation document numbers |
 | `C /payments` `{direction, store_id, party_type, party_id, method, amount_paise, allocations? \| auto_allocate: 'fifo', …}` · `POST /payments/:id/cancel` `{reason}` | `payments.collect` (in) / `payments.pay` (out) | RC… / PV… numbers; cancel only `origin: manual` (else 409) |
 | `GET /payments/upi-qr?provider_account_id=&store_id=&amount_paise=` | `payments.collect` | static / standee QR payload (no amount = customer enters it) |
-| `GET /public/v1/pay/:reference_code` | public | pay page model: shop, amount, status, UPI deep link |
-| `POST /webhooks/payments/:provider/:account_id` | public, signature-verified | raw body HMAC (invalid → 401, logged), deduplicated by event id, `{data: {ok: true}}` |
+| `GET /public/v1/pay/:referenceCode` | public | pay page model: shop, amount, status, UPI deep link |
+| `POST /webhooks/payments/:provider/:accountId` | public, signature-verified | raw body HMAC (invalid → 401, logged), deduplicated by event id, `{data: {ok: true}}` |
 
 ## purchases
 

@@ -56,8 +56,6 @@ import {
   zIdempotencyKey,
   zIfUpdatedAt,
   zListFormat,
-  zMilli0,
-  zNullableText,
   zOptionalPhone,
   zPaise,
   zQueryInt,
@@ -537,7 +535,7 @@ export const PaymentIntentCancelSchema = z
 /** POST /payments/intents/:id/mock-pay — dev/test only (KADAI_ENABLE_MOCK_PAYMENTS). */
 export const PaymentIntentMockPaySchema = z
   .object({
-    outcome: z.enum(['paid', 'failed']).default('paid'),
+    outcome: PaymentIntentStatusSchema.extract(['paid', 'failed']).default('paid'),
     /** Simulate an amount mismatch. */
     amount_paise: zAmountPaise.optional(),
     payer_vpa: z.string().trim().refine(isValidVpa, { message: 'vpa_invalid' }).optional(),
@@ -577,7 +575,7 @@ export const PaymentIntentListQuerySchema = PageQuerySchema.extend({
   ...DATE_RANGE_FIELDS,
   /** reference_code, UTR, payer VPA or provider reference. */
   q: zSearchQuery.optional(),
-  sort: sortQuery(['created_at', 'paid_at', 'amount_paise', 'status']).optional(),
+  sort: sortQuery(['created_at', 'paid_at', 'amount_paise', 'status']).prefault('-created_at'),
 }).refine(dateOrderOk, DATE_ORDER_ISSUE)
 export type PaymentIntentListQuery = z.input<typeof PaymentIntentListQuerySchema>
 
@@ -810,7 +808,9 @@ export const PaymentListQuerySchema = PageQuerySchema.extend({
   ...DATE_RANGE_FIELDS,
   /** Number, reference / UTR or party name. */
   q: zSearchQuery.optional(),
-  sort: sortQuery(['payment_date', 'paid_at', 'amount_paise', 'number', 'created_at']).optional(),
+  sort: sortQuery(['payment_date', 'paid_at', 'amount_paise', 'number', 'created_at']).prefault(
+    '-paid_at',
+  ),
   format: zListFormat,
 }).refine(dateOrderOk, DATE_ORDER_ISSUE)
 export type PaymentListQuery = z.input<typeof PaymentListQuerySchema>
@@ -966,10 +966,10 @@ export const PAYMENT_LINK_TEMPLATE = 'payment_link'
 
 /** reference_code of intents: 12 characters [0-9A-Z] (generateReferenceCode). */
 export const ReferenceCodeParamsSchema = z.object({
-  reference_code: z.string().regex(/^[0-9A-Z]{12}$/),
+  referenceCode: z.string().regex(/^[0-9A-Z]{12}$/),
 })
 
-/** GET /public/v1/pay/:reference_code — no auth; no internal ids. */
+/** GET /public/v1/pay/:referenceCode — no auth; no internal ids. */
 export const PublicPayPageSchema = z.object({
   reference_code: z.string(),
   status: PaymentIntentStatusSchema,
@@ -1032,7 +1032,8 @@ export type UpiQrPayload = z.output<typeof UpiQrPayloadSchema>
 
 export const PaymentWebhookParamsSchema = z.object({
   provider: PaymentProviderCodeSchema,
-  account_id: zId,
+  /** payment_provider_accounts.id */
+  accountId: zId,
 })
 
 /** 200 body of a webhook (also for duplicates); invalid signature → 401. */
@@ -1241,7 +1242,7 @@ export const paymentsRoutes = defineRoutes({
   // ---- public & webhooks ----
   publicPayPage: {
     method: 'GET',
-    path: '/pay/:reference_code',
+    path: '/pay/:referenceCode',
     scope: 'public',
     auth: 'public',
     params: ReferenceCodeParamsSchema,
@@ -1250,7 +1251,7 @@ export const paymentsRoutes = defineRoutes({
   },
   webhook: {
     method: 'POST',
-    path: '/payments/:provider/:account_id',
+    path: '/payments/:provider/:accountId',
     scope: 'webhook',
     auth: 'public',
     params: PaymentWebhookParamsSchema,

@@ -8,11 +8,19 @@
  *     renderOption={(c) => <CustomerRow c={c} />} onCreate={(q) => openNewCustomer(q)} />
  *
  * Static: pass `options` instead of `loadOptions` (filtered locally by label).
- * Keyboard: type to search, ↑/↓ to move, Enter to pick, Esc to close.
+ * Keyboard: type to search (typing on the closed field opens it), ↑/↓ to move, Enter to pick,
+ * Esc to close.
+ *
+ * Pickers (components/pickers) also use:
+ *  - `resolveQuery` — Enter on a code-like query (`shouldResolveQuery`) asks the server for an
+ *    exact match first (barcode / SKU / phone lookup); without one the highlighted row is picked;
+ *  - `onOptionSelect` — return false to keep the list open (e.g. expand a variant parent) — the
+ *    search restarts and `reloadKey` re-runs `loadOptions`;
+ *  - `isOptionDisabled` — rows shown but not selectable (expired batches).
  */
 import { Command } from 'cmdk'
 import { Check, ChevronsUpDown, Plus, X } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/cn'
 import { describeError } from '@/lib/errors'
@@ -41,9 +49,45 @@ export interface ComboboxProps<T> {
   size?: FieldSize
   /** Offer "Add “query”" when nothing matches. */
   onCreate?: (query: string) => void
+  /** Label of the create row (default "Add “query”"). */
+  createLabel?: (query: string) => ReactNode
+  /** Shown but not selectable. */
+  isOptionDisabled?: (option: T) => boolean
+  /**
+   * Enter on a non-empty query: exact lookup (barcode, SKU, phone…). A match is selected; null
+   * falls back to the highlighted row, else `notFoundText` is shown.
+   */
+  resolveQuery?: (query: string, signal: AbortSignal) => Promise<T | null | undefined>
+  /** Which queries go to `resolveQuery` on Enter (default: all). */
+  shouldResolveQuery?: (query: string) => boolean
+  notFoundText?: (query: string) => ReactNode
+  /** Called before a row is chosen; return false to keep the list open (the search restarts). */
+  onOptionSelect?: (option: T) => boolean | void
+  /** Changing it re-runs `loadOptions` (async mode), e.g. after drilling into a group. */
+  reloadKey?: string | number
+  /** Rendered above the rows (e.g. the group being browsed). */
+  header?: ReactNode
+  onOpenChange?: (open: boolean) => void
   id?: string
   className?: string
   'aria-label'?: string
+}
+
+/**
+ * Local filter for static options: every search word must occur in the label / keywords
+ * (case-insensitive substring — predictable for codes like "1100" and for Tamil). Matches at the
+ * start of the text or of a word rank higher. Values (ids) are ignored.
+ */
+function matchKeywords(_value: string, search: string, keywords?: string[]): number {
+  const haystack = (keywords ?? []).join(' ').toLocaleLowerCase()
+  const terms = search.toLocaleLowerCase().split(/\s+/).filter(Boolean)
+  let score = 1
+  for (const term of terms) {
+    const at = haystack.indexOf(term)
+    if (at < 0) return 0
+    if (at > 0) score *= /\s/.test(haystack[at - 1] ?? '') ? 0.9 : 0.6
+  }
+  return score
 }
 
 export function Combobox<T>({
@@ -64,21 +108,44 @@ export function Combobox<T>({
   clearable = true,
   size = 'md',
   onCreate,
+  createLabel,
+  isOptionDisabled,
+  resolveQuery,
+  shouldResolveQuery,
+  notFoundText,
+  onOptionSelect,
+  reloadKey,
+  header,
+  onOpenChange,
   id,
   className,
   'aria-label': ariaLabel,
 }: ComboboxProps<T>) {
   const { t } = useTranslation()
   const control = useFormFieldControl({ id })
-  const [open, setOpen] = useState(false)
+  const [open, setOpenState] = useState(false)
+  const onOpenChangeRef = useRef(onOpenChange)
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange
+  })
+  const setOpen = (next: boolean): void => {
+    setOpenState(next)
+    onOpenChangeRef.current?.(next)
+  }
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<readonly T[]>(options ?? [])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<unknown>(null)
+  /** Highlighted row (cmdk value = getOptionValue). */
+  const [active, setActive] = useState('')
+  const [resolving, setResolving] = useState(false)
+  const [notFound, setNotFound] = useState<string | null>(null)
+  const resolveAbort = useRef<AbortController | null>(null)
   const loadRef = useRef(loadOptions)
   useEffect(() => {
     loadRef.current = loadOptions
   })
+  useEffect(() => () => resolveAbort.current?.abort(), [])
 
   const isAsync = Boolean(loadOptions)
 
@@ -117,12 +184,64 @@ export function Combobox<T>({
       clearTimeout(timer)
       controller.abort()
     }
-  }, [query, open, isAsync, minQueryLength, debounceMs, options])
+  }, [query, open, isAsync, minQueryLength, debounceMs, options, reloadKey])
+
+  const changeQuery = (q: string): void => {
+    setQuery(q)
+    setNotFound(null)
+  }
 
   const select = (option: T | null): void => {
+    if (option && onOptionSelect?.(option) === false) {
+      changeQuery('')
+      return
+    }
     onChange(option)
     setOpen(false)
-    setQuery('')
+    changeQuery('')
+  }
+
+  const pickActive = (): boolean => {
+    const option = results.find((o) => getOptionValue(o) === active)
+    if (!option || isOptionDisabled?.(option)) return false
+    select(option)
+    return true
+  }
+
+  const onInputKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
+    if (event.key !== 'Enter' || !resolveQuery || event.nativeEvent.isComposing) return
+    const q = query.trim()
+    if (!q || (shouldResolveQuery && !shouldResolveQuery(q))) return
+    // Exact lookup first (a scanner types the code and presses Enter before the search ran).
+    event.preventDefault()
+    event.stopPropagation()
+    resolveAbort.current?.abort()
+    const controller = new AbortController()
+    resolveAbort.current = controller
+    setResolving(true)
+    setError(null)
+    resolveQuery(q, controller.signal)
+      .then((match) => {
+        if (controller.signal.aborted) return
+        if (match) select(match)
+        else if (!pickActive()) setNotFound(q)
+      })
+      .catch((e: unknown) => {
+        if (!controller.signal.aborted) setError(e)
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setResolving(false)
+      })
+  }
+
+  /** Typing on the closed field opens it with that character as the search. */
+  const onTriggerKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
+    if (open || disabled) return
+    if (event.key.length !== 1 || event.ctrlKey || event.metaKey || event.altKey) return
+    if (event.key === ' ') return
+    event.preventDefault()
+    setOpen(true)
+    changeQuery(event.key)
   }
 
   const selectedValue = value ? getOptionValue(value) : null
@@ -139,6 +258,7 @@ export function Combobox<T>({
             aria-haspopup="listbox"
             aria-label={ariaLabel}
             disabled={disabled}
+            onKeyDown={onTriggerKeyDown}
             className={cn(
               fieldVariants({ size }),
               'flex items-center justify-between gap-2 text-start',
@@ -173,20 +293,35 @@ export function Combobox<T>({
         className="w-[max(var(--radix-popover-trigger-width),18rem)] p-0"
         align="start"
       >
-        <Command shouldFilter={!isAsync} loop className="flex flex-col">
+        <Command
+          shouldFilter={!isAsync}
+          // Match the label / keywords only: values are ids (UUIDs would fuzzy-match digits).
+          filter={matchKeywords}
+          loop
+          value={active}
+          onValueChange={setActive}
+          className="flex flex-col"
+        >
           <div className="flex items-center gap-2 border-b border-border px-3">
             <Command.Input
               autoFocus
               value={query}
-              onValueChange={setQuery}
+              onValueChange={changeQuery}
+              onKeyDown={onInputKeyDown}
               placeholder={searchPlaceholder ?? t('misc.search_placeholder')}
               className="h-11 w-full bg-transparent text-base outline-none placeholder:text-muted-foreground/70 sm:text-sm"
             />
-            {loading ? (
+            {loading || resolving ? (
               <Spinner size="sm" className="text-muted-foreground" label={t('misc.searching')} />
             ) : null}
           </div>
+          {header}
           <Command.List className="max-h-72 overflow-y-auto p-1">
+            {notFound !== null ? (
+              <div role="status" className="px-3 py-2 text-sm text-warning">
+                {notFoundText ? notFoundText(notFound) : t('misc.no_options')}
+              </div>
+            ) : null}
             {error ? (
               <div className="px-3 py-6 text-center text-sm text-danger">
                 {describeError(error).title}
@@ -207,8 +342,9 @@ export function Combobox<T>({
                   key={optionValue}
                   value={optionValue}
                   keywords={[label]}
+                  disabled={isOptionDisabled?.(option) ?? false}
                   onSelect={() => select(option)}
-                  className="flex cursor-default select-none items-center gap-2 rounded-md px-2.5 py-2 text-sm aria-selected:bg-primary-soft aria-selected:text-primary-soft-foreground"
+                  className="flex cursor-default select-none items-center gap-2 rounded-md px-2.5 py-2 text-sm aria-selected:bg-primary-soft aria-selected:text-primary-soft-foreground data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50"
                 >
                   <Check
                     className={cn(
@@ -229,12 +365,12 @@ export function Combobox<T>({
                 onSelect={() => {
                   onCreate(trimmed)
                   setOpen(false)
-                  setQuery('')
+                  changeQuery('')
                 }}
                 className="flex cursor-default select-none items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium text-primary aria-selected:bg-primary-soft"
               >
                 <Plus className="size-4" />
-                {t('misc.add_new', { query: trimmed })}
+                {createLabel ? createLabel(trimmed) : t('misc.add_new', { query: trimmed })}
               </Command.Item>
             ) : null}
           </Command.List>

@@ -1,5 +1,6 @@
 /**
- * platform module — plans, subscriptions, SaaS billing, platform admin, license, backups, API keys, system info.
+ * platform module — cloud plans, subscriptions and SaaS billing, announcements, API keys and system
+ * info (on-prem licence/backups: modules/onprem; vendor console: modules/licensing).
  * Owned by the platform module (ARCHITECTURE.md §3.1).
  *
  * Endpoints: docs/API.md "platform". Request/response contracts: packages/shared/src/api/platform.ts.

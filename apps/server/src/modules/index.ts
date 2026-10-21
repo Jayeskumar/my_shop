@@ -14,8 +14,10 @@ import { authModule } from './auth'
 import { catalogModule } from './catalog'
 import { identityModule } from './identity'
 import { inventoryModule } from './inventory'
+import { licensingModule } from './licensing'
 import type { KadaiModule } from './module'
 import { notificationsModule } from './notifications'
+import { onpremModule } from './onprem'
 import { partiesModule } from './parties'
 import { paymentsModule } from './payments'
 import { platformModule } from './platform'
@@ -39,6 +41,8 @@ export const MODULES: readonly KadaiModule[] = [
   reportsModule,
   notificationsModule,
   platformModule,
+  licensingModule,
+  onpremModule,
 ]
 
 type Scope = 'routes' | 'publicRoutes' | 'webhooks'

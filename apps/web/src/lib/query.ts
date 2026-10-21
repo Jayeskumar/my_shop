@@ -1,6 +1,8 @@
 /**
  * TanStack Query client defaults (ARCHITECTURE.md §16). Query keys follow
- * `[module, resource, params]`, e.g. `['catalog', 'products', { q, limit, offset }]`.
+ * `[module, resource, params]`, e.g. `['catalog', 'products', { q, limit, offset }]`; queries made
+ * with `useRouteQuery` (shared route catalogues) use `['route', '/api/v1/<path>', params, query]`
+ * (`routeQueryKey`) and are invalidated per route with `invalidateRoutes`.
  *
  *  - staleTime 30 s; retries only for transient failures (network, timeout, 5xx, 429,
  *    IDEMPOTENCY_IN_PROGRESS) with backoff that honours Retry-After; 4xx never retry.
@@ -8,8 +10,29 @@
  *    a mutation is toasted unless it has its own `onError` (forms show inline errors) or sets
  *    `meta.errorToast` explicitly. 401s are never toasted (the auth store signs the user out).
  */
-import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query'
-import { isApiError } from './api'
+import {
+  MutationCache,
+  QueryCache,
+  QueryClient,
+  type QueryKey,
+  type UseMutationOptions,
+  type UseMutationResult,
+  type UseQueryOptions,
+  type UseQueryResult,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
+import { newId } from '@kadai/shared/ids'
+import {
+  ROUTE_SCOPE_PREFIX,
+  type RouteBody,
+  type RouteDef,
+  type RouteParams,
+  type RouteQuery,
+  type RouteResponse,
+} from '@kadai/shared/api/common'
+import { type ApiError, callRoute, isApiError } from './api'
 
 declare module '@tanstack/react-query' {
   interface Register {
@@ -79,6 +102,126 @@ export function createQueryClient(options: QueryClientOptions = {}): QueryClient
         // Financial creates are idempotent (Idempotency-Key) but retrying is a user decision.
         retry: false,
       },
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------------------------
+// Route-catalogue hooks: `useRouteQuery(catalogRoutes.listProducts, { query })` and
+// `useRouteMutation(catalogRoutes.createProduct, { invalidates: [catalogRoutes.listProducts] })`.
+// ---------------------------------------------------------------------------------------------
+
+/** Query-key root of every route-catalogue query (`['route', '/api/v1/products', …]`). */
+export const ROUTE_QUERY_ROOT = 'route'
+
+/** `/api/v1/products/:id` — the route's full path template (scope prefix + path). */
+function routeTemplate(route: RouteDef): string {
+  return ROUTE_SCOPE_PREFIX[route.scope ?? 'api'] + route.path
+}
+
+/**
+ * Query key of a catalogued GET: `['route', '/api/v1/products/:id', params, query]`. Without
+ * `input` it is the prefix matching every call of the route (for invalidation).
+ */
+export function routeQueryKey<R extends RouteDef>(
+  route: R,
+  input?: { params?: RouteParams<R>; query?: RouteQuery<R> },
+): QueryKey {
+  const base = [ROUTE_QUERY_ROOT, routeTemplate(route)] as const
+  if (!input) return base
+  return [...base, input.params ?? {}, input.query ?? {}]
+}
+
+/**
+ * Invalidates every cached query of the given routes, plus — for each route — queries of routes
+ * nested under its path (`/products` also refreshes `/products/:id`, `/products/lookup`).
+ */
+export function invalidateRoutes(
+  queryClient: QueryClient,
+  routes: readonly RouteDef[],
+): Promise<void> {
+  const templates = routes.map(routeTemplate)
+  return queryClient.invalidateQueries({
+    predicate: (query) => {
+      const [root, template] = query.queryKey as readonly unknown[]
+      if (root !== ROUTE_QUERY_ROOT || typeof template !== 'string') return false
+      return templates.some((t) => template === t || template.startsWith(`${t}/`))
+    },
+  })
+}
+
+type RouteQueryInput<R extends RouteDef> = R['params'] extends object
+  ? { params: RouteParams<R>; query?: RouteQuery<R> }
+  : { params?: undefined; query?: RouteQuery<R> }
+
+export type UseRouteQueryOptions<R extends RouteDef, TData> = Omit<
+  UseQueryOptions<RouteResponse<R>, ApiError, TData, QueryKey>,
+  'queryKey' | 'queryFn'
+> & {
+  /** Validate the response against the contract (default: development only). */
+  validate?: boolean
+}
+
+/**
+ * TanStack query for a catalogued GET route. The key is {@link routeQueryKey}; pass
+ * `placeholderData: keepPreviousData` for paginated lists and `enabled` for dependent queries.
+ */
+export function useRouteQuery<R extends RouteDef, TData = RouteResponse<R>>(
+  route: R,
+  input: RouteQueryInput<R>,
+  options: UseRouteQueryOptions<R, TData> = {},
+): UseQueryResult<TData, ApiError> {
+  const { validate, ...queryOptions } = options
+  return useQuery({
+    ...queryOptions,
+    queryKey: routeQueryKey(route, input as { params?: RouteParams<R>; query?: RouteQuery<R> }),
+    queryFn: ({ signal }) =>
+      (callRoute as (r: RouteDef, i: object) => Promise<RouteResponse<R>>)(route, {
+        ...input,
+        signal,
+        ...(validate === undefined ? {} : { validate }),
+      }),
+  })
+}
+
+/** Variables of {@link useRouteMutation}: the route's params / query / body. */
+export type RouteMutationVariables<R extends RouteDef> = (R['params'] extends object
+  ? { params: RouteParams<R> }
+  : { params?: undefined }) & {
+  query?: RouteQuery<R>
+  body?: RouteBody<R>
+  /**
+   * Idempotency-Key for this call. Routes marked `idempotent` get a fresh key per `mutate()`
+   * when omitted; pass a key kept for the whole form session to make re-submits safe.
+   */
+  idempotencyKey?: string
+}
+
+export type UseRouteMutationOptions<R extends RouteDef, TContext> = Omit<
+  UseMutationOptions<RouteResponse<R>, ApiError, RouteMutationVariables<R>, TContext>,
+  'mutationFn'
+> & {
+  /** Routes whose cached queries are invalidated after success (see {@link invalidateRoutes}). */
+  invalidates?: readonly RouteDef[]
+}
+
+/** TanStack mutation for a catalogued route (POST / PUT / PATCH / DELETE). */
+export function useRouteMutation<R extends RouteDef, TContext = unknown>(
+  route: R,
+  options: UseRouteMutationOptions<R, TContext> = {},
+): UseMutationResult<RouteResponse<R>, ApiError, RouteMutationVariables<R>, TContext> {
+  const queryClient = useQueryClient()
+  const { invalidates, onSuccess, ...mutationOptions } = options
+  return useMutation({
+    ...mutationOptions,
+    mutationFn: (variables: RouteMutationVariables<R>) =>
+      (callRoute as (r: RouteDef, i: object) => Promise<RouteResponse<R>>)(route, {
+        ...variables,
+        idempotencyKey: variables.idempotencyKey ?? (route.idempotent ? newId() : undefined),
+      }),
+    onSuccess: async (...args) => {
+      if (invalidates?.length) await invalidateRoutes(queryClient, invalidates)
+      await onSuccess?.(...args)
     },
   })
 }

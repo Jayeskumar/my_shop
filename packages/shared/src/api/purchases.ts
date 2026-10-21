@@ -560,13 +560,9 @@ export const PurchaseOrderListQuerySchema = PageQuerySchema.extend({
   supplier_id: zId.optional(),
   store_id: zId.optional(),
   ...DATE_RANGE_FIELDS,
-  sort: sortQuery([
-    'order_date',
-    'number',
-    'total_paise',
-    'expected_date',
-    'created_at',
-  ]).optional(),
+  sort: sortQuery(['order_date', 'number', 'total_paise', 'expected_date', 'created_at']).prefault(
+    '-order_date',
+  ),
   format: zListFormat,
 }).refine(dateOrderOk, DATE_ORDER_ISSUE)
 export type PurchaseOrderListQuery = z.input<typeof PurchaseOrderListQuerySchema>
@@ -862,7 +858,7 @@ export const PurchaseBillListQuerySchema = PageQuerySchema.extend({
     'total_paise',
     'due_paise',
     'created_at',
-  ]).optional(),
+  ]).prefault('-received_date'),
   format: zListFormat,
 }).refine(dateOrderOk, DATE_ORDER_ISSUE)
 export type PurchaseBillListQuery = z.input<typeof PurchaseBillListQuerySchema>
@@ -1065,7 +1061,7 @@ export const DebitNoteListQuerySchema = PageQuerySchema.extend({
   store_id: zId.optional(),
   bill_id: zId.optional(),
   ...DATE_RANGE_FIELDS,
-  sort: sortQuery(['note_date', 'number', 'total_paise', 'created_at']).optional(),
+  sort: sortQuery(['note_date', 'number', 'total_paise', 'created_at']).prefault('-note_date'),
   format: zListFormat,
 }).refine(dateOrderOk, DATE_ORDER_ISSUE)
 export type DebitNoteListQuery = z.input<typeof DebitNoteListQuerySchema>

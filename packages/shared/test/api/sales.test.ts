@@ -599,10 +599,10 @@ describe('sales requests', () => {
     ).toBeTruthy()
     expect(PrintQuerySchema.parse({ format: 'a4' }).format).toBe('a4')
     expect(PrintQuerySchema.safeParse({ format: 'a5' }).success).toBe(false)
-    expect(ShareTokenParamsSchema.safeParse({ share_token: generateShareToken() }).success).toBe(
+    expect(ShareTokenParamsSchema.safeParse({ shareToken: generateShareToken() }).success).toBe(
       true,
     )
-    expect(ShareTokenParamsSchema.safeParse({ share_token: 'short' }).success).toBe(false)
+    expect(ShareTokenParamsSchema.safeParse({ shareToken: 'short' }).success).toBe(false)
   })
 })
 
@@ -1180,7 +1180,7 @@ describe('sales responses', () => {
 describe('sales route catalogue', () => {
   it('builds URLs', () => {
     expect(routeUrl(salesRoutes.printInvoice, { id: 'x' })).toBe('/api/v1/sales/invoices/x/print')
-    expect(routeUrl(salesRoutes.publicInvoice, { share_token: 'tok' })).toBe(
+    expect(routeUrl(salesRoutes.publicInvoice, { shareToken: 'tok' })).toBe(
       '/public/v1/invoices/tok',
     )
   })
