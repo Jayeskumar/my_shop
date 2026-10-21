@@ -173,6 +173,12 @@ export function AdjustmentEditor({ initial }: { initial?: StockAdjustmentDetail 
   const [loading, setLoading] = useState(false)
   const createKey = useRef(newId())
   const postKey = useRef(newId())
+  /**
+   * The document as last saved by this editor: a retry after a failed post (e.g. not enough
+   * stock) updates the draft just created instead of creating it again (whose Idempotency-Key
+   * would no longer match the edited body), with the latest updated_at (no STALE_WRITE).
+   */
+  const saved = useRef<StockAdjustmentDetail | undefined>(initial)
   const { allowLeave } = useUnsavedGuard(dirty && !busy)
 
   const create = useRouteMutation(inventoryRoutes.createAdjustment, { onError: () => {} })
@@ -302,6 +308,8 @@ export function AdjustmentEditor({ initial }: { initial?: StockAdjustmentDetail 
           },
         })
         for (const row of res.data) {
+          // Batches with nothing left (sold out, written off) are not on the shelf to count.
+          if (row.batch_id !== null && row.qty_milli === 0) continue
           const { product, batch } = fromStockRow(row)
           const id = `${product.id}:${batch?.id ?? '-'}`
           if (existing.has(id)) continue
@@ -426,16 +434,18 @@ export function AdjustmentEditor({ initial }: { initial?: StockAdjustmentDetail 
         lines: payload,
       }
       let doc: StockAdjustmentDetail
-      if (initial) {
+      const current = saved.current
+      if (current) {
         doc = (
           await update.mutateAsync({
-            params: { id: initial.id },
-            body: { ...header, if_updated_at: initial.updated_at },
+            params: { id: current.id },
+            body: { ...header, if_updated_at: current.updated_at },
           })
         ).data
       } else {
         doc = (await create.mutateAsync({ body: header, idempotencyKey: createKey.current })).data
       }
+      saved.current = doc
       if (mode === 'post') {
         doc = (await post.mutateAsync({ params: { id: doc.id }, idempotencyKey: postKey.current }))
           .data
@@ -455,7 +465,9 @@ export function AdjustmentEditor({ initial }: { initial?: StockAdjustmentDetail 
         notify.warning(t('adjustments.stale'))
       } else {
         applyServerIssues(error)
-        notifyInventoryError(error)
+        notifyInventoryError(error, {
+          unitOf: (id) => lines.find((l) => l.product.id === id)?.product.unit,
+        })
       }
       postKey.current = newId()
     } finally {

@@ -70,6 +70,7 @@ describe('inventory: stock levels, movements and alerts', () => {
     const rice = await makeProduct(t, shop.tenant.id, {
       name: 'Alpha Ponni Rice',
       sku: 'RICE-01',
+      unit: 'KG',
       category_id: catChild,
       mrp_paise: 6_000,
       reorder_level_milli: 5_000,
@@ -77,12 +78,14 @@ describe('inventory: stock levels, movements and alerts', () => {
     const oil = await makeProduct(t, shop.tenant.id, {
       name: 'Beta Groundnut Oil',
       sku: 'OIL-01',
+      unit: 'L',
       category_id: catRoot,
       mrp_paise: 20_000,
       reorder_level_milli: 2_000,
     })
     const salt = await makeProduct(t, shop.tenant.id, {
       name: 'Gamma Salt',
+      unit: 'KG',
       reorder_level_milli: 1_000,
     })
     const strips = await makeProduct(t, shop.tenant.id, {
@@ -278,7 +281,7 @@ describe('inventory: stock levels, movements and alerts', () => {
       )
       expect(lines).toHaveLength(4)
       expect(lines[1]).toContain('RICE-01,Alpha Ponni Rice')
-      expect(lines[1]).toContain('20,PCS,1,50.00,1000.00,60.00,1200.00,5,In stock')
+      expect(lines[1]).toContain('20,KG,1,50.00,1000.00,60.00,1200.00,5,In stock')
       const audit = await t.deps.db.systemDb
         .selectFrom('audit_logs')
         .select('action')

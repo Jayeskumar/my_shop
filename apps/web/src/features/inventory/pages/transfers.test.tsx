@@ -2,17 +2,24 @@ import {
   inventoryRoutes,
   type TransferCreate,
   type TransferReceive,
+  type TransferUpdate,
 } from '@kadai/shared/api/inventory'
 import { DEFAULT_PLAN_FEATURES } from '@kadai/shared/features'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { HttpResponse } from 'msw'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { printHtml } from '@/lib/print'
 import { makeMe } from '@/test/fixtures'
 import { server } from '@/test/msw'
 import { renderApp, signIn } from '@/test/render'
 import * as F from '../testing/fixtures'
-import { createInventoryApi, type InventoryRouteKey, type Reply } from '../testing/handlers'
+import {
+  apiError,
+  createInventoryApi,
+  type InventoryRouteKey,
+  type Reply,
+} from '../testing/handlers'
 import { PRELOAD_TIMEOUT_MS, preloadInventoryPages } from '../testing/preload'
 
 beforeAll(preloadInventoryPages, PRELOAD_TIMEOUT_MS)
@@ -73,6 +80,56 @@ describe('Stock transfers', () => {
     expect(api.callsTo(inventoryRoutes.dispatchTransfer)[0]!.path).toBe(
       `/api/v1/stock-transfers/${F.iid(7809)}/dispatch`,
     )
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/inventory/transfers/${F.TRANSFER_ID}`),
+    )
+  })
+
+  it('retries a failed dispatch by updating the draft it created', async () => {
+    const created = F.transferDetail({ id: F.iid(7809), number: null, status: 'draft' })
+    let dispatches = 0
+    const api = setup({
+      createTransfer: () => HttpResponse.json({ data: created }, { status: 201 }),
+      updateTransfer: () =>
+        HttpResponse.json({ data: { ...created, updated_at: '2026-10-21T09:30:00.000Z' } }),
+      dispatchTransfer: () => {
+        dispatches += 1
+        return dispatches === 1
+          ? apiError(422, 'INSUFFICIENT_STOCK', { product_id: F.P.rice, available_milli: 2_000 })
+          : HttpResponse.json({ data: F.transferDetail() })
+      },
+    })
+    const user = userEvent.setup()
+    await signIn(makeMe({ features: PRO }))
+    const { router } = renderApp('/inventory/transfers/new')
+    await user.click(await screen.findByRole('combobox', { name: 'To store' }))
+    await user.click(await screen.findByRole('option', { name: 'S2 · Anna Nagar' }))
+    await user.click(screen.getByRole('combobox', { name: 'Add item' }))
+    await user.click(
+      await within(await screen.findByRole('listbox')).findByText('Ponni Rice 25 kg'),
+    )
+    await user.type(screen.getByLabelText('Quantity for item 1'), '4')
+    const dispatch = async () => {
+      await user.click(screen.getByRole('button', { name: 'Dispatch' }))
+      const confirm = await screen.findByRole('alertdialog', { name: 'Dispatch this transfer?' })
+      await user.click(within(confirm).getByRole('button', { name: 'Dispatch' }))
+    }
+    await dispatch()
+    await waitFor(() => expect(api.callsTo(inventoryRoutes.dispatchTransfer)).toHaveLength(1))
+
+    const qty = screen.getByLabelText('Quantity for item 1')
+    await user.clear(qty)
+    await user.type(qty, '2')
+    await dispatch()
+    await waitFor(() => expect(api.callsTo(inventoryRoutes.dispatchTransfer)).toHaveLength(2))
+    expect(api.callsTo(inventoryRoutes.createTransfer)).toHaveLength(1)
+    const updates = api.callsTo(inventoryRoutes.updateTransfer)
+    expect(updates).toHaveLength(1)
+    expect(updates[0]!.path).toBe(`/api/v1/stock-transfers/${F.iid(7809)}`)
+    expect((updates[0]!.body as TransferUpdate).if_updated_at).toBe(created.updated_at)
+    expect((updates[0]!.body as TransferUpdate).lines).toEqual([
+      { product_id: F.P.rice, batch_id: null, qty_milli: 2_000 },
+    ])
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(`/inventory/transfers/${F.TRANSFER_ID}`),
     )

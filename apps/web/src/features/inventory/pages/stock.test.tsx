@@ -44,10 +44,10 @@ describe('Stock page', () => {
     const totals = screen.getByRole('region', { name: 'Stock totals' })
     expect(within(totals).getByText('₹26,677.00')).toBeInTheDocument()
     expect(within(totals).getByText('₹32,103.50')).toBeInTheDocument()
-    // Expiry alert from /stock/alerts links to the batches page.
+    // Expiry alert from /stock/alerts links to the batches page of the same store.
     expect(screen.getByRole('link', { name: /1 batch has expired/ })).toHaveAttribute(
       'href',
-      '/inventory/batches?tab=expired',
+      `/inventory/batches?store=${F.STORE_ID}&tab=expired`,
     )
     const first = api.callsTo(inventoryRoutes.listStock)[0]!.query
     expect(first.get('store_id')).toBe(F.STORE_ID)

@@ -30,6 +30,7 @@ import {
   type TransferListQuerySchema,
   type TransferReceiveSchema,
   type TransferUpdateSchema,
+  qtyAllowed,
   stockValuePaise,
   transferAccessStoreId,
   transferShortfall,
@@ -45,6 +46,7 @@ import { canAccessStore } from '../../core/context'
 import type { Tx } from '../../db/tenant'
 import {
   type Ctx,
+  type StockProduct,
   type StoreInfo,
   andAll,
   assertNotFuture,
@@ -53,6 +55,7 @@ import {
   fieldIssue,
   iso,
   likePattern,
+  loadProducts,
   loadStore,
   reasonError,
   rowKey,
@@ -730,7 +733,11 @@ export async function dispatchTransfer(tx: Tx, ctx: Ctx, id: string): Promise<St
 }
 
 /** Received quantity per line from the receipt body (lines not listed: received in full). */
-function receivedQuantities(lines: readonly LineRow[], body: TransferReceive): Map<string, number> {
+function receivedQuantities(
+  lines: readonly LineRow[],
+  body: TransferReceive,
+  products: ReadonlyMap<string, Pick<StockProduct, 'unit' | 'decimal_qty'>>,
+): Map<string, number> {
   const out = new Map(lines.map((l) => [l.id, l.qty_milli]))
   const issues: { path: string; message: string; code: string }[] = []
   body.lines?.forEach((r, i) => {
@@ -748,6 +755,15 @@ function receivedQuantities(lines: readonly LineRow[], body: TransferReceive): M
         path: `lines.${String(i)}.received_qty_milli`,
         message: 'received_exceeds_dispatched',
         code: 'received_exceeds_dispatched',
+      })
+      return
+    }
+    const product = products.get(line.product_id)
+    if (product && !qtyAllowed(product, r.received_qty_milli)) {
+      issues.push({
+        path: `lines.${String(i)}.received_qty_milli`,
+        message: 'decimal_qty_not_allowed',
+        code: 'decimal_qty_not_allowed',
       })
       return
     }
@@ -775,21 +791,13 @@ export async function receiveTransfer(
   if (receivedDate < h.transfer_date)
     throw fieldIssue(['received_date'], 'received_before_dispatch')
   const lines = await loadLines(tx, ctx, id)
-  const received = receivedQuantities(lines, body)
-  const packs = new Map(
-    (
-      await tx
-        .selectFrom('products')
-        .select(['id', 'pack_size'])
-        .where('tenant_id', '=', ctx.tenantId)
-        .where(
-          'id',
-          'in',
-          lines.map((l) => l.product_id),
-        )
-        .execute()
-    ).map((p) => [p.id, p.pack_size]),
+  const products = await loadProducts(
+    tx,
+    ctx,
+    lines.map((l) => l.product_id),
   )
+  const received = receivedQuantities(lines, body, products)
+  const packs = new Map([...products.values()].map((p) => [p.id, p.pack_size]))
 
   // Movements: received → transfer_in at the destination; shortfall → back to the source and
   // written off there (net zero at the source, so negative balances there never block it).
@@ -827,14 +835,16 @@ export async function receiveTransfer(
           qty_milli: short,
           movement_type: 'transfer_in',
           unit_cost_paise: l.unit_cost_paise,
-          reason: `Short on receipt${shortfallNote ? `: ${shortfallNote}` : ''}`,
+          // Movement reasons hold the user's own words (shown as typed, in any language); the
+          // movement type and the transfer link say what happened.
+          reason: shortfallNote,
         },
         {
           ...base,
           store_id: h.from_store_id,
           qty_milli: -short,
           movement_type: 'damage',
-          reason: `Transit shortfall${shortfallNote ? `: ${shortfallNote}` : ''}`,
+          reason: shortfallNote,
         },
       )
     }
@@ -972,7 +982,7 @@ export async function cancelTransfer(
         ref_type: TRANSFER_REF,
         ref_id: id,
         ref_line_id: l.id,
-        reason: `Cancelled ${h.number ?? ''}: ${reason}`.slice(0, 500),
+        reason,
       })),
     )
     reversed = posted.reduce((acc, r) => acc + r.cost_paise, 0)

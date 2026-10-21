@@ -5,13 +5,19 @@ import {
 } from '@kadai/shared/api/inventory'
 import { DEFAULT_PLAN_FEATURES } from '@kadai/shared/features'
 import { screen, waitFor, within } from '@testing-library/react'
+import { HttpResponse } from 'msw'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { makeMe } from '@/test/fixtures'
 import { server } from '@/test/msw'
 import { renderApp, signIn } from '@/test/render'
 import * as F from '../testing/fixtures'
-import { createInventoryApi, type InventoryRouteKey, type Reply } from '../testing/handlers'
+import {
+  apiError,
+  createInventoryApi,
+  type InventoryRouteKey,
+  type Reply,
+} from '../testing/handlers'
 import { PRELOAD_TIMEOUT_MS, preloadInventoryPages } from '../testing/preload'
 
 beforeAll(preloadInventoryPages, PRELOAD_TIMEOUT_MS)
@@ -90,6 +96,52 @@ describe('Adjustment editor', () => {
       expect(router.state.location.pathname).toBe(`/inventory/adjustments/${F.ADJ_ID}`),
     )
     expect(await screen.findByRole('heading', { name: 'ADJS1/2627/00003' })).toBeInTheDocument()
+  })
+
+  it('retries a failed post by updating the draft it created, not creating it again', async () => {
+    const created = F.adjustmentDetail({ id: F.iid(7609), status: 'draft', number: null })
+    let posts = 0
+    const api = setup({
+      createAdjustment: () => HttpResponse.json({ data: created }, { status: 201 }),
+      updateAdjustment: () =>
+        HttpResponse.json({ data: { ...created, updated_at: '2026-10-21T09:30:00.000Z' } }),
+      postAdjustment: () => {
+        posts += 1
+        return posts === 1
+          ? apiError(422, 'INSUFFICIENT_STOCK', { product_id: F.P.rice, available_milli: 1_000 })
+          : HttpResponse.json({ data: F.adjustmentDetail() })
+      },
+    })
+    const user = userEvent.setup()
+    const { router } = await start('/inventory/adjustments/new?kind=damage')
+    await addItem(user, 'Ponni Rice 25 kg')
+    await user.type(screen.getByLabelText('Quantity for item 1'), '2')
+    const summary = screen.getByRole('complementary', { name: 'Value impact' })
+    const post = async () => {
+      await user.click(within(summary).getByRole('button', { name: 'Post' }))
+      const confirm = await screen.findByRole('alertdialog', { name: 'Post this Damage?' })
+      await user.click(within(confirm).getByRole('button', { name: 'Post' }))
+    }
+    await post()
+    await waitFor(() => expect(api.callsTo(inventoryRoutes.postAdjustment)).toHaveLength(1))
+    expect(router.state.location.pathname).toBe('/inventory/adjustments/new')
+
+    // Only 1 bag is left: correct the quantity and post again.
+    const qty = screen.getByLabelText('Quantity for item 1')
+    await user.clear(qty)
+    await user.type(qty, '1')
+    await post()
+    await waitFor(() => expect(api.callsTo(inventoryRoutes.postAdjustment)).toHaveLength(2))
+    expect(api.callsTo(inventoryRoutes.createAdjustment)).toHaveLength(1)
+    const updates = api.callsTo(inventoryRoutes.updateAdjustment)
+    expect(updates).toHaveLength(1)
+    expect(updates[0]!.path).toBe(`/api/v1/stock-adjustments/${F.iid(7609)}`)
+    const body = updates[0]!.body as AdjustmentUpdate
+    expect(body.if_updated_at).toBe(created.updated_at)
+    expect(body.lines?.map((l) => l.qty_delta_milli)).toEqual([-1_000])
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/inventory/adjustments/${F.ADJ_ID}`),
+    )
   })
 
   it('uses the + / − toggle for adjustments and blocks lines without a quantity', async () => {
@@ -181,6 +233,39 @@ describe('Adjustment editor', () => {
       { product_id: F.P.oil, batch_id: null, reason: 'count_correction', counted_qty_milli: 9_000 },
     ])
     expect(api.callsTo(inventoryRoutes.createAdjustment)).toHaveLength(0)
+  })
+
+  it('loads the shelf to count, leaving out batches with nothing left', async () => {
+    const batchRow = (id: number, batch_no: string, qty_milli: number) =>
+      F.stockRow({
+        product_id: F.P.paracetamol,
+        name: 'Paracetamol 500 mg',
+        unit: 'TAB',
+        pack_size: 10,
+        track_batches: true,
+        batch_id: F.iid(id),
+        batch_no,
+        expiry_date: '2027-03-31',
+        qty_milli,
+      })
+    setup({
+      listStock: () =>
+        HttpResponse.json(
+          F.stockList([
+            F.stockRow({ qty_milli: 0, status: 'out' }),
+            batchRow(7101, 'PCM-OLD', 0),
+            batchRow(7102, 'PCM2408', 120_000),
+          ]),
+        ),
+    })
+    const user = userEvent.setup()
+    await start('/inventory/adjustments/new?kind=stock_take')
+    await user.click(await screen.findByRole('button', { name: 'Load items' }))
+    // The out-of-stock rice can still be found on the shelf; the empty PCM-OLD batch is skipped.
+    expect(await screen.findByText('2 items loaded')).toBeInTheDocument()
+    expect(screen.getByLabelText('Counted quantity for item 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Counted quantity for item 2')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Counted quantity for item 3')).not.toBeInTheDocument()
   })
 
   it('saves with Ctrl+S and asks to post with Ctrl+Enter from the keyboard', async () => {

@@ -420,7 +420,8 @@
     "future_date": "The date cannot be in the future",
     "received_exceeds_dispatched": "Received quantity cannot be more than what was sent",
     "unknown_line": "This item is not part of the transfer",
-    "received_before_dispatch": "Received date cannot be before the transfer date"
+    "received_before_dispatch": "Received date cannot be before the transfer date",
+    "decimal_qty_not_allowed": "This item is counted in whole units — enter a quantity without decimals"
   },
   "errors": {
     "not_draft": "Only drafts can be changed. Reload to see the latest status.",
@@ -438,5 +439,8 @@
     "all_stores_required": "You need access to every store to see all stores together.",
     "expiry_change_forbidden": "Only users who can adjust stock may change expiry dates.",
     "export_too_large": "Too many rows to export at once. Narrow the filters and try again."
+  },
+  "stock_errors": {
+    "insufficient": "Only {{available}} of {{name}} in stock — reduce the quantity or add stock first"
   }
 }

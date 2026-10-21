@@ -26,6 +26,9 @@ import {
   InventoryAlertsJobSchema,
   type LowStockDigestParams,
   type StockAlertItem,
+  batchExpiryTabFor,
+  batchesPagePath,
+  stockPagePath,
 } from '@kadai/shared/api/inventory'
 import { normalizeRecipient } from '@kadai/shared/api/notifications'
 import { systemContext } from '../../core/context'
@@ -286,7 +289,7 @@ export async function runInventoryAlerts(
             low_stock_count: lowCount,
             out_of_stock_count: outCount,
             items_text: lowStockItemsText([...alerts.out_of_stock, ...alerts.low_stock], r.locale),
-            link: `${base}/inventory/stock?store_id=${store.id}&low_stock=true`,
+            link: `${base}${stockPagePath({ store_id: store.id, filter: lowCount > 0 ? 'low' : 'out' })}`,
           })
         }
         if (withExpiry && expiringCount + expiredCount > 0) {
@@ -296,7 +299,10 @@ export async function runInventoryAlerts(
             expired_count: expiredCount,
             value_text: formatINR(alerts.expiring_value_paise + alerts.expired_value_paise),
             items_text: expiryItemsText([...alerts.expired, ...alerts.expiring], r.locale),
-            link: `${base}/inventory/batches?store_id=${store.id}&expiring_within_days=${String(alerts.expiry_warning_days)}`,
+            link: `${base}${batchesPagePath({
+              store_id: store.id,
+              tab: expiredCount > 0 ? 'expired' : batchExpiryTabFor(alerts.expiry_warning_days),
+            })}`,
           })
         }
       }

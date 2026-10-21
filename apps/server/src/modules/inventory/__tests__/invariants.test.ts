@@ -52,9 +52,13 @@ describe('inventory invariants (mixed scenario)', () => {
     (await levelOf(t, shop.tenant.id, branch.id, productId, batchId))
 
   it('holds after every kind of inventory operation', async () => {
-    const dal = await makeProduct(t, shop.tenant.id, { name: 'Toor Dal' })
-    // Pack of 3 at ₹1: quantities that are not whole packs round per movement.
-    const soap = await makeProduct(t, shop.tenant.id, { name: 'Soap 3-pack', pack_size: 3 })
+    const dal = await makeProduct(t, shop.tenant.id, { name: 'Toor Dal', unit: 'KG' })
+    // Bag of 3 kg at ₹1: quantities that are not whole packs round per movement.
+    const soap = await makeProduct(t, shop.tenant.id, {
+      name: 'Sugar 3 kg bag',
+      unit: 'KG',
+      pack_size: 3,
+    })
     const milk = await makeProduct(t, shop.tenant.id, {
       name: 'Milk powder',
       track_batches: true,

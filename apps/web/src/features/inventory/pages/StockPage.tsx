@@ -11,6 +11,8 @@ import {
   type StockListQuery,
   type StockRow,
   adjustmentPrefillPath,
+  batchExpiryTabFor,
+  batchesPagePath,
   expiryStatus,
   inventoryRoutes,
   reorderPrefillPath,
@@ -351,7 +353,13 @@ export default function StockPage() {
 
       {access.batches && counts && counts.expired + counts.expiring > 0 ? (
         <Link
-          to={counts.expired > 0 ? '/inventory/batches?tab=expired' : '/inventory/batches?tab=d90'}
+          to={batchesPagePath({
+            ...(singleStore ? { store_id: singleStore } : {}),
+            tab:
+              counts.expired > 0
+                ? 'expired'
+                : batchExpiryTabFor(alerts.data?.data.expiry_warning_days ?? warningDays),
+          })}
           className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-warning/40 bg-warning-soft px-4 py-3 text-sm text-warning-soft-foreground hover:border-warning"
         >
           <CalendarClock className="size-5 shrink-0" aria-hidden />

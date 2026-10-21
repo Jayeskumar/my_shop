@@ -6,9 +6,12 @@
  * module reads it with parseInventoryPrefill) and edit the batch's MRP / prices / dates.
  */
 import {
+  BATCH_EXPIRY_TABS,
+  type BatchExpiryTab,
   type BatchListQuery,
   type BatchRow,
   adjustmentPrefillPath,
+  batchExpiryTabDays,
   inventoryRoutes,
   purchaseReturnPrefillPath,
 } from '@kadai/shared/api/inventory'
@@ -47,23 +50,15 @@ import { useDefaultStoreId, useInventoryAccess } from '../lib/access'
 import { packUnitFor } from '../lib/labels'
 import { PAGE_SIZES, useUrlState } from '../lib/url-state'
 
-const TABS = ['expired', 'd30', 'd60', 'd90', 'all'] as const
-type BatchTab = (typeof TABS)[number]
+// The tabs are the page's URL state (?tab=), shared with the digest links (batchesPagePath).
+const TABS = BATCH_EXPIRY_TABS
+type BatchTab = BatchExpiryTab
 const SORTS = ['expiry_date', 'product_name', 'qty', 'created_at'] as const
 
 function tabQuery(tab: BatchTab): Partial<BatchListQuery> {
-  switch (tab) {
-    case 'expired':
-      return { expired: true }
-    case 'd30':
-      return { expiring_within_days: 30 }
-    case 'd60':
-      return { expiring_within_days: 60 }
-    case 'd90':
-      return { expiring_within_days: 90 }
-    case 'all':
-      return {}
-  }
+  if (tab === 'expired') return { expired: true }
+  const days = batchExpiryTabDays(tab)
+  return days === null ? {} : { expiring_within_days: days }
 }
 
 /** Text colour of an expiry date: red expired, amber ≤ 30 days, yellow ≤ 90 days. */
@@ -250,7 +245,9 @@ export default function BatchesPage() {
   const tabCount = (key: BatchTab): number | null => {
     if (!counts) return null
     if (key === 'expired') return counts.expired
-    if (key === 'd90' && (alerts.data?.data.expiry_warning_days ?? 0) === 90) return counts.expiring
+    // counts.expiring covers settings.inventory.expiry_warning_days: shown on the matching tab.
+    const days = batchExpiryTabDays(key)
+    if (days !== null && days === alerts.data?.data.expiry_warning_days) return counts.expiring
     return null
   }
 

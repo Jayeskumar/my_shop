@@ -175,7 +175,7 @@ describe('inventory: stock transfers', () => {
   })
 
   it('writes a receipt shortfall off at the source and conserves stock', async () => {
-    const a = await makeProduct(t, shop.tenant.id)
+    const a = await makeProduct(t, shop.tenant.id, { unit: 'KG' })
     const b = await makeProduct(t, shop.tenant.id, { track_batches: true })
     const opened = await openStock(shop, shop.store.id, [
       { product_id: a.id, qty_milli: 10_000, unit_cost_paise: 1_000 },

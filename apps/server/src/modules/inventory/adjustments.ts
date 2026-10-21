@@ -831,7 +831,8 @@ export async function cancelAdjustment(
     ref_type: ADJUSTMENT_REF,
     ref_id: id,
     ref_line_id: m.ref_line_id,
-    reason: note,
+    // The user's cancel reason as typed (any language); the narration below says "Cancelled …".
+    reason,
   }))
   const posted = await postStock(tx, ctx, reversals)
   const originalValue = original.reduce(

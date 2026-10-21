@@ -122,6 +122,12 @@ export function TransferEditor({ initial }: { initial?: StockTransferDetail }) {
   const [cancelOpen, setCancelOpen] = useState(false)
   const createKey = useRef(newId())
   const dispatchKey = useRef(newId())
+  /**
+   * The transfer as last saved by this editor: a retry after a failed dispatch (e.g. not enough
+   * stock at the source) updates the draft just created instead of creating it again, with the
+   * latest updated_at (no IDEMPOTENCY_MISMATCH / STALE_WRITE).
+   */
+  const saved = useRef<StockTransferDetail | undefined>(initial)
   const { allowLeave } = useUnsavedGuard(dirty && !busy)
 
   const stores = useRouteQuery(
@@ -299,16 +305,18 @@ export function TransferEditor({ initial }: { initial?: StockTransferDetail }) {
     setBusy(true)
     try {
       let doc: StockTransferDetail
-      if (initial) {
+      const current = saved.current
+      if (current) {
         doc = (
           await update.mutateAsync({
-            params: { id: initial.id },
-            body: { ...body, if_updated_at: initial.updated_at },
+            params: { id: current.id },
+            body: { ...body, if_updated_at: current.updated_at },
           })
         ).data
       } else {
         doc = (await create.mutateAsync({ body, idempotencyKey: createKey.current })).data
       }
+      saved.current = doc
       if (mode === 'dispatch') {
         doc = (
           await dispatch.mutateAsync({
@@ -331,7 +339,10 @@ export function TransferEditor({ initial }: { initial?: StockTransferDetail }) {
       navigate(`/inventory/transfers/${doc.id}`, { replace: true })
     } catch (error) {
       if (isApiError(error) && error.code === 'STALE_WRITE') notify.warning(t('transfers.stale'))
-      else notifyInventoryError(error)
+      else
+        notifyInventoryError(error, {
+          unitOf: (id) => lines.find((l) => l.product.id === id)?.product.unit,
+        })
       dispatchKey.current = newId()
     } finally {
       setBusy(false)

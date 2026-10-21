@@ -77,14 +77,18 @@ interface StockSqlRow {
   last_movement_at: Date | null
 }
 
-/** Product filters shared by the stock list and its totals (alias p = products). */
+/**
+ * Product filters shared by the stock list and its totals (alias p = products, a = the
+ * aggregated stock row).
+ */
 function productConditions(ctx: Ctx, q: StockListQuery, group: 'product' | 'batch') {
   const conds: RawBuilder<unknown>[] = [
     sql`p.tenant_id = ${ctx.tenantId}`,
     sql`p.track_inventory`,
     sql`p.kind <> 'variant_parent'`,
   ]
-  if (!q.include_inactive) conds.push(sql`p.is_active`)
+  // Deactivated products still holding stock stay listed: their stock is part of the valuation.
+  if (!q.include_inactive) conds.push(sql`(p.is_active or coalesce(a.qty_milli, 0) <> 0)`)
   if (q.q) {
     const like = likePattern(q.q)
     conds.push(sql`(p.search_text like ${like} or lower(coalesce(p.sku, '')) = ${q.q.toLowerCase()}

@@ -21,7 +21,9 @@ import {
   type BatchInfo,
   type Ctx,
   assertNotFuture,
+  assertQtyAllowed,
   businessToday,
+  fieldIssue,
   loadBatches,
   loadProducts,
   loadStore,
@@ -137,6 +139,7 @@ export async function postOpeningStock(
         path: `${path}.product_id`,
       })
     }
+    assertQtyAllowed(p, l.qty_milli, ['lines', i, 'qty_milli'])
     const hasBatch = Boolean(l.batch_id ?? l.batch)
     if (p.track_batches && !hasBatch) {
       throw reasonError(
@@ -215,16 +218,7 @@ export async function postOpeningStock(
   body.lines.forEach((l, i) => {
     // Two lines naming the same batch differently (id + number) are one stock row.
     const key = `${l.product_id}:${batchIds[i] ?? '-'}`
-    if (seen.has(key)) {
-      throw reasonError(
-        'UNPROCESSABLE',
-        'batch_product_mismatch',
-        'Two lines refer to the same batch',
-        {
-          path: `lines.${String(i)}`,
-        },
-      )
-    }
+    if (seen.has(key)) throw fieldIssue(['lines', i, 'product_id'], 'duplicate_line')
     seen.add(key)
   })
 

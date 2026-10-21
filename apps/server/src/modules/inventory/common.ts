@@ -6,7 +6,11 @@
 import type { FastifyReply } from 'fastify'
 import { type RawBuilder, sql } from 'kysely'
 import { type ErrorCode, todayIn } from '@kadai/shared'
-import type { InventoryErrorReason, InventoryValidationKey } from '@kadai/shared/api/inventory'
+import {
+  type InventoryErrorReason,
+  type InventoryValidationKey,
+  qtyAllowed,
+} from '@kadai/shared/api/inventory'
 import type { RequestContext } from '../../core/context'
 import { assertFeature } from '../../core/entitlements'
 import { AppError, notFound, validationError } from '../../core/errors'
@@ -175,6 +179,7 @@ export interface StockProduct {
   pack_size: number
   kind: string
   allow_loose: boolean
+  decimal_qty: boolean
   track_inventory: boolean
   track_batches: boolean
   purchase_price_paise: number
@@ -199,6 +204,7 @@ export async function loadProducts(
       'pack_size',
       'kind',
       'allow_loose',
+      'decimal_qty',
       'track_inventory',
       'track_batches',
       'purchase_price_paise',
@@ -248,12 +254,36 @@ export async function loadBatches(
   return new Map(rows.map((r) => [r.id, r]))
 }
 
+/** Quantity fields of a document line checked by {@link checkStockLine} (whichever are set). */
+export const QTY_FIELDS = ['qty_milli', 'qty_delta_milli', 'counted_qty_milli'] as const
+
+export interface StockLineInput {
+  product_id: string
+  batch_id: string | null
+  qty_milli?: number | null | undefined
+  qty_delta_milli?: number | null | undefined
+  counted_qty_milli?: number | null | undefined
+}
+
 /**
- * Checks a document line's product (exists, holds stock) and batch (required for batch-tracked
- * products, forbidden otherwise, of the same product). `path` is the line path ('lines.3').
+ * 400 VALIDATION_ERROR decimal_qty_not_allowed at `path` when a quantity is fractional for a
+ * product counted in whole units (qtyAllowed).
+ */
+export function assertQtyAllowed(
+  product: Pick<StockProduct, 'unit' | 'decimal_qty'>,
+  qtyMilli: number,
+  path: (string | number)[],
+): void {
+  if (!qtyAllowed(product, qtyMilli)) throw fieldIssue(path, 'decimal_qty_not_allowed')
+}
+
+/**
+ * Checks a document line's product (exists, holds stock), batch (required for batch-tracked
+ * products, forbidden otherwise, of the same product) and quantities (whole units unless the
+ * product is measured in decimals). `path` is the line path ('lines.3').
  */
 export function checkStockLine(
-  line: { product_id: string; batch_id: string | null },
+  line: StockLineInput,
   products: ReadonlyMap<string, StockProduct>,
   batches: ReadonlyMap<string, BatchInfo>,
   path: string,
@@ -295,6 +325,10 @@ export function checkStockLine(
       )
     }
   }
+  for (const field of QTY_FIELDS) {
+    const qty = line[field]
+    if (typeof qty === 'number') assertQtyAllowed(p, qty, [...path.split('.'), field])
+  }
   return p
 }
 
@@ -302,7 +336,7 @@ export function checkStockLine(
 export async function checkStockLines(
   tx: Tx,
   ctx: Pick<Ctx, 'tenantId'>,
-  lines: readonly { product_id: string; batch_id: string | null }[],
+  lines: readonly StockLineInput[],
 ): Promise<{ products: Map<string, StockProduct>; batches: Map<string, BatchInfo> }> {
   const products = await loadProducts(
     tx,

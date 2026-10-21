@@ -14,7 +14,17 @@ import {
 import { ArrowLeftRight, History, ShoppingBag, SlidersHorizontal } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import { Badge, Button, Drawer, EmptyState, Money, Qty, Skeleton } from '@/components/ui'
+import {
+  Badge,
+  Button,
+  Drawer,
+  EmptyState,
+  Money,
+  Qty,
+  RetryButton,
+  Skeleton,
+} from '@/components/ui'
+import { describeError } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
 import { useRouteQuery } from '@/lib/query'
 import { useInventoryAccess } from '../lib/access'
@@ -102,7 +112,12 @@ export function StockDrawer({ productId, storeId, onOpenChange }: StockDrawerPro
     >
       {!stock ? (
         query.error ? (
-          <EmptyState compact title={t('common:empty.no_results')} />
+          <EmptyState
+            compact
+            title={describeError(query.error).title}
+            description={describeError(query.error).description}
+            action={<RetryButton onRetry={() => void query.refetch()} />}
+          />
         ) : (
           <div className="grid grid-cols-1 gap-3" aria-busy>
             <Skeleton className="h-6 w-32" />

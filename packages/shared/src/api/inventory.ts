@@ -19,6 +19,15 @@
 // - Transfer routes also need the multi_store feature (server guard; every plan with
 //   stock_transfers has it). Receive journal: the per-movement rounding residue of pack-priced
 //   lines (≤ 1 paisa per line) is booked to inventory_adjustment at the source store.
+// - (review) INVENTORY_VALIDATION_KEYS += decimal_qty_not_allowed: document quantities (opening,
+//   adjustment change / count, transfer, received) must be whole base units unless the product
+//   is measured in decimals (products.decimal_qty or a decimal unit such as KG / L / M):
+//   qtyAllowed(product, qty_milli).
+// - (review) Page links shared by the digest job and the web pages' URL state:
+//   BATCH_EXPIRY_TABS, batchExpiryTabFor(days), stockPagePath({store_id, filter}) →
+//   /inventory/stock?store=&filter=, batchesPagePath({store_id, tab}) → /inventory/batches?store=&tab=.
+// - (review) GET /stock without include_inactive also lists deactivated products that still
+//   hold stock (their value is part of the stock valuation); include_inactive=true lists all.
 
 /**
  * Contract for the inventory module — docs/API.md "inventory": stock levels & valuation,
@@ -43,7 +52,7 @@ import {
 } from '../enums'
 import { diffDays } from '../fy'
 import { isUuid } from '../ids'
-import { amountForQty } from '../units'
+import { amountForQty, isDecimalUnit } from '../units'
 import {
   type BilingualLabel,
   dataOf,
@@ -92,6 +101,8 @@ export const INVENTORY_VALIDATION_KEYS = [
   'unknown_line',
   /** Receipt: received_date before the transfer date. */
   'received_before_dispatch',
+  /** A fractional quantity of a product counted in whole units (qtyAllowed). */
+  'decimal_qty_not_allowed',
 ] as const
 export type InventoryValidationKey = (typeof INVENTORY_VALIDATION_KEYS)[number]
 
@@ -166,6 +177,19 @@ export function expiryStatus(
 /** Signed stock value of a quantity at a per-pack cost: amountForQty(cost, qty, pack_size). */
 export function stockValuePaise(unit_cost_paise: number, qty_milli: number, pack_size = 1): number {
   return amountForQty(unit_cost_paise, qty_milli, pack_size)
+}
+
+/**
+ * Whether a document quantity is allowed for the product: whole base units (1 pc, 1 tab), or
+ * any milli quantity for goods measured in decimals (products.decimal_qty or a decimal unit
+ * such as KG / L / M). Loose tablets of a strip are whole tablets, so they are allowed.
+ */
+export function qtyAllowed(
+  product: { unit: string; decimal_qty?: boolean | undefined },
+  qty_milli: number,
+): boolean {
+  if (product.decimal_qty === true || isDecimalUnit(product.unit)) return true
+  return qty_milli % 1000 === 0
 }
 
 /** Sign each movement type must have (0 = either), mirrors core/inventory.ts. */
@@ -1201,6 +1225,36 @@ export function transferPrefillPath(p: {
     from_store_id: p.from_store_id,
     product_ids: p.product_ids,
   })
+}
+
+/** Expiry windows of the Batches & expiry page (?tab=): expired, ≤ 30 / 60 / 90 days, all. */
+export const BATCH_EXPIRY_TABS = ['expired', 'd30', 'd60', 'd90', 'all'] as const
+export type BatchExpiryTab = (typeof BATCH_EXPIRY_TABS)[number]
+
+/** Days of a `dNN` tab (null for expired / all). */
+export function batchExpiryTabDays(tab: BatchExpiryTab): number | null {
+  return tab === 'd30' ? 30 : tab === 'd60' ? 60 : tab === 'd90' ? 90 : null
+}
+
+/** The narrowest expiry tab that covers `days` (settings.inventory.expiry_warning_days). */
+export function batchExpiryTabFor(days: number): BatchExpiryTab {
+  if (days <= 30) return 'd30'
+  if (days <= 60) return 'd60'
+  if (days <= 90) return 'd90'
+  return 'all'
+}
+
+/** Stock page filter chips (?filter=). */
+export type StockPageFilter = 'low' | 'out' | 'in'
+
+/** /inventory/stock?store=&filter= — the stock page's URL state (digest links, dashboards). */
+export function stockPagePath(p: { store_id?: string; filter?: StockPageFilter } = {}): string {
+  return withQuery('/inventory/stock', { store: p.store_id, filter: p.filter })
+}
+
+/** /inventory/batches?store=&tab= — the Batches & expiry page's URL state. */
+export function batchesPagePath(p: { store_id?: string; tab?: BatchExpiryTab } = {}): string {
+  return withQuery('/inventory/batches', { store: p.store_id, tab: p.tab })
 }
 
 export interface InventoryPrefill {

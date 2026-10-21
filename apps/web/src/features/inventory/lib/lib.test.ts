@@ -10,6 +10,8 @@ import {
   linesPayload,
   uncountedLines,
 } from './adjustment-form'
+import { ApiError } from '@/lib/api'
+import { insufficientStockText } from './errors'
 import { reasonLabel, reasonsForKind } from './labels'
 import { fromListItem } from './lines'
 import { parseExpiryText, parseOpeningPaste } from './opening-paste'
@@ -196,5 +198,23 @@ describe('transfer note', () => {
     expect(html).not.toContain('<b>Rush')
     // Received column only once the transfer is received.
     expect(html).not.toContain('L:received<')
+  })
+})
+
+describe('inventory error texts', () => {
+  it('names the product and the quantity left on INSUFFICIENT_STOCK', () => {
+    const error = new ApiError({
+      status: 422,
+      code: 'INSUFFICIENT_STOCK',
+      message: 'Not enough stock',
+      details: { product_id: F.P.rice, name: 'Ponni Rice 25 kg', available_milli: 3_000 },
+    })
+    expect(insufficientStockText(error, { unitOf: () => 'PCS' })).toBe(
+      'Only 3 pcs of Ponni Rice 25 kg in stock — reduce the quantity or add stock first',
+    )
+    expect(insufficientStockText(error)).toContain('Only 3 of Ponni Rice 25 kg')
+    expect(
+      insufficientStockText(new ApiError({ status: 422, code: 'UNPROCESSABLE', message: 'x' })),
+    ).toBeNull()
   })
 })

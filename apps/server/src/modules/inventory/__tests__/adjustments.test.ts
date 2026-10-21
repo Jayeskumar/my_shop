@@ -483,9 +483,9 @@ describe('inventory: opening stock and adjustments', () => {
     })
 
     it('stock take posts counted − system quantity read at posting time', async () => {
-      const a = await makeProduct(t, shop.tenant.id)
-      const b = await makeProduct(t, shop.tenant.id)
-      const c = await makeProduct(t, shop.tenant.id)
+      const a = await makeProduct(t, shop.tenant.id, { unit: 'KG' })
+      const b = await makeProduct(t, shop.tenant.id, { unit: 'KG' })
+      const c = await makeProduct(t, shop.tenant.id, { unit: 'KG' })
       await openStock(shop, shop.store.id, [
         { product_id: a.id, qty_milli: 10_000, unit_cost_paise: 100 },
         { product_id: b.id, qty_milli: 4_000, unit_cost_paise: 200 },
@@ -656,7 +656,7 @@ describe('inventory: opening stock and adjustments', () => {
     })
 
     it('replays an idempotent post with the same key', async () => {
-      const p = await makeProduct(t, shop.tenant.id)
+      const p = await makeProduct(t, shop.tenant.id, { unit: 'KG' })
       await openStock(shop, shop.store.id, [
         { product_id: p.id, qty_milli: 1_000, unit_cost_paise: 100 },
       ])

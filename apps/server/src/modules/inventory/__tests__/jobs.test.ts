@@ -101,9 +101,15 @@ describe('inventory.alerts job', () => {
       value_text: '₹90.00',
     })
     expect(String(expiry.items_text).split('\n')).toHaveLength(2)
-    expect(String(expiry.link)).toContain(`/inventory/batches?store_id=${shop.store.id}`)
+    // Links open the pages with their own URL state (store + expired tab / low-stock chip).
+    expect(String(expiry.link)).toMatch(
+      new RegExp(`/inventory/batches\\?store=${shop.store.id}&tab=expired$`),
+    )
     const low = rows[1]!.params
     expect(low).toMatchObject({ low_stock_count: 1, out_of_stock_count: 1 })
+    expect(String(low.link)).toMatch(
+      new RegExp(`/inventory/stock\\?store=${shop.store.id}&filter=low$`),
+    )
     // Owner locale is Tamil: the Tamil product name is used.
     expect(String(low.items_text)).toContain('பொன்னி அரிசி')
     expect(String(low.items_text)).toContain('Gingelly Oil')
