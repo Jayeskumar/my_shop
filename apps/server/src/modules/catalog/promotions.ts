@@ -21,7 +21,7 @@ import {
 import type { DeleteResult } from '@kadai/shared/api/identity'
 import type { z } from 'zod'
 import { audit, diffChanges } from '../../core/audit'
-import { AppError, assertNotStale, notFound } from '../../core/errors'
+import { AppError, assertNotStale, forbidden, notFound } from '../../core/errors'
 import { type PageEnvelope, assertStoreAccess, pageResult, parsePage } from '../../core/http'
 import { jsonb } from '../../db/json'
 import type { Tx } from '../../db/tenant'
@@ -147,6 +147,19 @@ async function assertReferences(
   }
 }
 
+/**
+ * Store scope of promotion writes: a member limited to some stores may only write promotions
+ * limited to those stores (an all-store promotion, or one of another store, changes prices
+ * there too) — 403 {reason: 'all_stores_required'}.
+ */
+function assertPromotionScope(ctx: Ctx, storeIds: readonly string[] | null): void {
+  if (ctx.storeIds === null) return
+  if (storeIds === null || storeIds.some((s) => !ctx.storeIds!.includes(s)))
+    throw forbidden('This promotion applies to stores you cannot manage', {
+      reason: 'all_stores_required',
+    })
+}
+
 async function promotionOrThrow(
   tx: Tx,
   ctx: Ctx,
@@ -231,6 +244,7 @@ export async function createPromotion(
   ctx: Ctx,
   body: z.output<typeof PromotionCreateSchema>,
 ): Promise<PromotionResponse> {
+  assertPromotionScope(ctx, body.store_ids)
   await assertReferences(tx, ctx, body.kind, body.rules as Record<string, unknown>, body.store_ids)
   const row = await tx
     .insertInto('promotions')
@@ -270,6 +284,8 @@ export async function updatePromotion(
 ): Promise<PromotionResponse> {
   const current = await promotionOrThrow(tx, ctx, id, true)
   assertNotStale(current.updated_at, body.if_updated_at, 'promotion', id)
+  assertPromotionScope(ctx, current.store_ids)
+  if (body.store_ids !== undefined) assertPromotionScope(ctx, body.store_ids)
   const kind = body.kind ?? (current.kind as PromotionKind)
   const rules = body.rules ?? jsonObject(current.rules)
   const storeIds = body.store_ids === undefined ? current.store_ids : body.store_ids
@@ -327,6 +343,7 @@ export async function updatePromotion(
 
 export async function deletePromotion(tx: Tx, ctx: Ctx, id: string): Promise<DeleteResult> {
   const current = await promotionOrThrow(tx, ctx, id, true)
+  assertPromotionScope(ctx, current.store_ids)
   try {
     await withSavepoint(tx, () =>
       tx

@@ -74,7 +74,7 @@ describe('Product form — new product', () => {
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(`/catalog/products/${detail.id}`),
     )
-  })
+  }, 40_000) // types into many fields; slow on a loaded CI machine
 
   it('shows required and MRP errors and sends nothing', async () => {
     await signIn(makeMe())
@@ -129,6 +129,36 @@ describe('Product form — edit', () => {
     expect(body).toEqual({ sale_price_paise: 6_500, if_updated_at: detail.updated_at })
     expect(ProductUpdateSchema.safeParse(body).success).toBe(true)
     expect(await screen.findByText('“Ponni Rice 1 kg” saved')).toBeInTheDocument()
+  })
+
+  it('explains a 409 stock_on_hand on the field that cannot change', async () => {
+    await signIn(makeMe())
+    const { detail } = handlers()
+    server.use(
+      http.patch(apiPath('/products/:id'), () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'CONFLICT',
+              message: 'Batch tracking cannot change while the product has stock',
+              details: { reason: 'stock_on_hand', field: 'track_batches' },
+              request_id: 'r1',
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+    renderApp(`/catalog/products/${detail.id}`)
+    const batches = await screen.findByRole(
+      'switch',
+      { name: /Batches & expiry/ },
+      { timeout: 5000 },
+    )
+    await user.click(batches)
+    fireEvent.keyDown(window, { key: 's', code: 'KeyS', ctrlKey: true })
+    expect((await screen.findAllByText(/This product still has stock/)).length).toBeGreaterThan(0)
   })
 
   it('is read-only without catalog.write', async () => {

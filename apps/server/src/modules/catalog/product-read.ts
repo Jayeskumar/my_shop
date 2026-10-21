@@ -353,22 +353,43 @@ type FilterInput = Pick<
   | 'ids'
 >
 
-/** WHERE conditions (alias p) shared by the list and the CSV export. */
-export async function productFilterConditions(
+export interface ProductFilter {
+  /** WHERE conditions (alias p). */
+  conds: RawBuilder<unknown>[]
+  /** Products whose barcode equals the search text exactly (ranked first with SKU matches). */
+  exactIds: string[]
+}
+
+/**
+ * Filters shared by the list and the CSV export. Barcode matches of the search text are looked
+ * up first (unique index), so the search condition is `words OR sku = q OR id = ANY(ids)` — each
+ * arm index-backed (trigram, lower(sku), primary key).
+ */
+export async function productFilter(
   tx: Tx,
   ctx: Pick<Ctx, 'tenantId'>,
   q: FilterInput,
-): Promise<RawBuilder<unknown>[]> {
+): Promise<ProductFilter> {
   const t = ctx.tenantId
   const conds: RawBuilder<unknown>[] = [sql`p.tenant_id = ${t}`]
+  let exactIds: string[] = []
   if (q.q) {
+    const code = q.q.trim()
+    if (code.length <= 48) {
+      const hits = await tx
+        .selectFrom('product_barcodes')
+        .select('product_id')
+        .where('tenant_id', '=', t)
+        .where('barcode', '=', code)
+        .execute()
+      exactIds = hits.map((h) => h.product_id)
+    }
     const tokens = searchTokens(q.q)
     const words = tokens.map((w) => sql`p.search_text LIKE ${containsPattern(w)}`)
     conds.push(sql`(
       ${andAll(words)}
-      OR lower(p.sku) = lower(${q.q})
-      OR EXISTS (SELECT 1 FROM product_barcodes qb
-                  WHERE qb.tenant_id = p.tenant_id AND qb.product_id = p.id AND qb.barcode = ${q.q}))`)
+      OR lower(p.sku) = lower(${code})
+      ${exactIds.length ? sql`OR p.id = ANY(${exactIds}::uuid[])` : sql``})`)
   }
   if (q.barcode)
     conds.push(sql`EXISTS (SELECT 1 FROM product_barcodes fb
@@ -384,7 +405,15 @@ export async function productFilterConditions(
   if (q.parent_id) conds.push(sql`p.parent_id = ${q.parent_id}`)
   if (q.hide_variants) conds.push(sql`p.kind <> 'variant'`)
   if (q.ids) conds.push(q.ids.length ? sql`p.id = ANY(${q.ids}::uuid[])` : sql`FALSE`)
-  return conds
+  return { conds, exactIds }
+}
+
+/** Low-stock condition (stock in `storeId` vs the reorder level), for the list and the export. */
+export function lowStockCondition(storeId: string, low: boolean): RawBuilder<unknown> {
+  const stock = stockExpression(storeId)
+  return low
+    ? sql`(p.reorder_level_milli IS NOT NULL AND ${stock} <= p.reorder_level_milli)`
+    : sql`(p.reorder_level_milli IS NULL OR ${stock} IS NULL OR ${stock} > p.reorder_level_milli)`
 }
 
 /** Σ stock of the row's product in a store (variant parents: their variants; untracked: NULL). */
@@ -449,22 +478,27 @@ export async function listProducts(
   const page = parsePage(q)
   const storeId = await resolveStoreId(tx, ctx, q.store_id)
   if (q.low_stock !== undefined && !storeId) throw issue('store_id', 'store_required')
-  const conds = await productFilterConditions(tx, ctx, q)
+  const { conds, exactIds } = await productFilter(tx, ctx, q)
   const stock = stockExpression(storeId)
-  if (q.low_stock === true)
-    conds.push(sql`(p.reorder_level_milli IS NOT NULL AND ${stock} <= p.reorder_level_milli)`)
-  if (q.low_stock === false)
-    conds.push(
-      sql`(p.reorder_level_milli IS NULL OR ${stock} IS NULL OR ${stock} > p.reorder_level_milli)`,
-    )
+  if (q.low_stock !== undefined && storeId) conds.push(lowStockCondition(storeId, q.low_stock))
   const dir = q.sort.direction === 'desc' ? sql`DESC` : sql`ASC`
   const nulls = q.sort.field === 'sku' ? sql` NULLS LAST` : sql``
   const order: RawBuilder<unknown>[] = []
   if (q.q)
-    order.push(sql`(lower(p.sku) = lower(${q.q}) OR EXISTS (SELECT 1 FROM product_barcodes ob
-      WHERE ob.tenant_id = p.tenant_id AND ob.product_id = p.id AND ob.barcode = ${q.q})) IS TRUE DESC`)
+    order.push(
+      sql`(lower(p.sku) = lower(${q.q.trim()})${exactIds.length ? sql` OR p.id = ANY(${exactIds}::uuid[])` : sql``}) IS TRUE DESC`,
+    )
   order.push(sql`${SORT_SQL[q.sort.field] ?? SORT_SQL.name!} ${dir}${nulls}`, sql`p.id ASC`)
+  const orderBy = sql.join(order, sql`, `)
+  // The page is cut first; barcode, variant count and stock are computed for its rows only.
   const res = await sql<ListRow>`
+    WITH page AS (
+      SELECT p.*, count(*) OVER () AS __total
+        FROM products p
+       WHERE ${andAll(conds)}
+       ORDER BY ${orderBy}
+       LIMIT ${page.limit} OFFSET ${page.offset}
+    )
     SELECT p.id, p.parent_id, p.kind, p.sku, p.name, p.name_ta, p.category_id, p.brand_id,
            b.name::text AS brand_name, p.unit, p.pack_size, p.hsn_code, p.gst_rate_bp,
            p.tax_slab_rule_id, p.price_includes_tax, p.mrp_paise, p.sale_price_paise,
@@ -476,12 +510,10 @@ export async function listProducts(
            (SELECT count(*) FROM products v WHERE v.tenant_id = p.tenant_id AND v.parent_id = p.id)::int
              AS variant_count,
            ${stock} AS stock_qty_milli,
-           count(*) OVER () AS __total
-      FROM products p
+           p.__total
+      FROM page p
       LEFT JOIN brands b ON b.tenant_id = p.tenant_id AND b.id = p.brand_id
-     WHERE ${andAll(conds)}
-     ORDER BY ${sql.join(order, sql`, `)}
-     LIMIT ${page.limit} OFFSET ${page.offset}`.execute(tx)
+     ORDER BY ${orderBy}`.execute(tx)
   let total = res.rows[0] ? Number(res.rows[0].__total) : 0
   if (!res.rows[0] && page.offset > 0) {
     const c = await sql<{ n: number }>`

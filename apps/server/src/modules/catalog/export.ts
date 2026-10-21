@@ -27,8 +27,8 @@ import type { RequestContext } from '../../core/context'
 import type { KadaiDeps } from '../../core/runtime'
 import { withTenant } from '../../db/tenant'
 import { loadCategoryPaths } from './categories'
-import { productFilterConditions } from './product-read'
-import { andAll, jsonObject, stringRecord, tenantInfo } from './shared'
+import { lowStockCondition, productFilter } from './product-read'
+import { andAll, issue, jsonObject, resolveStoreId, stringRecord, tenantInfo } from './shared'
 
 const BATCH = 500
 
@@ -177,7 +177,13 @@ export async function streamProductExport(
 ): Promise<FastifyReply> {
   const { conds, tenant } = await withTenant(deps.db.appDb, ctx, async (tx) => {
     const t = await tenantInfo(tx, ctx)
-    const c = await productFilterConditions(tx, ctx, q)
+    const { conds: c } = await productFilter(tx, ctx, q)
+    if (q.low_stock !== undefined) {
+      // Same rule as the list: low stock needs a store (?store_id or the device's store).
+      const storeId = await resolveStoreId(tx, ctx, q.store_id)
+      if (!storeId) throw issue('store_id', 'store_required')
+      c.push(lowStockCondition(storeId, q.low_stock))
+    }
     await audit(tx, ctx, {
       action: 'product.export',
       entity_type: 'product',

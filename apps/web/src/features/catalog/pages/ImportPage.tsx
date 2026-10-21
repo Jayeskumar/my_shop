@@ -1,5 +1,5 @@
 /**
- * Product import: 1) download the template of the shop's vertical, 2) upload a CSV / XLSX
+ * Product import: 1) download the template of the shop's vertical, 2) upload a CSV
  * (POST /files?purpose=import), 3) dry run (POST /products/import, dry_run true) with the
  * per-row errors and a preview, 4) import. Large files run as a job: progress is polled from
  * GET /imports/:id until it completes.
@@ -117,6 +117,11 @@ export default function ImportPage() {
   }
 
   const pick = async (f: File): Promise<void> => {
+    // The product import reads CSV only (Excel: "Save as → CSV UTF-8"); refuse a sheet early.
+    if (!/\.csv$/i.test(f.name) && f.type !== 'text/csv') {
+      notify.error(t('import_errors.import_format'))
+      return
+    }
     const issue = uploadIssue('import', f)
     if (issue) {
       notify.error(t(`files.${issue}`, { max: FILE_UPLOAD_RULES.import.max_bytes / 1024 / 1024 }))
@@ -267,7 +272,7 @@ export default function ImportPage() {
             <input
               ref={input}
               type="file"
-              accept={`${FILE_UPLOAD_RULES.import.accept},.csv,.xlsx`}
+              accept=".csv,text/csv"
               className="sr-only"
               aria-label={t('import.choose_file')}
               onChange={(e) => {
@@ -500,9 +505,10 @@ function JobResult({ job }: { job: ImportJob }) {
           tone={job.error_rows ? 'danger' : undefined}
         />
       </dl>
-      {Object.keys(s.details).length ? (
+      {Object.values(s.details).some((v) => v > 0) ? (
         <p className="text-xs text-muted-foreground">
           {Object.entries(s.details)
+            .filter(([, v]) => v > 0)
             .map(([k, v]) => importDetailText(k, v))
             .join(' · ')}
         </p>

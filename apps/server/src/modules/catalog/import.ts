@@ -56,7 +56,13 @@ import { isAppError } from '../../core/errors'
 import type { FileService } from '../../core/files'
 import type { Products } from '../../db/schema.generated'
 import type { Tx } from '../../db/tenant'
-import { type CatalogEnv, catalogEnv, forcedTrackBatches, defaultUnit } from './product-write'
+import {
+  type CatalogEnv,
+  catalogEnv,
+  defaultUnit,
+  forcedTrackBatches,
+  propagateToVariants,
+} from './product-write'
 import { PRODUCT_COLUMNS, type ProductRow } from './product-read'
 import { type Ctx, jsonObject, pgCode, stringRecord, withSavepoint } from './shared'
 import { jsonb } from '../../db/json'
@@ -583,6 +589,8 @@ async function preload(
   barcodesOf: Map<string, Set<string>>
   variantsOf: Map<string, Map<string, string>>
   withMovements: Set<string>
+  /** Products (or variant parents whose variants) hold stock in some store. */
+  withStock: Set<string>
   byPlu: Map<string, string>
 }> {
   const t = ctx.tenantId
@@ -630,6 +638,7 @@ async function preload(
   const barcodesOf = new Map<string, Set<string>>()
   const variantsOf = new Map<string, Map<string, string>>()
   const withMovements = new Set<string>()
+  const withStock = new Set<string>()
   for (const part of chunk(ids)) {
     const codesRows = await tx
       .selectFrom('product_barcodes')
@@ -660,6 +669,15 @@ async function preload(
       SELECT DISTINCT product_id FROM stock_movements
        WHERE tenant_id = ${t} AND product_id = ANY(${part}::uuid[])`.execute(tx)
     for (const m of moved.rows) withMovements.add(m.product_id)
+    const stocked = await sql<{ product_id: string }>`
+      SELECT DISTINCT coalesce(c.parent_id, sl.product_id) AS product_id
+        FROM stock_levels sl
+        JOIN products c ON c.tenant_id = sl.tenant_id AND c.id = sl.product_id
+       WHERE sl.tenant_id = ${t} AND sl.qty_milli <> 0
+         AND (sl.product_id = ANY(${part}::uuid[]) OR c.parent_id = ANY(${part}::uuid[]))`.execute(
+      tx,
+    )
+    for (const m of stocked.rows) withStock.add(m.product_id)
   }
   const bySku = new Map<string, ProductRow>()
   for (const p of byId.values()) if (p.sku) bySku.set(p.sku.toLowerCase(), p)
@@ -674,7 +692,7 @@ async function preload(
       .execute()
     for (const p of found) if (p.scale_plu) byPlu.set(p.scale_plu, p.id)
   }
-  return { bySku, byBarcode, byId, barcodesOf, variantsOf, withMovements, byPlu }
+  return { bySku, byBarcode, byId, barcodesOf, variantsOf, withMovements, withStock, byPlu }
 }
 
 function sameValue(a: unknown, b: unknown): boolean {
@@ -1011,7 +1029,7 @@ export async function planProductImport(
         v,
         { categoryId, brandId },
         data.barcodesOf.get(match.id),
-        data.withMovements.has(match.id),
+        { movements: data.withMovements.has(match.id), stock: data.withStock.has(match.id) },
         line,
       )
       if ('errors' in res) {
@@ -1169,6 +1187,18 @@ export async function planProductImport(
       parent.insertOp.values.kind = 'variant_parent'
       parent.insertOp.values.track_inventory = false
       parent.insertOp.values.variant_axes = parent.axes
+      if (parent.insertOp.barcodes.length) {
+        // A variant parent is not sold itself; its barcodes are dropped (reported on its row).
+        errors.push(
+          err(
+            parent.insertOp.line,
+            'barcode',
+            'parent_barcode',
+            'Barcodes go on the variants, not on the parent',
+          ),
+        )
+        parent.insertOp.barcodes = []
+      }
       return null
     }
     return { id: parent.id, axes: parent.axes }
@@ -1334,7 +1364,7 @@ function planUpdate(
   v: RowValues,
   refs: { categoryId: string | null | undefined; brandId: string | null | undefined },
   existingCodes: Set<string> | undefined,
-  hasMovements: boolean,
+  usage: { movements: boolean; stock: boolean },
   line: number,
 ): { patch: Partial<Writable>; barcodes: string[] } | { errors: ImportError[] } {
   const patch: Partial<Writable> = {}
@@ -1348,13 +1378,27 @@ function planUpdate(
   set('category_id', refs.categoryId)
   set('brand_id', refs.brandId)
   if (v.unit !== undefined && v.unit !== row.unit) {
-    if (hasMovements)
+    if (usage.movements)
       return {
         errors: [err(line, 'unit', 'unit_in_use', 'The unit cannot change after stock movements')],
       }
     patch.unit = v.unit
   }
-  set('pack_size', v.pack_size)
+  if (v.pack_size !== undefined && v.pack_size !== row.pack_size) {
+    // Stock costs are per pack (PATCH /products has the same rule).
+    if (usage.movements)
+      return {
+        errors: [
+          err(
+            line,
+            'pack_size',
+            'pack_size_in_use',
+            'The pack size cannot change after stock movements',
+          ),
+        ],
+      }
+    patch.pack_size = v.pack_size
+  }
   set('hsn_code', v.hsn_code)
   set('gst_rate_bp', v.gst_rate_bp)
   set('mrp_paise', v.mrp_paise)
@@ -1385,7 +1429,10 @@ function planUpdate(
     if (!sameValue(attrs.ok, jsonObject(row.attributes))) patch.attributes = attrs.ok
   }
   let trackBatches = v.track_batches ?? merged.track_batches
-  if (forcedTrackBatches(env, row.kind, jsonObject(patch.attributes ?? row.attributes)))
+  if (
+    forcedTrackBatches(env, row.kind, jsonObject(patch.attributes ?? row.attributes)) &&
+    (row.track_batches || !usage.stock)
+  )
     trackBatches = true
   const flags = normalizeProductFlags({
     kind:
@@ -1395,7 +1442,26 @@ function planUpdate(
     track_inventory: merged.track_inventory,
     track_batches: trackBatches,
   })
-  if (flags.track_batches !== row.track_batches) patch.track_batches = flags.track_batches
+  if (flags.track_batches !== row.track_batches) {
+    if (usage.stock)
+      return {
+        errors: [
+          err(
+            line,
+            'track_batches',
+            'stock_on_hand',
+            'Batch tracking cannot change while the product has stock',
+          ),
+        ],
+      }
+    patch.track_batches = flags.track_batches
+  }
+  if (row.kind === 'variant_parent' && (v.barcodes ?? []).some((c) => !existingCodes?.has(c)))
+    return {
+      errors: [
+        err(line, 'barcode', 'parent_barcode', 'Barcodes go on the variants, not on the parent'),
+      ],
+    }
   const priceTouched = v.mrp_paise !== undefined || v.sale_price_paise !== undefined
   const issues = productRuleIssues({
     kind: flags.kind,
@@ -1502,6 +1568,12 @@ export async function applyOps(
             .where('tenant_id', '=', ctx.tenantId)
             .where('id', '=', op.parentConvert.id)
             .execute()
+          // Like POST /products/:id/variants: the parent (never stocked) keeps no barcodes.
+          await tx
+            .deleteFrom('product_barcodes')
+            .where('tenant_id', '=', ctx.tenantId)
+            .where('product_id', '=', op.parentConvert.id)
+            .execute()
         }
         let productId: string
         if (op.kind === 'insert') {
@@ -1524,6 +1596,10 @@ export async function applyOps(
               .where('tenant_id', '=', ctx.tenantId)
               .where('id', '=', op.id)
               .execute()
+            // Same as PATCH /products/:id: a parent's shared fields (tax, category, …) and its
+            // name prefix follow to its variants.
+            if (op.before.kind === 'variant_parent')
+              await propagateToVariants(tx, ctx, op.before, op.patch)
           }
         }
         if (op.barcodes.length) {

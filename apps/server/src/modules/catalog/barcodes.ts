@@ -9,7 +9,7 @@ import { audit } from '../../core/audit'
 import { notFound } from '../../core/errors'
 import type { Tx } from '../../db/tenant'
 import { loadProductRow, toBarcode } from './product-read'
-import { assertBarcodesFree, barcodeQtyOk } from './product-write'
+import { assertBarcodesFree, barcodeQtyOk, variantParentBarcodeError } from './product-write'
 import { generateInternalBarcodes } from './sequences'
 import { type Ctx, issue, touchProducts } from './shared'
 
@@ -20,6 +20,7 @@ export async function addBarcode(
   body: z.output<typeof BarcodeAddSchema>,
 ): Promise<ProductBarcode> {
   const product = await loadProductRow(tx, ctx, productId, { forUpdate: true })
+  if (product.kind === 'variant_parent') throw variantParentBarcodeError('barcode')
   if (!barcodeQtyOk(product, body.qty_milli)) throw issue('qty_milli', 'barcode_qty_whole')
   let code: string
   if (body.generate) {

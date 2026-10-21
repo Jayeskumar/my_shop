@@ -147,6 +147,25 @@ describe('variants', () => {
     expect(off.is_active).toBe(false)
   })
 
+  it('a product that gets variants hands in its barcodes (it is not sold itself)', async () => {
+    const api = req(textile)
+    const code = makeEan13(`890${String(Date.now()).slice(-9)}`)
+    const p = await createProduct(textile, { barcodes: [{ barcode: code }] })
+    const gen = dataOf<VariantGenerateResult>(
+      await api.post(`/products/${p.id}/variants`, { axes: { size: ['S', 'M'] } }),
+    )
+    expect(gen.parent).toMatchObject({
+      kind: 'variant_parent',
+      barcodes: [],
+      primary_barcode: null,
+    })
+    // The code is free again — e.g. for one of the variants.
+    const moved = await api.post(`/products/${gen.created[0]!.id}/barcodes`, { barcode: code })
+    expect(moved.statusCode, moved.body).toBe(201)
+    const lookup = dataOf<ProductLookupResult>(await api.get(`/products/lookup?code=${code}`))
+    expect(lookup.product.id).toBe(gen.created[0]!.id)
+  })
+
   it('refuses a stocked standard product and is gated by feature variants', async () => {
     const stocked = await createProduct(textile, {})
     await textile.tx((tx) =>

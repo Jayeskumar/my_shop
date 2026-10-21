@@ -263,4 +263,33 @@ describe('promotions', () => {
     const other = await createTestTenant(t)
     expect((await req(other).get(`/promotions/${mine.id}`)).statusCode).toBe(404)
   })
+
+  it('store-scoped managers write only promotions of their own stores', async () => {
+    const manager = await shop.asRole('manager', { store_ids: [shop.store.id] })
+    const api = req(shop)
+    const body = { name: uniq('Branch '), kind: 'bill_flat', rules: { flat_paise: 500 } }
+    // An all-store promotion would change prices in stores the manager cannot see.
+    const all = await api.post('/promotions', body, { as: manager })
+    expect(all.statusCode, all.body).toBe(403)
+    expect(errorOf(all).details?.reason).toBe('all_stores_required')
+    const own = dataOf<PromotionResponse>(
+      await api.post('/promotions', { ...body, store_ids: [shop.store.id] }, { as: manager }),
+      201,
+    )
+    expect(own.store_ids).toEqual([shop.store.id])
+    // Owner-made all-store promotions stay out of reach (edit, widen, delete).
+    const owners = dataOf<PromotionResponse>(await api.post('/promotions', body), 201)
+    for (const res of [
+      await api.patch(`/promotions/${owners.id}`, { priority: 5 }, { as: manager }),
+      await api.del(`/promotions/${owners.id}`, { as: manager }),
+      await api.patch(`/promotions/${own.id}`, { store_ids: null }, { as: manager }),
+    ]) {
+      expect(res.statusCode, res.body).toBe(403)
+      expect(errorOf(res).details?.reason).toBe('all_stores_required')
+    }
+    const edited = dataOf<PromotionResponse>(
+      await api.patch(`/promotions/${own.id}`, { priority: 7 }, { as: manager }),
+    )
+    expect(edited.priority).toBe(7)
+  })
 })

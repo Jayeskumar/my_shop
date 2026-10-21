@@ -65,6 +65,9 @@ const DUPLICATE_FIELD: Record<string, keyof ProductFormValues> = {
   scale_plu_taken: 'scale_plu',
 }
 
+/** 409 reasons whose `details.field` names the form field that cannot change. */
+const FIELD_REASONS = new Set(['unit_in_use', 'pack_size_in_use', 'stock_on_hand'])
+
 export interface ProductFormProps {
   mode: ProductFormMode
   product: ProductDetail | null
@@ -157,6 +160,18 @@ export function ProductForm({ mode, product, defaults, storeId }: ProductFormPro
       if (field && field !== 'barcodes') {
         form.setError(field, { type: 'server', message: catalogReasonText(error) ?? reason ?? '' })
         form.setFocus(field)
+        return
+      }
+      // A field that cannot change any more (stock exists): mark it and explain in a toast
+      // (switches have no inline message).
+      const locked =
+        reason && FIELD_REASONS.has(reason) && typeof error.details?.field === 'string'
+          ? error.details.field
+          : undefined
+      if (locked && locked in defaults) {
+        const text = catalogReasonText(error) ?? error.message
+        form.setError(locked as keyof ProductFormValues, { type: 'server', message: text })
+        notify.error(text)
         return
       }
       if (error.code === 'STALE_WRITE') {

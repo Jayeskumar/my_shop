@@ -322,6 +322,66 @@ describe('update & delete', () => {
     expect(errorOf(res).details?.reason).toBe('unit_in_use')
   })
 
+  it('keeps pack size, batch tracking and stock tracking of stocked products', async () => {
+    const stocked = await createProduct(shop, { pack_size: 10, allow_loose: true })
+    await openingStock(shop, stocked.id, 20_000)
+    // Costs are per pack: a new pack size would revalue the stock.
+    const pack = await req(shop).patch(`/products/${stocked.id}`, { pack_size: 12 })
+    expect(pack.statusCode).toBe(409)
+    expect(errorOf(pack).details).toMatchObject({ reason: 'pack_size_in_use', field: 'pack_size' })
+    // Batch-less stock could not be sold FEFO; untracked stock could never be adjusted.
+    for (const [body, field] of [
+      [{ track_batches: true }, 'track_batches'],
+      [{ track_inventory: false }, 'track_inventory'],
+      [{ kind: 'service' }, 'kind'],
+    ] as const) {
+      const res = await req(shop).patch(`/products/${stocked.id}`, body)
+      expect(res.statusCode, JSON.stringify(body)).toBe(409)
+      expect(errorOf(res).details).toMatchObject({ reason: 'stock_on_hand', field })
+    }
+    // Other changes still save; once the stock is gone, batch tracking may switch on.
+    const ok = dataOf<ProductDetail>(
+      await req(shop).patch(`/products/${stocked.id}`, { sale_price_paise: 1200 }),
+    )
+    expect(ok.sale_price_paise).toBe(1200)
+    await shop.tx((tx) =>
+      postStock(tx, shop.ctx, [
+        {
+          store_id: shop.store.id,
+          product_id: stocked.id,
+          qty_milli: -20_000,
+          movement_type: 'adjustment',
+          reason: 'stock count',
+        },
+      ]),
+    )
+    const batches = dataOf<ProductDetail>(
+      await req(shop).patch(`/products/${stocked.id}`, { track_batches: true }),
+    )
+    expect(batches.track_batches).toBe(true)
+    // Never-stocked products change freely.
+    const fresh = await createProduct(shop, {})
+    const changed = dataOf<ProductDetail>(
+      await req(shop).patch(`/products/${fresh.id}`, { pack_size: 6, track_batches: true }),
+    )
+    expect(changed).toMatchObject({ pack_size: 6, track_batches: true })
+  })
+
+  it('refuses barcodes on variant parents', async () => {
+    const res = await req(shop).post('/products', {
+      name: uniq('Shirt '),
+      sale_price_paise: 50_000,
+      kind: 'variant_parent',
+      barcodes: [{ barcode: uniq('VP') }],
+    })
+    expect(res.statusCode, res.body).toBe(422)
+    expect(errorOf(res).details?.reason).toBe('product_kind')
+    const parent = await createProduct(shop, { kind: 'variant_parent' })
+    const add = await req(shop).post(`/products/${parent.id}/barcodes`, { barcode: uniq('VP') })
+    expect(add.statusCode).toBe(422)
+    expect(errorOf(add).details?.reason).toBe('product_kind')
+  })
+
   it('DELETE removes unused products and deactivates used ones', async () => {
     const unused = await createProduct(shop, { barcodes: [{ barcode: uniq('DEL') }] })
     const del = dataOf<{ id: string; result: string }>(

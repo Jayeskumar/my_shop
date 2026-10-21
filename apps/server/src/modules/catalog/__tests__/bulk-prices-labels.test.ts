@@ -83,6 +83,23 @@ describe('bulk update', () => {
     expect(again).toMatchObject({ updated: 0, unchanged: 1 })
   })
 
+  it('applies a retried price change once (Idempotency-Key)', async () => {
+    const p = await createProduct(shop, { sale_price_paise: 10_000, mrp_paise: 20_000 })
+    const body = {
+      ids: [p.id],
+      set: { price_change: { mode: 'percent', percent_bp: 1000 } },
+    }
+    const headers = { 'idempotency-key': newId() }
+    const first = await req(shop).post('/products/bulk-update', body, { headers })
+    const retry = await req(shop).post('/products/bulk-update', body, { headers })
+    expect(first.statusCode).toBe(200)
+    expect(retry.statusCode).toBe(200)
+    expect(retry.headers['idempotent-replayed']).toBe('true')
+    expect(retry.json()).toEqual(first.json())
+    const after = dataOf<ProductDetail>(await req(shop).get(`/products/${p.id}`))
+    expect(after.sale_price_paise).toBe(11_000) // +10% once, not 12,100
+  })
+
   it('validates the body, references and permissions', async () => {
     const api = req(shop)
     const p = await createProduct(shop, {})

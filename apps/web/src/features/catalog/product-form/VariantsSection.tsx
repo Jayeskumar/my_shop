@@ -442,6 +442,14 @@ export function VariantsSection({ icon }: { icon: ReactNode }) {
               {product.variants.length ? (
                 <p className="text-xs text-muted-foreground">{t('variants.add_more_hint')}</p>
               ) : null}
+              {product.kind === 'standard' && product.barcodes.length ? (
+                // The server removes them: a product with sizes / colours is not sold itself.
+                <p className="mt-1 text-xs text-warning-soft-foreground">
+                  {t('variants.parent_barcodes_note', {
+                    codes: product.barcodes.map((b) => b.barcode).join(', '),
+                  })}
+                </p>
+              ) : null}
             </div>
             <VariantMatrixEditor
               draft={draft}

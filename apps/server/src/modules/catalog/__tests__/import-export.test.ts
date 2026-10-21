@@ -7,6 +7,7 @@ import { makeEan13 } from '@kadai/shared'
 import type { ProductDetail, ProductListItem } from '@kadai/shared/api/catalog'
 import { type ImportJob, parseCsvTable } from '@kadai/shared/api/identity'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { postStock } from '../../../core/inventory'
 import { type TestApp, buildTestApp } from '../../../test/helpers'
 import { type TestShop, createTestTenant } from '../../../test/tenants'
 import { runProductImportJob } from '../imports'
@@ -401,6 +402,56 @@ describe('product import', () => {
     expect(foreignFile.statusCode).toBe(404)
     expect(errorOf(foreignFile).code).toBe('NOT_FOUND')
   })
+
+  it('keeps pack size / batch tracking of stocked products and barcodes off variant parents', async () => {
+    const shop = await createTestTenant(t, {
+      business_type: 'apparel',
+      settings: { catalog: { auto_generate_barcode: false } },
+    })
+    const tag = uniq('K').toUpperCase()
+    const head = 'sku,barcode,name,unit,pack_size,gst_rate,sale_price,track_batches,parent_sku,size'
+    await runImport(shop, [head, `${tag}-BOX,,Socks box,PCS,6,5,300,no,,`].join('\n'), {
+      dry_run: false,
+    })
+    const box = await findBySku(shop, `${tag}-BOX`)
+    await shop.tx((tx) =>
+      postStock(tx, shop.ctx, [
+        {
+          store_id: shop.store.id,
+          product_id: box.id,
+          qty_milli: 12_000,
+          movement_type: 'opening',
+          unit_cost_paise: 200,
+        },
+      ]),
+    )
+    const code = ean()
+    const job = await runImport(
+      shop,
+      [
+        head,
+        `${tag}-BOX,,Socks box,PCS,12,5,300,no,,`,
+        `${tag}-T,${code},T-shirt,PCS,1,5,400,no,,`,
+        `${tag}-T-M,,T-shirt - M,,,,400,,${tag}-T,M`,
+      ].join('\n'),
+      { dry_run: false },
+    )
+    expect(job.errors.map((e) => [e.row, e.code])).toEqual([
+      [2, 'pack_size_in_use'],
+      [3, 'parent_barcode'],
+    ])
+    expect((await findBySku(shop, `${tag}-BOX`)).pack_size).toBe(6)
+    const parent = await findBySku(shop, `${tag}-T`)
+    expect(parent).toMatchObject({ kind: 'variant_parent', barcodes: [] })
+    // Batch tracking of a stocked product does not switch through an import either.
+    const batches = await runImport(
+      shop,
+      [head, `${tag}-BOX,,Socks box,PCS,6,5,300,yes,,`].join('\n'),
+      { dry_run: false },
+    )
+    expect(batches.errors.map((e) => [e.row, e.code])).toEqual([[2, 'stock_on_hand']])
+    expect((await findBySku(shop, `${tag}-BOX`)).track_batches).toBe(false)
+  })
 })
 
 describe('template & export', () => {
@@ -447,5 +498,9 @@ describe('template & export', () => {
       tx.selectFrom('audit_logs').select('action').where('action', '=', 'product.export').execute(),
     )
     expect(audits).toHaveLength(1)
+    // Low stock (no stock, reorder level 25) narrows the export like the list.
+    const low = await req(shop).get(`/products/export?q=${tag}&low_stock=true`)
+    expect(low.statusCode, low.body).toBe(200)
+    expect(parseCsvTable(low.body).rows.map((r) => r.values.sku)).toEqual([`${tag}-1`])
   })
 })

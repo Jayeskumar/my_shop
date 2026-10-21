@@ -215,6 +215,18 @@ export async function generateVariants(
     }
   }
 
+  // The parent is no longer sold itself: its barcodes would scan to an unsellable product. It has
+  // no stock movements (checked above), so nothing was ever sold under them.
+  let removedBarcodes: string[] = []
+  if (parent.kind === 'standard') {
+    const removed = await tx
+      .deleteFrom('product_barcodes')
+      .where('tenant_id', '=', ctx.tenantId)
+      .where('product_id', '=', id)
+      .returning('barcode')
+      .execute()
+    removedBarcodes = removed.map((r) => r.barcode)
+  }
   const axesChanged = JSON.stringify(parent.variant_axes) !== JSON.stringify(order)
   if (parent.kind !== 'variant_parent' || axesChanged || parent.track_inventory) {
     await tx
@@ -230,7 +242,12 @@ export async function generateVariants(
       entity_type: 'product',
       entity_id: id,
       summary: `${parent.name}: ${String(createdIds.length)} variants created, ${String(skipped.length)} existing`,
-      changes: { axes: body.axes, created: createdIds.length, skipped: skipped.length },
+      changes: {
+        axes: body.axes,
+        created: createdIds.length,
+        skipped: skipped.length,
+        ...(removedBarcodes.length ? { removed_parent_barcodes: removedBarcodes } : {}),
+      },
     })
   }
 

@@ -30,7 +30,7 @@ import type { ProductBulkUpdateSchema } from '@kadai/shared/api/catalog'
 import type { z } from 'zod'
 import { audit, diffChanges } from '../../core/audit'
 import { assertWithinLimit } from '../../core/entitlements'
-import { assertNotStale, forbidden } from '../../core/errors'
+import { AppError, assertNotStale, forbidden } from '../../core/errors'
 import { getSettings } from '../../core/settings'
 import { jsonb } from '../../db/json'
 import type { Tx } from '../../db/tenant'
@@ -242,6 +242,17 @@ export async function assertBarcodesFree(
     })
 }
 
+/**
+ * A variant parent is not sold itself (each size / colour is), so its barcodes would scan to an
+ * unsellable product: barcodes go on the variants.
+ */
+export function variantParentBarcodeError(path: string): AppError {
+  return new AppError('UNPROCESSABLE', 'Barcodes belong on the variants, not the parent', {
+    reason: 'product_kind',
+    path,
+  })
+}
+
 /** Case barcodes of whole-unit products must represent whole units. */
 export function barcodeQtyOk(
   p: { decimal_qty: boolean; allow_loose: boolean },
@@ -296,6 +307,8 @@ export async function createProduct(
     allow_mrp_below_sale: body.allow_mrp_below_sale,
   })
   if (ruleIssues.length) ruleError(ruleIssues)
+  if (body.kind === 'variant_parent' && body.barcodes.length > 0)
+    throw variantParentBarcodeError('barcodes')
   body.barcodes.forEach((b, i) => {
     if (!barcodeQtyOk(draft, b.qty_milli))
       throw issue(`barcodes.${String(i)}.qty_milli`, 'barcode_qty_whole')
@@ -475,6 +488,23 @@ export async function productsHaveMovements(
   return res.rows.length > 0
 }
 
+/** True when the products (or their variants) hold stock (any store / batch with qty ≠ 0). */
+export async function productsHaveStock(
+  tx: Tx,
+  ctx: Pick<Ctx, 'tenantId'>,
+  ids: readonly string[],
+): Promise<boolean> {
+  if (ids.length === 0) return false
+  const res = await sql<{ x: number }>`
+    SELECT 1 AS x FROM stock_levels sl
+     WHERE sl.tenant_id = ${ctx.tenantId} AND sl.qty_milli <> 0
+       AND (sl.product_id = ANY(${[...ids]}::uuid[])
+            OR sl.product_id IN (SELECT id FROM products c
+                                  WHERE c.tenant_id = ${ctx.tenantId} AND c.parent_id = ANY(${[...ids]}::uuid[])))
+     LIMIT 1`.execute(tx)
+  return res.rows.length > 0
+}
+
 /**
  * Applies a variant parent's changed shared fields to its variants; a renamed parent renames
  * variants that still carry the old name prefix ("<parent> - M / Red").
@@ -643,13 +673,20 @@ export async function updateProduct(
   if (body.attributes !== undefined)
     patch.attributes = validateProductAttributes(env.tenant.business_type, body.attributes)
 
+  // Stock on hand fixes how the product is tracked: batch-less stock cannot be sold FEFO, and
+  // stock of a product that stops tracking inventory could never be adjusted or valued again.
+  let stockMemo: boolean | undefined
+  const hasStock = async (): Promise<boolean> =>
+    (stockMemo ??= await productsHaveStock(tx, ctx, [id]))
   const merged = { ...row, ...patch }
   const attributes = jsonObject(merged.attributes)
   if (
     (body.attributes !== undefined ||
       body.track_batches !== undefined ||
       body.kind !== undefined) &&
-    forcedTrackBatches(env, merged.kind, attributes)
+    forcedTrackBatches(env, merged.kind, attributes) &&
+    // Existing batch-less stock keeps the product batch-less (forcing would strand that stock).
+    (row.track_batches || !(await hasStock()))
   ) {
     merged.track_batches = true
     if (!row.track_batches) patch.track_batches = true
@@ -685,11 +722,29 @@ export async function updateProduct(
   })
   if (ruleIssues.length) ruleError(ruleIssues)
 
-  if (patch.unit !== undefined && patch.unit !== row.unit) {
-    if (await productsHaveMovements(tx, ctx, [id]))
+  if (row.track_inventory && !merged.track_inventory && (await hasStock()))
+    throw conflictReason(
+      'This product has stock; bring the stock to zero before it stops tracking inventory',
+      'stock_on_hand',
+      { field: merged.kind !== row.kind ? 'kind' : 'track_inventory' },
+    )
+  if (merged.track_batches !== row.track_batches && (await hasStock()))
+    throw conflictReason(
+      'Batch tracking cannot change while the product has stock',
+      'stock_on_hand',
+      { field: 'track_batches' },
+    )
+  const unitChange = patch.unit !== undefined && patch.unit !== row.unit
+  const packChange = patch.pack_size !== undefined && patch.pack_size !== row.pack_size
+  if ((unitChange || packChange) && (await productsHaveMovements(tx, ctx, [id]))) {
+    if (unitChange)
       throw conflictReason('The unit cannot change after stock movements', 'unit_in_use', {
         field: 'unit',
       })
+    // Stock costs are per pack: a new pack size would revalue the stock and its history.
+    throw conflictReason('The pack size cannot change after stock movements', 'pack_size_in_use', {
+      field: 'pack_size',
+    })
   }
   if (patch.sku && patch.sku.toLowerCase() !== (row.sku ?? '').toLowerCase())
     await assertSkuFree(tx, ctx, patch.sku, id)

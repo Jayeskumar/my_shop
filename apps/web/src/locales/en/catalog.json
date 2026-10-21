@@ -168,7 +168,7 @@
     "decimal_qty": "Allow decimal quantity",
     "decimal_qty_hint": "For weighed or measured items (1.25 kg, 2.5 m).",
     "decimal_qty_off": "This unit is counted in whole numbers only.",
-    "locked_hint": "The unit cannot change once the product has stock entries.",
+    "locked_hint": "The unit and pack size cannot change once the product has stock entries.",
     "pack_helper": "1 {{pack}} = {{count}} {{units}}",
     "per_unit_price": "{{price}} per {{unit}}",
     "per_unit_mrp": "MRP {{price}} per {{unit}}",
@@ -352,7 +352,8 @@
     "save_changes_other": "Save {{count}} changes",
     "saved_one": "{{count}} variant updated",
     "saved_other": "{{count}} variants updated",
-    "generate_none": "Create variants"
+    "generate_none": "Create variants",
+    "parent_barcodes_note": "Barcode {{codes}} will be removed from this product — each size / colour gets its own barcode."
   },
   "products": {
     "count_one": "{{count}} product",
@@ -690,7 +691,7 @@
     "col_meaning": "What to fill",
     "col_example": "Example",
     "step_upload": "Upload your file",
-    "step_upload_hint": "CSV or Excel (XLSX). Files with more than {{rows}} rows are imported in the background.",
+    "step_upload_hint": "A CSV file (from Excel: Save as → CSV UTF-8). Files with more than {{rows}} rows are imported in the background.",
     "mode": "If the product already exists",
     "mode_upsert": "Update it",
     "mode_upsert_hint": "Matching products get the new prices and details.",
@@ -704,7 +705,7 @@
     "create_brands": "Create missing brands",
     "choose_file": "Choose a file",
     "drop": "Click to choose a file, or drop it here",
-    "drop_hint": "CSV or XLSX, up to 10 MB",
+    "drop_hint": "CSV file, up to 10 MB",
     "uploading": "Uploading…",
     "step_check": "Check",
     "step_check_hint": "Kadai checks every row first. Nothing is saved yet.",
@@ -750,8 +751,8 @@
       "brands_created_other": "{{count}} brands created",
       "variants_created_one": "{{count}} variant created",
       "variants_created_other": "{{count}} variants created",
-      "barcodes_created_one": "{{count}} barcode added",
-      "barcodes_created_other": "{{count}} barcodes added"
+      "barcodes_added_one": "{{count}} barcode added",
+      "barcodes_added_other": "{{count}} barcodes added"
     }
   },
   "store_prices": {
@@ -824,7 +825,7 @@
     "kind_change": "This product type cannot be changed.",
     "variant_axes_mismatch": "Use the same kinds (size / colour) as the existing variants.",
     "variant_parent_kind": "Sizes and colours can be added only to a normal product.",
-    "import_format": "The file could not be read — save it as CSV (UTF-8) or XLSX.",
+    "import_format": "The file could not be read — in Excel use “Save as → CSV UTF-8”, then upload that file.",
     "import_header_missing": "A required column is missing in the first row.",
     "import_too_many_rows": "The file has too many rows (50,000 maximum).",
     "barcode_qty_whole": "Box quantity must be whole pieces.",
@@ -844,11 +845,14 @@
     "barcode_taken": "This barcode belongs to another product.",
     "sku_taken": "Another product already has this SKU.",
     "scale_plu_taken": "Another product already uses this scale code.",
-    "name_taken": "This name is already used."
+    "name_taken": "This name is already used.",
+    "pack_size_in_use": "The pack size cannot change after stock entries — stock costs are per pack. Create a new product for the new pack.",
+    "stock_on_hand": "This product still has stock. Bring the stock to zero (stock adjustment) before changing how it is tracked.",
+    "all_stores_required": "This offer covers stores you do not manage. Choose only your stores, or ask the owner."
   },
   "import_errors": {
     "file_empty": "The file is empty.",
-    "import_format": "The file could not be read — save it as CSV (UTF-8) or XLSX.",
+    "import_format": "The file could not be read — in Excel use “Save as → CSV UTF-8”, then upload that file.",
     "import_header_missing": "A required column is missing in the first row.",
     "import_too_many_rows": "Too many rows in the file.",
     "required": "This value is required.",
@@ -886,6 +890,9 @@
     "service_tracks_stock": "A service cannot keep stock.",
     "unit_in_use": "Unit cannot change after stock entries.",
     "plan_limit": "Your plan’s product limit is reached.",
-    "write_failed": "This row could not be saved."
+    "write_failed": "This row could not be saved.",
+    "pack_size_in_use": "Pack size cannot change after stock entries.",
+    "stock_on_hand": "Batch tracking cannot change while the product has stock.",
+    "parent_barcode": "Barcodes go on the sizes / colours, not on the main product — this barcode was not saved."
   }
 }

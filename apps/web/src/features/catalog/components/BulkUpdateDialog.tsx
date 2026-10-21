@@ -12,6 +12,7 @@ import {
   catalogRoutes,
 } from '@kadai/shared/api/catalog'
 import type { GstRateBp } from '@kadai/shared/gst'
+import { newId } from '@kadai/shared/ids'
 import { type FormEvent, type ReactNode, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BrandPicker, type BrandPickerValue, CategoryPicker } from '@/components/pickers'
@@ -59,6 +60,8 @@ export function BulkUpdateDialog({ open, onOpenChange, ids, rows, onDone }: Bulk
   const [setPrice, setSetPrice] = useState<number | null>(null)
   const [round, setRound] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** One key per dialog: a double submit or a retried request applies the change once. */
+  const [idempotencyKey] = useState(() => newId())
 
   const mutation = useRouteMutation(catalogRoutes.bulkUpdateProducts, {
     invalidates: [catalogRoutes.listProducts],
@@ -115,7 +118,7 @@ export function BulkUpdateDialog({ open, onOpenChange, ids, rows, onDone }: Bulk
       return
     }
     mutation.mutate(
-      { body },
+      { body, idempotencyKey },
       {
         onSuccess: (res) => {
           const r = res.data
