@@ -8,6 +8,7 @@ import {
   DeviceCreateResultSchema,
   DeviceCreateSchema,
   DeviceListQuerySchema,
+  FILE_UPLOAD_PERMISSIONS,
   FILE_UPLOAD_RULES,
   FileSchema,
   FileUploadQuerySchema,
@@ -36,6 +37,9 @@ import {
   documentPath,
   fileUploadIssue,
   formatSeriesNumber,
+  IDENTITY_ERROR_REASONS,
+  IDENTITY_VALIDATION_KEYS,
+  TEMPORARY_PASSWORD_RE,
   identityRoutes,
   parseCsv,
   parseCsvTable,
@@ -632,5 +636,30 @@ describe('user directory', () => {
     })
     expect(routePermissions(r.userDirectory)).toEqual([])
     expect(r.userDirectory.path).toBe('/users/directory')
+  })
+})
+
+describe('backend additions (CONTRACT CHANGELOG)', () => {
+  it('upload permissions are valid codes for every upload purpose', () => {
+    expect(Object.keys(FILE_UPLOAD_PERMISSIONS).sort()).toEqual(
+      Object.keys(FILE_UPLOAD_RULES).sort(),
+    )
+    for (const perms of Object.values(FILE_UPLOAD_PERMISSIONS)) {
+      for (const p of perms) expect(PERMISSION_CODES).toContain(p)
+    }
+    expect(FILE_UPLOAD_PERMISSIONS.attachment).toEqual([])
+  })
+
+  it('error reasons and validation keys are unique snake_case keys', () => {
+    for (const list of [IDENTITY_ERROR_REASONS, IDENTITY_VALIDATION_KEYS]) {
+      expect(new Set(list).size).toBe(list.length)
+      for (const key of list) expect(key).toMatch(/^[a-z][a-z0-9_]*$/)
+    }
+  })
+
+  it('temporary passwords are three groups of four unambiguous characters', () => {
+    expect(TEMPORARY_PASSWORD_RE.test('k7mq-9x4p-a2bd')).toBe(true)
+    expect(TEMPORARY_PASSWORD_RE.test('k7mq9x4pa2bd')).toBe(false)
+    expect(TEMPORARY_PASSWORD_RE.test('K7MQ-9X4P-A2BD')).toBe(false)
   })
 })
