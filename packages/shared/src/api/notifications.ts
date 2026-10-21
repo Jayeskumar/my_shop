@@ -10,6 +10,10 @@
 // - NotificationListResponseSchema.summary: documented as facet counts — by_status ignores the
 //   `status` filter and by_channel ignores the `channel` filter (all other filters apply).
 // - New PROVIDER_TEMPLATE_ID_RE / WHATSAPP_TEMPLATE_NAME_RE (format rules of provider_template_id).
+// - NOTIFICATION_ERROR_CODES: + 'tenant_inactive' (cancelled: the business is suspended / closed,
+//   so its queued messages are not sent), with NOTIFICATION_ERROR_LABELS.tenant_inactive.
+// - (web) NOTIFICATION_TEMPLATES.payment_link.description.en: dropped the "(POST /payments/links)"
+//   API path — the description is shown to shopkeepers on the settings page (text-only change).
 
 /**
  * Contract for the notifications module — docs/API.md "notifications"; ARCHITECTURE.md §15.
@@ -128,6 +132,7 @@ export const NOTIFICATION_STATUS_LABELS: Readonly<Record<NotificationStatus, Bil
  */
 export const NOTIFICATION_ERROR_CODES = [
   // cancelled before sending
+  'tenant_inactive', // the business is suspended / closed
   'whatsapp_opt_out', // the customer opted out of WhatsApp
   'feature_not_in_plan', // the plan has no 'notifications' feature (SMS / WhatsApp)
   'disabled_in_settings', // settings.notifications switched this message off
@@ -146,6 +151,10 @@ export const NOTIFICATION_ERROR_CODES = [
 export type NotificationErrorCode = (typeof NOTIFICATION_ERROR_CODES)[number]
 
 export const NOTIFICATION_ERROR_LABELS: Readonly<Record<NotificationErrorCode, BilingualLabel>> = {
+  tenant_inactive: {
+    en: 'The business account is suspended or closed',
+    ta: 'கடையின் கணக்கு நிறுத்தி வைக்கப்பட்டுள்ளது / மூடப்பட்டுள்ளது',
+  },
   whatsapp_opt_out: {
     en: 'Customer opted out of WhatsApp',
     ta: 'வாடிக்கையாளர் வாட்ஸ்அப் செய்திகளை விரும்பவில்லை',
@@ -501,7 +510,7 @@ export const NOTIFICATION_TEMPLATES: Readonly<
     audience: 'customer',
     label: { en: 'Payment link', ta: 'பணம் செலுத்தும் இணைப்பு' },
     description: {
-      en: 'UPI payment link for an amount (POST /payments/links)',
+      en: 'UPI payment link for an amount',
       ta: 'ஒரு தொகைக்கான UPI பணம் செலுத்தும் இணைப்பு',
     },
     channels: ['whatsapp', 'sms'],

@@ -168,11 +168,26 @@ interface ReminderInput {
   shop: ShopInfo
   customer: { id: string; name: string; name_ta: string | null }
   amount_paise: number
+  /** Business date the due started (oldest unpaid bill; see dueSinceDate). */
+  due_since: string | null
   locale: Locale
   store_id: string | null
   include_link: boolean
   today: string
   now: Date
+}
+
+/**
+ * Business date the customer's due started: the oldest unpaid bill, else (a due carried over as
+ * the opening balance only) the day the customer was added.
+ */
+export async function dueSinceDate(
+  tx: Tx,
+  ctx: Pick<RequestContext, 'tenantId'>,
+  customer: { id: string; created_at: Date },
+  timezone: string,
+): Promise<string> {
+  return (await oldestDueDate(tx, ctx, customer.id)) ?? toDateStr(customer.created_at, timezone)
 }
 
 interface BuiltReminder {
@@ -199,8 +214,7 @@ async function buildReminder(
     input.locale === 'ta' && input.customer.name_ta?.trim()
       ? input.customer.name_ta.trim()
       : input.customer.name
-  const oldest = await oldestDueDate(tx, ctx, input.customer.id)
-  const days = oldest ? Math.max(0, diffDays(oldest, input.today)) : 0
+  const days = input.due_since ? Math.max(0, diffDays(input.due_since, input.today)) : 0
   const shopPhone = input.shop.phone ? formatPhoneDisplay(input.shop.phone) : null
   let link: DueLink | null = null
   let linkText: string | null = null
@@ -247,7 +261,16 @@ export async function remindCustomer(
   const registry = installNotificationProviders(deps.config, deps.logger)
   const customer = await tx
     .selectFrom('customers')
-    .select(['id', 'name', 'name_ta', 'phone', 'balance_paise', 'whatsapp_opt_in', 'is_active'])
+    .select([
+      'id',
+      'name',
+      'name_ta',
+      'phone',
+      'balance_paise',
+      'whatsapp_opt_in',
+      'is_active',
+      'created_at',
+    ])
     .where('tenant_id', '=', ctx.tenantId)
     .where('id', '=', customerId)
     .forUpdate()
@@ -279,6 +302,7 @@ export async function remindCustomer(
     shop,
     customer,
     amount_paise: amount,
+    due_since: await dueSinceDate(tx, ctx, customer, shop.timezone),
     locale,
     store_id: storeId,
     include_link: body.include_payment_link,
@@ -439,6 +463,7 @@ export async function remindTenant(
         shop,
         customer: { id: r.id, name: r.name, name_ta: r.name_ta },
         amount_paise: Number(r.balance_paise),
+        due_since: r.oldest,
         locale,
         store_id: r.store_id,
         include_link: true,

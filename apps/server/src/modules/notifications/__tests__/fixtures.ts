@@ -339,7 +339,12 @@ export interface FakeHttpServer {
   url: string
   requests: RecordedRequest[]
   /** Next responses (shifted per request); default 200 {}. */
-  respond: Array<{ status: number; body?: unknown; headers?: Record<string, string>; delayMs?: number }>
+  respond: Array<{
+    status: number
+    body?: unknown
+    headers?: Record<string, string>
+    delayMs?: number
+  }>
   close(): Promise<void>
 }
 
@@ -357,7 +362,13 @@ export async function startFakeServer(): Promise<FakeHttpServer> {
       } catch {
         json = null
       }
-      requests.push({ method: req.method ?? '', url: req.url ?? '', headers: req.headers, body, json })
+      requests.push({
+        method: req.method ?? '',
+        url: req.url ?? '',
+        headers: req.headers,
+        body,
+        json,
+      })
       const r = respond.shift() ?? { status: 200, body: {} }
       const send = () => {
         res.writeHead(r.status, { 'content-type': 'application/json', ...r.headers })

@@ -5,7 +5,7 @@
  * One delivery attempt:
  *   1. tenant tx — claim the row atomically (queued → sending, attempts + 1; a duplicate job or a
  *      second worker finds nothing to claim), then decide whether it may be sent at all:
- *        plan feature 'notifications' (SMS / WhatsApp), settings.notifications switches of the
+ *        an active business, plan feature 'notifications' (SMS / WhatsApp), settings.notifications switches of the
  *        owner digests, the customer's WhatsApp opt-in, a provider for the channel (production:
  *        a live one) → otherwise status 'cancelled' with the reason;
  *      render with the tenant override or the default (buildOutboundMessage: WhatsApp template
@@ -216,6 +216,15 @@ export async function processNotification(
       const def = NOTIFICATION_TEMPLATES[code]
       if (!def.channels.includes(channel))
         return fail('template_unavailable', `${code} has no ${channel} text`)
+
+      // A suspended / closed business sends nothing more (e.g. suspended for spam).
+      const tenant = await tx
+        .selectFrom('tenants')
+        .select('status')
+        .where('id', '=', job.tenant_id)
+        .executeTakeFirst()
+      if (tenant?.status !== 'active')
+        return cancel('tenant_inactive', `tenant ${tenant?.status ?? 'missing'}`)
 
       if (channel !== 'email') {
         const ent = await deps.entitlements.get(job.tenant_id)

@@ -58,10 +58,12 @@ deployment/tuning variables:
 | `KADAI_VERSION` | package version | set by the image / installers; shown in `/health/*`, logs and `kadai_build_info`. |
 | `METRICS_TOKEN` | — | bearer token for `GET /metrics` (required in cloud deployments). |
 | `LOG_LEVEL`, `LOG_PRETTY` | `info`, off in production | JSON logs on stdout. |
+| `NOTIFICATION_PROVIDER_TIMEOUT_MS` | `10000` | timeout of one SMS / WhatsApp / e-mail provider call (a timeout is retried). |
+| `MSG91_BASE_URL` / `WHATSAPP_BASE_URL` | `https://control.msg91.com` / `https://graph.facebook.com` | provider API base URLs (egress proxies, tests). |
 
 **Secrets as files.** The container entrypoint reads `VAR_FILE=/path` for `DATABASE_URL`,
 `DATABASE_SYSTEM_URL`, `JWT_SECRET`, `KADAI_ENCRYPTION_KEYS`, `METRICS_TOKEN`, `REDIS_URL`, S3 keys,
-MSG91/WhatsApp/SMTP/Razorpay secrets (Docker/Kubernetes secrets, systemd credentials).
+MSG91/WhatsApp/SMTP/e-mail webhook/Razorpay secrets (Docker/Kubernetes secrets, systemd credentials).
 
 ### Generating secrets
 
@@ -375,20 +377,49 @@ without webhooks. Outbound HTTPS to `api.razorpay.com` must be allowed.
    (OTP, invoice link, due reminder; Tamil templates are Unicode, 70 characters per part) with
    `{#var#}` placeholders exactly matching what Kadai sends → **template IDs**.
 3. MSG91: add the entity id and templates, then set `SMS_PROVIDER=msg91`, `MSG91_AUTH_KEY`,
-   `MSG91_SENDER_ID`, `MSG91_DLT_ENTITY_ID`, `MSG91_OTP_TEMPLATE_ID` (other templates per tenant in
-   notification templates, `provider_template_id`). Messages that do not match a registered
-   template are dropped by the operator.
+   `MSG91_SENDER_ID`, `MSG91_DLT_ENTITY_ID`, `MSG91_OTP_TEMPLATE_ID` (required with msg91). Each
+   default text that should go by SMS needs its MSG91 Flow template id (linked to the DLT
+   template) in `MSG91_TEMPLATE_<CODE>`: `MSG91_TEMPLATE_INVOICE_SHARE`,
+   `MSG91_TEMPLATE_PAYMENT_RECEIPT`, `MSG91_TEMPLATE_DUE_REMINDER`, `MSG91_TEMPLATE_PAYMENT_LINK`,
+   `MSG91_TEMPLATE_DAILY_SUMMARY`, `MSG91_TEMPLATE_PO_TO_SUPPLIER`, `MSG91_TEMPLATE_WELCOME`.
+   The exact texts to register (placeholders as `{#var#}`, Flow variables named like the
+   placeholders: `##shop_name##`, `##due##`, …) come from `dltTemplateText()` of the defaults;
+   a shop's own SMS text (notification templates) carries its id in `provider_template_id`.
+   An SMS without a template id fails with `not_configured`; messages that do not match a
+   registered template are dropped by the operator.
+4. Delivery reports: in MSG91 set the webhook to
+   `https://<host>/webhooks/notifications/msg91?token=<MSG91_WEBHOOK_TOKEN>` and set
+   `MSG91_WEBHOOK_TOKEN` (`openssl rand -hex 24`; MSG91 does not sign reports, so without the
+   token anyone could post them).
 
 **WhatsApp (Meta WhatsApp Cloud API):** Meta Business account → app with the WhatsApp product →
 phone number id, a permanent System User token, the app secret. Set `WHATSAPP_PROVIDER=whatsapp_cloud`,
-`WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_APP_SECRET`,
-`WHATSAPP_WEBHOOK_VERIFY_TOKEN` (`openssl rand -hex 32`). Webhook callback URL
-`https://<host>/webhooks/notifications/whatsapp_cloud` with that verify token, subscribed to
-`messages` (delivery statuses). Templates (utility category, ta + en) must be approved by Meta;
-their names go into the tenant's notification templates.
+`WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN` (older name `WHATSAPP_TOKEN` is accepted),
+`WHATSAPP_APP_SECRET` (signature of the delivery callbacks — without it they are rejected),
+`WHATSAPP_WEBHOOK_VERIFY_TOKEN` (`openssl rand -hex 32`), optionally `WHATSAPP_API_VERSION`
+(`v21.0`). Webhook callback URL `https://<host>/webhooks/notifications/whatsapp_cloud` with that
+verify token, subscribed to `messages` (delivery statuses). Templates (utility category, ta + en)
+must be approved by Meta under the names `kadai_invoice_share`, `kadai_payment_receipt`,
+`kadai_due_reminder`, `kadai_payment_link`, `kadai_daily_summary`, `kadai_low_stock`,
+`kadai_expiry_alert`, `kadai_purchase_order`, `kadai_welcome` with the texts of
+`whatsappTemplateText()` (body parameters in placeholder order); a shop's own text names its own
+approved template. Templates approved with a dynamic URL button (`https://<host>/{{1}}`) are
+listed in `WHATSAPP_URL_BUTTON_TEMPLATES` (comma separated codes, e.g. `due_reminder,invoice_share`):
+the button then gets the link path.
 
-**E-mail:** `EMAIL_PROVIDER=smtp`, `SMTP_URL=smtps://user:password@smtp.example.in:465`,
-`SMTP_FROM="Kadai <no-reply@example.in>"` with SPF/DKIM set up for the domain.
+**E-mail:** this build bundles no SMTP client. Set `EMAIL_PROVIDER=email_webhook`,
+`EMAIL_WEBHOOK_URL` (a small relay of your choice: your mail provider's HTTP API behind a
+function, n8n, a Postfix sidecar…), `EMAIL_WEBHOOK_SECRET` and `EMAIL_FROM` (falls back to
+`SMTP_FROM`). Each e-mail is `POST`ed as JSON `{event: "notification.email", id, tenant_id,
+notification_id, template_code, locale, from, to, to_name, subject, text}` with headers
+`Idempotency-Key` and `X-Kadai-Signature: sha256=<hex HMAC-SHA256 of the raw body with the
+secret>`; answer 2xx (optionally `{"id": "<message id>"}`), 408/425/429/5xx are retried. Set up
+SPF/DKIM for the sending domain at the relay. `EMAIL_PROVIDER=smtp` is reserved and only logs a
+warning.
+
+In production a channel without a live provider is not "sent" to the log: its messages are
+cancelled with `channel_not_configured` (the outbox shows why). On-prem shops without their own
+provider use Kadai messaging (`kadai_relay`) when connected.
 
 `log` providers (default) only write messages to the server log — never use them in production
 for OTP (the server warns at boot).

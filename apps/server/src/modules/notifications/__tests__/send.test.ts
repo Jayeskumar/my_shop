@@ -86,7 +86,11 @@ describe('notifications.send', () => {
   const send = (s: TestShop, id: string) =>
     processNotification(t.deps, { tenant_id: s.tenant.id, notification_id: id })
   const row = (id: string) =>
-    t.deps.db.systemDb.selectFrom('notifications').selectAll().where('id', '=', id).executeTakeFirstOrThrow()
+    t.deps.db.systemDb
+      .selectFrom('notifications')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirstOrThrow()
 
   it('renders the Tamil default WhatsApp template and stores the outcome and usage', async () => {
     const before = await usage(shop, 'whatsapp')
@@ -282,15 +286,41 @@ describe('notifications.send', () => {
     expect(await send(s, id)).toEqual({ kind: 'cancelled', reason: 'disabled_in_settings' })
   })
 
+  it('cancels the queued messages of a suspended business (nothing reaches the provider)', async () => {
+    const s = await createTestTenant(t)
+    const id = await enqueue(s)
+    const mailId = await enqueue(s, { channel: 'email', to: 'owner@example.in' })
+    await t.deps.db.systemDb
+      .updateTable('tenants')
+      .set({ status: 'suspended' })
+      .where('id', '=', s.tenant.id)
+      .execute()
+    expect(await send(s, id)).toEqual({ kind: 'cancelled', reason: 'tenant_inactive' })
+    expect(await send(s, mailId)).toEqual({ kind: 'cancelled', reason: 'tenant_inactive' })
+    expect(await row(id)).toMatchObject({
+      status: 'cancelled',
+      error: 'tenant_inactive: tenant suspended',
+    })
+    expect(wa.sent).toHaveLength(0)
+    expect(mail.sent).toHaveLength(0)
+  })
+
   it('in production, cancels a channel without a live provider (log only)', async () => {
     useProviders([], { withLog: true })
     const id = await enqueue(shop)
     const prodDeps = { ...t.deps, config: { ...t.deps.config, isProduction: true } }
-    const out = await processNotification(prodDeps, { tenant_id: shop.tenant.id, notification_id: id })
+    const out = await processNotification(prodDeps, {
+      tenant_id: shop.tenant.id,
+      notification_id: id,
+    })
     expect(out).toEqual({ kind: 'cancelled', reason: 'channel_not_configured' })
     // Outside production the log provider "delivers" it.
     const id2 = await enqueue(shop)
-    expect(await send(shop, id2)).toMatchObject({ kind: 'sent', status: 'delivered', provider: 'log' })
+    expect(await send(shop, id2)).toMatchObject({
+      kind: 'sent',
+      status: 'delivered',
+      provider: 'log',
+    })
   })
 
   it('redacts the rendered body of sensitive templates (OTP)', async () => {
@@ -367,7 +397,10 @@ describe('notifications.send', () => {
     })
     const handler = jobs.find((j) => j.name === 'notifications.send')!.handler
     await expect(
-      handler({ id: 'j', name: 'notifications.send', data: { tenant_id: 'x' }, retryCount: 0 }, t.deps),
+      handler(
+        { id: 'j', name: 'notifications.send', data: { tenant_id: 'x' }, retryCount: 0 },
+        t.deps,
+      ),
     ).rejects.toThrow()
     const id = await enqueue(shop)
     await handler(

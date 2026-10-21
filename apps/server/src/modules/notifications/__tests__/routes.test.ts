@@ -219,7 +219,12 @@ describe('notifications routes', () => {
         await s.inject({ method: 'POST', url: api(`/notifications/${ids.wa}/retry`) }),
         200,
       ).data
-      expect(retried).toMatchObject({ status: 'queued', attempts: 0, error: null, can_retry: false })
+      expect(retried).toMatchObject({
+        status: 'queued',
+        attempts: 0,
+        error: null,
+        can_retry: false,
+      })
       const audits = await t.deps.db.systemDb
         .selectFrom('audit_logs')
         .select('action')
@@ -232,7 +237,10 @@ describe('notifications routes', () => {
 
     it('keeps tenants apart and needs settings.manage', async () => {
       errorOf(await other.inject({ method: 'GET', url: api(`/notifications/${ids.wa}`) }), 404)
-      errorOf(await other.inject({ method: 'POST', url: api(`/notifications/${ids.wa}/retry`) }), 404)
+      errorOf(
+        await other.inject({ method: 'POST', url: api(`/notifications/${ids.wa}/retry`) }),
+        404,
+      )
       const theirs = expectStatus<NotificationListResponse>(
         await other.inject({ method: 'GET', url: api('/notifications') }),
         200,
@@ -258,7 +266,12 @@ describe('notifications routes', () => {
 
     it('queues a template message in the business locale, audited', async () => {
       const n = expectStatus<{ data: Notification }>(
-        await shop.inject({ method: 'POST', url: api('/notifications/send'), payload: body, as: sender }),
+        await shop.inject({
+          method: 'POST',
+          url: api('/notifications/send'),
+          payload: body,
+          as: sender,
+        }),
         201,
       ).data
       expect(n).toMatchObject({
@@ -318,13 +331,19 @@ describe('notifications routes', () => {
       const cases: Array<[Record<string, unknown>, string]> = [
         [{ ...body, to: '12345' }, 'recipient_phone'],
         [{ ...body, channel: 'email', to: 'not-an-email' }, 'recipient_email'],
-        [{ ...body, template_code: 'otp', channel: 'sms', params: { otp: '1234', minutes: 5 } }, 'template_not_adhoc'],
+        [
+          { ...body, template_code: 'otp', channel: 'sms', params: { otp: '1234', minutes: 5 } },
+          'template_not_adhoc',
+        ],
         [{ ...body, template_code: 'daily_summary' }, 'template_not_adhoc'],
         [{ ...body, template_code: 'due_reminder', channel: 'email' }, 'template_channel'],
         [{ ...body, template_code: 'free_text', params: { text: 'hi' } }, 'template_code'],
       ]
       for (const [payload, needle] of cases) {
-        const e = errorOf(await shop.inject({ method: 'POST', url: api('/notifications/send'), payload }), 400)
+        const e = errorOf(
+          await shop.inject({ method: 'POST', url: api('/notifications/send'), payload }),
+          400,
+        )
         expect(e.code).toBe('VALIDATION_ERROR')
         expect(JSON.stringify(e.details), needle).toContain(needle)
       }
@@ -342,7 +361,11 @@ describe('notifications routes', () => {
     it('refuses WhatsApp to a customer who opted out (422)', async () => {
       const c = await insertCustomer(t, shop, { whatsapp_opt_in: false })
       const e = errorOf(
-        await shop.inject({ method: 'POST', url: api('/notifications/send'), payload: { ...body, to: c.phone } }),
+        await shop.inject({
+          method: 'POST',
+          url: api('/notifications/send'),
+          payload: { ...body, to: c.phone },
+        }),
         422,
       )
       expect(e.details).toMatchObject({ reason: 'whatsapp_opt_out' })
@@ -358,7 +381,12 @@ describe('notifications routes', () => {
 
     it('needs notifications.send and the plan feature', async () => {
       const denied = errorOf(
-        await shop.inject({ method: 'POST', url: api('/notifications/send'), payload: body, as: cashier }),
+        await shop.inject({
+          method: 'POST',
+          url: api('/notifications/send'),
+          payload: body,
+          as: cashier,
+        }),
         403,
       )
       expect(denied.details).toMatchObject({ required: ['notifications.send'] })
@@ -366,7 +394,10 @@ describe('notifications routes', () => {
         await free.inject({ method: 'POST', url: api('/notifications/send'), payload: body }),
         402,
       )
-      expect(plan).toMatchObject({ code: 'FEATURE_NOT_IN_PLAN', details: { feature: 'notifications' } })
+      expect(plan).toMatchObject({
+        code: 'FEATURE_NOT_IN_PLAN',
+        details: { feature: 'notifications' },
+      })
     })
 
     it('is rate limited per business (30 per minute)', async () => {
@@ -421,7 +452,10 @@ describe('notifications routes', () => {
       expect(waTa.body).toContain('நினைவூட்டல்')
       expect(waTa.placeholders).toContainEqual({ key: 'due', required: true })
       expect(waTa.sample).toMatchObject({ customer_name: 'லட்சுமி' })
-      expect(cat.templates.filter((e) => e.code === 'otp').map((e) => e.channel)).toEqual(['sms', 'sms'])
+      expect(cat.templates.filter((e) => e.code === 'otp').map((e) => e.channel)).toEqual([
+        'sms',
+        'sms',
+      ])
       expect(cat.providers.map((p) => p.channel)).toEqual(['whatsapp', 'sms', 'email'])
       expect(cat.providers.every((p) => p.provider === 'log' && !p.live)).toBe(true)
       expect(cat.settings).toMatchObject({ whatsapp_invoice: true, due_reminder_days: [7, 15, 30] })
@@ -469,7 +503,11 @@ describe('notifications routes', () => {
         await s.inject({
           method: 'PUT',
           url: url('due_reminder', 'sms', 'ta'),
-          payload: { body: '{{shop_name}}: நிலுவை {{due}}', provider_template_id: 'flow-2', is_active: false },
+          payload: {
+            body: '{{shop_name}}: நிலுவை {{due}}',
+            provider_template_id: 'flow-2',
+            is_active: false,
+          },
         }),
         200,
       ).data
@@ -478,7 +516,10 @@ describe('notifications routes', () => {
 
       // Other tenants keep the defaults.
       const theirs = expectStatus<{ data: NotificationTemplateCatalog }>(
-        await other.inject({ method: 'GET', url: api('/notification-templates?code=due_reminder&channel=sms&locale=ta') }),
+        await other.inject({
+          method: 'GET',
+          url: api('/notification-templates?code=due_reminder&channel=sms&locale=ta'),
+        }),
         200,
       ).data.templates[0]!
       expect(theirs.is_override).toBe(false)
@@ -508,7 +549,10 @@ describe('notifications routes', () => {
         await s.inject({
           method: 'PUT',
           url: url('due_reminder', 'whatsapp', 'en'),
-          payload: { body: 'Hi {{customer_name}}, pay {{due}} at {{upi_id}}', provider_template_id: 'kadai_due_v2' },
+          payload: {
+            body: 'Hi {{customer_name}}, pay {{due}} at {{upi_id}}',
+            provider_template_id: 'kadai_due_v2',
+          },
         }),
         400,
       )
@@ -525,10 +569,16 @@ describe('notifications routes', () => {
         400,
       )
       expect(missing.details).toMatchObject({ missing_placeholders: ['due'] })
-      const codes = (missing.details as { issues: Array<{ code: string }> }).issues.map((i) => i.code)
+      const codes = (missing.details as { issues: Array<{ code: string }> }).issues.map(
+        (i) => i.code,
+      )
       expect(codes).toEqual(['missing_required_placeholder', 'dlt_template_id_required'])
       const wa = errorOf(
-        await s.inject({ method: 'PUT', url: url('due_reminder', 'whatsapp', 'en'), payload: { body: 'Due {{due}}' } }),
+        await s.inject({
+          method: 'PUT',
+          url: url('due_reminder', 'whatsapp', 'en'),
+          payload: { body: 'Due {{due}}' },
+        }),
         400,
       )
       expect(JSON.stringify(wa.details)).toContain('whatsapp_template_required')
@@ -542,7 +592,11 @@ describe('notifications routes', () => {
       )
       expect(JSON.stringify(badName.details)).toContain('provider_template_id_invalid')
       const subject = errorOf(
-        await s.inject({ method: 'PUT', url: url('payment_receipt', 'email', 'ta'), payload: { body: 'பெற்றோம் {{amount}}' } }),
+        await s.inject({
+          method: 'PUT',
+          url: url('payment_receipt', 'email', 'ta'),
+          payload: { body: 'பெற்றோம் {{amount}}' },
+        }),
         400,
       )
       expect(JSON.stringify(subject.details)).toContain('subject_required')
@@ -556,24 +610,37 @@ describe('notifications routes', () => {
       )
       expect(JSON.stringify(syntax.details)).toContain('template_syntax')
       const channel = errorOf(
-        await s.inject({ method: 'PUT', url: url('otp', 'whatsapp', 'en'), payload: { body: '{{otp}}', provider_template_id: 'x' } }),
+        await s.inject({
+          method: 'PUT',
+          url: url('otp', 'whatsapp', 'en'),
+          payload: { body: '{{otp}}', provider_template_id: 'x' },
+        }),
         400,
       )
       expect(JSON.stringify(channel.details)).toContain('template_channel')
-      errorOf(await s.inject({ method: 'PUT', url: url('nope', 'sms', 'en'), payload: { body: 'x' } }), 400)
+      errorOf(
+        await s.inject({ method: 'PUT', url: url('nope', 'sms', 'en'), payload: { body: 'x' } }),
+        400,
+      )
       // A valid e-mail override with a section.
       expectStatus(
         await s.inject({
           method: 'PUT',
           url: url('payment_receipt', 'email', 'en'),
-          payload: { subject: '{{shop_name}} receipt', body: 'Got {{amount}}{{#balance}}, due {{balance}}{{/balance}}.' },
+          payload: {
+            subject: '{{shop_name}} receipt',
+            body: 'Got {{amount}}{{#balance}}, due {{balance}}{{/balance}}.',
+          },
         }),
         200,
       )
     })
 
     it('needs settings.manage (and the plan feature to save)', async () => {
-      errorOf(await shop.inject({ method: 'GET', url: api('/notification-templates'), as: cashier }), 403)
+      errorOf(
+        await shop.inject({ method: 'GET', url: api('/notification-templates'), as: cashier }),
+        403,
+      )
       errorOf(
         await shop.inject({
           method: 'PUT',

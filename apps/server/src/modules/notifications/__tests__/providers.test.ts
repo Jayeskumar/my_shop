@@ -81,7 +81,10 @@ describe('msg91 provider (Flow API)', () => {
     })
 
   it('posts the DLT flow with the auth key, template id and named variables', async () => {
-    server.respond.push({ status: 200, body: { type: 'success', message: '3561707a6c4a373833383334' } })
+    server.respond.push({
+      status: 200,
+      body: { type: 'success', message: '3561707a6c4a373833383334' },
+    })
     const out = await sendWithProvider(provider(), message('sms'))
     expect(out).toMatchObject({
       ok: true,
@@ -117,9 +120,17 @@ describe('msg91 provider (Flow API)', () => {
   })
 
   it('fails permanently without a DLT template id or auth key (no HTTP call)', async () => {
-    const out = await sendWithProvider(provider(), message('sms', { code: 'welcome', params: {
-      shop_name: 'S', customer_name: 'C', link: null,
-    } }))
+    const out = await sendWithProvider(
+      provider(),
+      message('sms', {
+        code: 'welcome',
+        params: {
+          shop_name: 'S',
+          customer_name: 'C',
+          link: null,
+        },
+      }),
+    )
     expect(out.ok).toBe(false)
     if (!out.ok) expect(out.error).toMatchObject({ kind: 'permanent', code: 'not_configured' })
     const noKey = createMsg91Provider({
@@ -137,7 +148,10 @@ describe('msg91 provider (Flow API)', () => {
   })
 
   it('classifies failures: 200 type=error permanent, 5xx / 429 retryable with Retry-After', async () => {
-    server.respond.push({ status: 200, body: { type: 'error', message: 'Mobile number not valid' } })
+    server.respond.push({
+      status: 200,
+      body: { type: 'error', message: 'Mobile number not valid' },
+    })
     const a = await sendWithProvider(provider(), message('sms'))
     expect(a.ok).toBe(false)
     if (!a.ok) expect(a.error).toMatchObject({ kind: 'permanent', code: 'invalid_recipient' })
@@ -150,7 +164,11 @@ describe('msg91 provider (Flow API)', () => {
     server.respond.push({ status: 429, body: {}, headers: { 'retry-after': '120' } })
     const c = await sendWithProvider(provider(), message('sms'))
     if (!c.ok)
-      expect(c.error).toMatchObject({ kind: 'retryable', code: 'rate_limited', retry_after_seconds: 120 })
+      expect(c.error).toMatchObject({
+        kind: 'retryable',
+        code: 'rate_limited',
+        retry_after_seconds: 120,
+      })
     else expect.unreachable()
 
     server.respond.push({ status: 401, body: { type: 'error', message: 'Authentication failure' } })
@@ -212,7 +230,10 @@ describe('whatsapp_cloud provider (Meta Graph API)', () => {
       whatsapp: { ...m.whatsapp!, button_url_param: 'pay/KD7Q2M9X4B1Z' },
     }
     const out = await sendWithProvider(provider(), withButton)
-    expect(out).toMatchObject({ ok: true, result: { provider_message_id: 'wamid.HBgM123', status: 'sent' } })
+    expect(out).toMatchObject({
+      ok: true,
+      result: { provider_message_id: 'wamid.HBgM123', status: 'sent' },
+    })
     const req = server.requests[0]!
     expect(req.url).toBe('/v20.0/1098765432/messages')
     expect(req.headers.authorization).toBe('Bearer EAAG-token')
@@ -256,7 +277,10 @@ describe('whatsapp_cloud provider (Meta Graph API)', () => {
     if (!a.ok) expect(a.error).toMatchObject({ kind: 'permanent', code: 'invalid_recipient' })
     else expect.unreachable()
 
-    server.respond.push({ status: 400, body: { error: { message: 'Rate limit hit', code: 130429 } } })
+    server.respond.push({
+      status: 400,
+      body: { error: { message: 'Rate limit hit', code: 130429 } },
+    })
     const b = await sendWithProvider(provider(), message('whatsapp'))
     if (!b.ok) expect(b.error).toMatchObject({ kind: 'retryable', code: 'rate_limited' })
     else expect.unreachable()
@@ -271,7 +295,10 @@ describe('whatsapp_cloud provider (Meta Graph API)', () => {
     if (!d.ok) expect(d.error.kind).toBe('retryable')
     else expect.unreachable()
 
-    expect(classifyWhatsAppError(400, 132001)).toEqual({ kind: 'permanent', code: 'provider_error' })
+    expect(classifyWhatsAppError(400, 132001)).toEqual({
+      kind: 'permanent',
+      code: 'provider_error',
+    })
   })
 
   it('needs credentials and an approved template', async () => {
@@ -303,7 +330,10 @@ describe('email_webhook provider', () => {
     })
     const m = message('email', { to: 'lakshmi@example.in', locale: 'en' })
     const out = await sendWithProvider(p, m)
-    expect(out).toMatchObject({ ok: true, result: { provider_message_id: 'mail-77', status: 'sent' } })
+    expect(out).toMatchObject({
+      ok: true,
+      result: { provider_message_id: 'mail-77', status: 'sent' },
+    })
     const req = server.requests[0]!
     expect(req.url).toBe('/mail')
     expect(req.headers['idempotency-key']).toBe(m.idempotency_key)
@@ -323,7 +353,12 @@ describe('email_webhook provider', () => {
   })
 
   it('retries 5xx and fails 4xx; unconfigured fails permanently', async () => {
-    const p = createEmailWebhookProvider({ url: server.url, secret: null, from: 'x@y.in', timeoutMs: 2000 })
+    const p = createEmailWebhookProvider({
+      url: server.url,
+      secret: null,
+      from: 'x@y.in',
+      timeoutMs: 2000,
+    })
     server.respond.push({ status: 503 })
     const a = await sendWithProvider(p, message('email', { to: 'a@b.in' }))
     if (!a.ok) expect(a.error.kind).toBe('retryable')
@@ -377,11 +412,19 @@ describe('log provider, env selection and status cards', () => {
       EMAIL_PROVIDER: 'email_webhook',
       EMAIL_WEBHOOK_URL: 'https://mail.example.in/hook/',
     })
-    expect(config.sms.msg91.templateIds).toMatchObject({ due_reminder: 'flow-due', otp: 'otp-flow' })
+    expect(config.sms.msg91.templateIds).toMatchObject({
+      due_reminder: 'flow-due',
+      otp: 'otp-flow',
+    })
     expect(config.whatsapp.accessToken).toBe('legacy-token-name')
     expect(config.email.webhookUrl).toBe('https://mail.example.in/hook')
     const providers = buildNotificationProviders(config, { info: () => undefined })
-    expect(providers.map((p) => p.code)).toEqual(['log', 'msg91', 'whatsapp_cloud', 'email_webhook'])
+    expect(providers.map((p) => p.code)).toEqual([
+      'log',
+      'msg91',
+      'whatsapp_cloud',
+      'email_webhook',
+    ])
     const registry = createNotificationProviderRegistry(providers)
     const statuses = providerStatuses(registry)
     expect(statuses).toEqual([
