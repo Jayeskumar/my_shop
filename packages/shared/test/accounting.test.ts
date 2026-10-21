@@ -42,6 +42,7 @@ describe('default chart of accounts (ARCHITECTURE §8.3)', () => {
       cogs: '5100',
       inventory_adjustment: '5200',
       inventory_writeoff: '5210',
+      cash_short_excess: '5250',
       bank_charges: '5360',
       discount_allowed: '5400',
     })
