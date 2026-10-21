@@ -274,6 +274,7 @@ export function ExpenseFormDialog({
             </Button>
             <Button
               variant="secondary"
+              className="px-2 sm:px-4"
               onClick={() => submit(true)}
               disabled={busy}
               loading={mutation.isPending && addAnother}

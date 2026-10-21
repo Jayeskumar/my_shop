@@ -46,6 +46,9 @@ const SORTS = ['opened_at', 'closed_at', 'difference_paise'] as const
 const PAGE_SIZES = [20, 50, 100, 200] as const
 const STATUSES = ['all', 'open', 'closed'] as const
 const DIFFERENCES = ['all', ...ShiftDifferenceStatusSchema.options] as const
+/** Half-width buttons on phones: long (Tamil) labels wrap instead of overflowing. */
+const WRAP_ON_PHONE =
+  'h-auto min-h-10 whitespace-normal px-2 py-2 text-center leading-tight sm:h-10 sm:whitespace-nowrap sm:px-4'
 
 export default function ShiftsPage() {
   const { t } = useTranslation(['accounting', 'common'])
@@ -488,17 +491,23 @@ function CurrentCounterCard({ onOpen }: { onOpen: () => void }) {
               {formatMoney(shift.summary.bills.total_paise)}
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+            <Button asChild variant="outline" className={WRAP_ON_PHONE}>
               <Link to={`/accounting/shifts/${shift.id}`}>{t('shifts.view_report')}</Link>
             </Button>
             {shift.can_add_cash_entry ? (
-              <Button variant="outline" onClick={() => show('cash', shift)}>
+              <Button
+                variant="outline"
+                className={WRAP_ON_PHONE}
+                onClick={() => show('cash', shift)}
+              >
                 {t('shifts.cash_in_out')}
               </Button>
             ) : null}
             {shift.can_close ? (
-              <Button onClick={() => show('close', shift)}>{t('shifts.close_shift')}</Button>
+              <Button className="col-span-2" onClick={() => show('close', shift)}>
+                {t('shifts.close_shift')}
+              </Button>
             ) : null}
           </div>
         </div>

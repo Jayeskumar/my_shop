@@ -1,7 +1,7 @@
 /**
  * Where the money went: posted expenses of the filtered period by category as a ranked
  * horizontal bar list (one series → one colour, value at the bar tip, share in the tooltip).
- * Eight largest categories are shown, the rest fold into "Others". Each row is a button that
+ * The eight largest categories are shown (four on phones), the rest fold into "Others". Each row is a button that
  * filters the list to that category (the expense table below is the full data view).
  */
 import type { ExpenseListSummary } from '@kadai/shared/api/accounting'
@@ -25,11 +25,14 @@ export function CategoryTotalsChart({
   loading,
   selectedId,
   onSelect,
+  maxRows = MAX_ROWS,
 }: {
   summary: ExpenseListSummary | undefined
   loading?: boolean
   selectedId?: string | null
   onSelect?: (accountId: string | null) => void
+  /** Largest categories shown before the rest fold into "Others" (phones show fewer). */
+  maxRows?: number
 }) {
   const { t } = useTranslation('accounting')
   if (loading && !summary) {
@@ -47,13 +50,13 @@ export function CategoryTotalsChart({
       <p className="py-6 text-center text-sm text-muted-foreground">{t('expenses.chart_empty')}</p>
     )
   }
-  const rows: Row[] = cats.slice(0, MAX_ROWS).map((c) => ({
+  const rows: Row[] = cats.slice(0, maxRows).map((c) => ({
     id: c.expense_account_id,
     label: accountName(c),
     count: c.count,
     total: c.total_paise,
   }))
-  const rest = cats.slice(MAX_ROWS)
+  const rest = cats.slice(maxRows)
   if (rest.length) {
     rows.push({
       id: null,

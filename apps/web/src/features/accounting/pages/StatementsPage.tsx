@@ -16,6 +16,9 @@ import { useUrlState } from '../lib/url-state'
 
 const TABS = ['pl', 'bs', 'tb'] as const
 type Tab = (typeof TABS)[number]
+/** Phones: three equal tabs whose (long Tamil) names may wrap onto two lines. */
+const TAB_CLASS =
+  'h-auto min-h-10 whitespace-normal px-2 py-1.5 text-center leading-tight sm:h-8 sm:min-h-0 sm:whitespace-nowrap sm:px-3'
 
 export default function StatementsPage() {
   const { t } = useTranslation(['accounting', 'common'])
@@ -40,10 +43,21 @@ export default function StatementsPage() {
         onValueChange={(v) => url.set({ tab: v === 'pl' ? null : (v as Tab) })}
         variant="pills"
       >
-        <TabsList aria-label={t('statements.title')}>
-          <TabsTrigger value="pl">{bi(ACCOUNTING_TITLES.profit_loss)}</TabsTrigger>
-          <TabsTrigger value="bs">{bi(ACCOUNTING_TITLES.balance_sheet)}</TabsTrigger>
-          <TabsTrigger value="tb">{bi(ACCOUNTING_TITLES.trial_balance)}</TabsTrigger>
+        <TabsList
+          aria-label={t('statements.title')}
+          className="grid w-full grid-cols-3 sm:flex sm:w-fit"
+        >
+          {(
+            [
+              ['pl', ACCOUNTING_TITLES.profit_loss],
+              ['bs', ACCOUNTING_TITLES.balance_sheet],
+              ['tb', ACCOUNTING_TITLES.trial_balance],
+            ] as const
+          ).map(([value, label]) => (
+            <TabsTrigger key={value} value={value} className={TAB_CLASS}>
+              {bi(label)}
+            </TabsTrigger>
+          ))}
         </TabsList>
         <TabsContent value="pl">
           <ProfitLossPanel />

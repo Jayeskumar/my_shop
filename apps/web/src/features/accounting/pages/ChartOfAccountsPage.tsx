@@ -100,7 +100,8 @@ export default function ChartOfAccountsPage() {
       return next
     })
 
-  const renderNodes = (nodes: Node[]): ReactNode =>
+  /** `spacer`: the section has collapsible parents, so leaves keep the toggle's column. */
+  const renderNodes = (nodes: Node[], spacer: boolean): ReactNode =>
     nodes.map((n) => {
       const hasChildren = n.children.length > 0
       const open = q.trim() !== '' || !collapsed.has(n.id)
@@ -112,7 +113,7 @@ export default function ChartOfAccountsPage() {
               'flex items-center gap-2 border-b border-border/60 py-1.5 pe-2',
               !n.is_active && 'opacity-60',
             )}
-            style={{ paddingInlineStart: `${0.5 + n.depth * 1.25}rem` }}
+            style={{ paddingInlineStart: `${(spacer ? 0.5 : 1) + n.depth * 1.25}rem` }}
           >
             {hasChildren ? (
               <IconButton
@@ -127,9 +128,9 @@ export default function ChartOfAccountsPage() {
                 onClick={() => toggle(n.id)}
                 aria-expanded={open}
               />
-            ) : (
-              <span className="inline-block w-8" aria-hidden />
-            )}
+            ) : spacer ? (
+              <span className="inline-block w-8 shrink-0" aria-hidden />
+            ) : null}
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <span className="text-xs tabular-nums text-muted-foreground">{n.code}</span>
@@ -190,7 +191,7 @@ export default function ChartOfAccountsPage() {
               />
             ) : null}
           </li>
-          {hasChildren && open ? renderNodes(n.children) : null}
+          {hasChildren && open ? renderNodes(n.children, spacer) : null}
         </Fragment>
       )
     })
@@ -288,7 +289,12 @@ export default function ChartOfAccountsPage() {
                     ) : null}
                   </div>
                 </header>
-                <ul>{renderNodes(s.nodes)}</ul>
+                <ul>
+                  {renderNodes(
+                    s.nodes,
+                    s.nodes.some((n) => n.children.length > 0),
+                  )}
+                </ul>
               </section>
             ) : null,
           )}

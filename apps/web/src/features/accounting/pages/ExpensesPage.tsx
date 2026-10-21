@@ -30,6 +30,7 @@ import { downloadRoute } from '@/lib/api'
 import { useCan } from '@/lib/auth'
 import { formatDate, formatMoney } from '@/lib/format'
 import { useHotkeyScope, useHotkeys } from '@/lib/hotkeys'
+import { useBreakpoint } from '@/lib/use-media-query'
 import { useExpenses } from '../api'
 import { CategoryTotalsChart } from '../components/CategoryTotalsChart'
 import { ExpenseDetailDrawer } from '../components/ExpenseDetailDrawer'
@@ -51,6 +52,7 @@ export default function ExpensesPage() {
   const canWrite = useCan('expenses.write')
   const url = useUrlState()
   const searchRef = useRef<HTMLInputElement>(null)
+  const wide = useBreakpoint('lg')
   const [addOpen, setAddOpen] = useState(false)
 
   const month = tenant.range('this_month')
@@ -431,6 +433,7 @@ export default function ExpensesPage() {
                 loading={list.isLoading}
                 selectedId={categoryId}
                 onSelect={(id) => url.set({ cat: id })}
+                maxRows={wide ? 8 : 4}
               />
               {summary && summary.by_method.length > 0 ? (
                 <div className="mt-4 border-t border-border pt-3">

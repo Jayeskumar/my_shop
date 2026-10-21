@@ -144,7 +144,7 @@
       "paid_from_bank_hint": "இயல்பாக: முதன்மை வங்கிக் கணக்கு",
       "save": "சேமி",
       "save_amount": "{{amount}} சேமி",
-      "save_another": "சேமித்து இன்னொன்று",
+      "save_another": "சேமி, அடுத்தது",
       "saved": "{{amount}} செலவு பதிவானது {{number}}"
     },
     "photo": {
