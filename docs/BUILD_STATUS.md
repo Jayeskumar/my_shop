@@ -15,26 +15,28 @@ Everything is saved in git; nothing depends on the old container.
 | 6. Merge modules into the integration branch, one by one, with full checks | not started |
 | 7. Harden: E2E per vertical (on-prem first), demo seed, perf, 7 audits, fixes, release docs | not started |
 
-## Module build status (updated 2026-10-21 19:31 UTC)
+## Module build status (updated 2026-10-21 21:35 UTC)
 
 Each module is built on its own branch `mod/<key>`, all saved in
 `tools/build-orchestration/module-branches.bundle` (some are also on `origin`). WIP commits are
-unreviewed partial work; a reviewer agent finishes, verifies and commits each module.
+unreviewed partial work; a reviewer agent finishes, verifies and commits each module. The bundle
+also holds `wip/<key>` refs: snapshots of uncommitted worktree changes taken while agents run
+(restore with `git checkout -B mod/<key> wip/<key>` if the worktree was lost).
 
 | Module | Backend | Frontend | Review |
 |---|---|---|---|
 | parties (customers & khata, suppliers, doctors, loyalty) | ✅ | ✅ | ✅ |
 | catalog | ✅ | ✅ | ✅ |
 | identity (users, roles, stores, devices, settings) | ✅ | ✅ | ✅ |
-| inventory | ✅ | ✅ | ⬜ |
-| purchases | ✅ | ✅ | ⬜ |
-| sales (POS + back office) | ✅ | ✅ (POS ✅, back office ✅) | ⬜ |
-| accounting | ✅ | partial (WIP) | ⬜ |
-| payments & UPI | partial (WIP, ~90%) | partial (WIP) | ⬜ |
-| notifications | partial (WIP, ~90%) | ⬜ | ⬜ |
-| reports & GST | ⬜ | ⬜ | ⬜ |
-| platform (cloud billing, API keys) | ⬜ | ⬜ | ⬜ |
-| licensing (vendor console) | ⬜ | ⬜ | ⬜ |
+| inventory | ✅ | ✅ | ✅ |
+| purchases | ✅ | ✅ | ✅ |
+| sales (POS + back office) | ✅ | ✅ | ✅ |
+| accounting | ✅ | ✅ (in `wip/accounting`) | ⬜ queued |
+| payments & UPI | ✅ | ✅ (in `wip/payments`) | ⬜ queued |
+| notifications | ✅ | ✅ (in `wip/notifications`) | ⬜ queued |
+| reports & GST | ✅ | 🔄 in progress | ⬜ |
+| platform (cloud billing, API keys) | 🔄 in progress | 🔄 in progress | ⬜ |
+| licensing (vendor console) | 🔄 in progress | ⬜ | ⬜ |
 | onprem (activation, updates, backups) | ⬜ | ⬜ | ⬜ |
 
 Restart with `tools/build-orchestration/modules.js` stage `build`, passing `modules` (what is left)
