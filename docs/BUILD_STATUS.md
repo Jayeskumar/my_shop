@@ -15,26 +15,31 @@ Everything is saved in git; nothing depends on the old container.
 | 6. Merge modules into the integration branch, one by one, with full checks | not started |
 | 7. Harden: E2E per vertical (on-prem first), demo seed, perf, 7 audits, fixes, release docs | not started |
 
-## Module build status
+## Module build status (updated 2026-10-21 19:31 UTC)
 
-Each module is built on its own branch `mod/<key>` (pushed to `origin`, and also saved in
-`tools/build-orchestration/module-branches.bundle`). WIP commits are unreviewed partial work.
+Each module is built on its own branch `mod/<key>`, all saved in
+`tools/build-orchestration/module-branches.bundle` (some are also on `origin`). WIP commits are
+unreviewed partial work; a reviewer agent finishes, verifies and commits each module.
 
-| Module | Backend | Frontend | Review | Branch state |
-|---|---|---|---|---|
-| parties (customers & khata, suppliers, doctors, loyalty) | ✅ | ✅ | ✅ | `mod/parties` — reviewed & committed |
-| catalog | ✅ | ✅ (final checks were running) | ⬜ | `mod/catalog` — WIP commit |
-| identity (users, roles, stores, devices, settings) | ✅ | ~95% (screenshots/visual fixes were running) | ⬜ | `mod/identity` — WIP commit |
-| inventory | ✅ | ~90% (tests/screenshots were running) | ⬜ | `mod/inventory` — WIP commit |
-| sales (POS + back office) | ✅ | POS & back office just started (study phase) | ⬜ | `mod/sales` — WIP commit (backend complete) |
-| purchases | ✅ | started (shared lib) | ⬜ | `mod/purchases` — WIP commit (backend complete) |
-| payments & UPI | ⬜ | ⬜ | ⬜ | not started |
-| accounting | ⬜ | ⬜ | ⬜ | not started |
-| reports & GST | ⬜ | ⬜ | ⬜ | not started |
-| notifications | ⬜ | ⬜ | ⬜ | not started |
-| platform (cloud billing, API keys) | ⬜ | ⬜ | ⬜ | not started |
-| licensing (vendor console) | ⬜ | ⬜ | ⬜ | not started |
-| onprem (activation, updates, backups) | ⬜ | ⬜ | ⬜ | not started |
+| Module | Backend | Frontend | Review |
+|---|---|---|---|
+| parties (customers & khata, suppliers, doctors, loyalty) | ✅ | ✅ | ✅ |
+| catalog | ✅ | ✅ | ✅ |
+| identity (users, roles, stores, devices, settings) | ✅ | ✅ | ✅ |
+| inventory | ✅ | ✅ | ⬜ |
+| purchases | ✅ | ✅ | ⬜ |
+| sales (POS + back office) | ✅ | ✅ (POS ✅, back office ✅) | ⬜ |
+| accounting | ✅ | partial (WIP) | ⬜ |
+| payments & UPI | partial (WIP, ~90%) | partial (WIP) | ⬜ |
+| notifications | partial (WIP, ~90%) | ⬜ | ⬜ |
+| reports & GST | ⬜ | ⬜ | ⬜ |
+| platform (cloud billing, API keys) | ⬜ | ⬜ | ⬜ |
+| licensing (vendor console) | ⬜ | ⬜ | ⬜ |
+| onprem (activation, updates, backups) | ⬜ | ⬜ | ⬜ |
+
+Restart with `tools/build-orchestration/modules.js` stage `build`, passing `modules` (what is left)
+and `skip` (roles already done, e.g. `inventory:backend`, `inventory:frontend`) — skipped roles
+hand the reviewer a pointer to the committed work.
 
 ## How to resume
 
