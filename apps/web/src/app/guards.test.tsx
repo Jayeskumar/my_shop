@@ -1,6 +1,8 @@
 import { screen, waitFor } from '@testing-library/react'
+import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { makeMe, makeSession } from '@/test/fixtures'
+import { apiPath, server } from '@/test/msw'
 import { renderApp, signIn, signOutState } from '@/test/render'
 import { safeNext } from './safe-next'
 
@@ -17,9 +19,18 @@ describe('route guards', () => {
 
   it('renders the page inside the shell when the member is allowed', async () => {
     await signIn()
+    // The catalog products page loads its list and the category filter.
+    server.use(
+      http.get(apiPath('/products'), () =>
+        HttpResponse.json({ data: [], page: { limit: 50, offset: 0, total: 0 } }),
+      ),
+      http.get(apiPath('/categories'), () => HttpResponse.json({ data: [] })),
+    )
     renderApp('/catalog/products')
-    expect(await screen.findByRole('heading', { level: 1, name: 'Products' })).toBeInTheDocument()
-    expect(screen.getByText('This screen is under construction')).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Products' }, { timeout: 5000 }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Skip to main content' })).toBeInTheDocument()
     expect(document.title).toBe('Products · Kadai')
   })
 

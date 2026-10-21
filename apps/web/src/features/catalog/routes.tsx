@@ -1,17 +1,15 @@
 /**
- * Routes of the catalog feature — Products, categories, brands, offers, tax rules, labels and import.
- * Paths and handles are the contract (nav, guards, links from other modules); replace the
- * placeholder `Component` with real pages, e.g. `lazy: page(() => import('./pages/ListPage'))`.
+ * Routes of the catalog feature — Products, categories, brands, offers, tax rules, labels, import
+ * and branch prices. Paths and handles are the contract (nav, guards, links from other modules).
  */
-import ModulePlaceholder from '@/app/pages/ModulePlaceholder'
-import type { FeatureRoutes } from '@/app/route-types'
+import { page, type FeatureRoutes } from '@/app/route-types'
 
 export const routes: FeatureRoutes = {
   app: [
     {
       path: 'catalog/products',
       handle: { title: 'nav:titles.products', permission: 'catalog.read' },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/ProductsPage')),
     },
     {
       path: 'catalog/products/new',
@@ -20,7 +18,7 @@ export const routes: FeatureRoutes = {
         permission: 'catalog.write',
         parent: { title: 'nav:titles.products', to: '/catalog/products' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/ProductFormPage')),
     },
     {
       path: 'catalog/products/:id',
@@ -29,32 +27,32 @@ export const routes: FeatureRoutes = {
         permission: 'catalog.read',
         parent: { title: 'nav:titles.products', to: '/catalog/products' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/ProductFormPage')),
     },
     {
       path: 'catalog/categories',
       handle: { title: 'nav:titles.categories', permission: 'catalog.read' },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/CategoriesPage')),
     },
     {
       path: 'catalog/brands',
       handle: { title: 'nav:titles.brands', permission: 'catalog.read' },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/BrandsPage')),
     },
     {
       path: 'catalog/promotions',
       handle: { title: 'nav:titles.promotions', permission: 'catalog.read', feature: 'promotions' },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/PromotionsPage')),
     },
     {
       path: 'catalog/tax-rules',
       handle: { title: 'nav:titles.tax_rules', permission: 'catalog.read' },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/TaxRulesPage')),
     },
     {
       path: 'catalog/labels',
       handle: { title: 'nav:titles.labels', permission: 'catalog.read', feature: 'barcode_labels' },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/LabelsPage')),
     },
     {
       path: 'catalog/import',
@@ -63,7 +61,18 @@ export const routes: FeatureRoutes = {
         permission: 'catalog.write',
         parent: { title: 'nav:titles.products', to: '/catalog/products' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/ImportPage')),
+    },
+    {
+      // Branch prices (feature store_pricing) — linked from the products list.
+      path: 'catalog/store-prices',
+      handle: {
+        title: 'catalog:pages.store_prices',
+        permission: 'catalog.write',
+        feature: 'store_pricing',
+        parent: { title: 'nav:titles.products', to: '/catalog/products' },
+      },
+      lazy: page(() => import('./pages/StorePricesPage')),
     },
   ],
 }

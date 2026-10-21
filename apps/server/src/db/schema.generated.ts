@@ -150,6 +150,13 @@ export interface Brands {
   updated_at: Generated<Timestamp>;
 }
 
+export interface CatalogSequences {
+  last_value: Generated<Int8>;
+  name: string;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface Categories {
   created_at: Generated<Timestamp>;
   gst_rate_bp: number | null;
@@ -417,14 +424,18 @@ export interface Imports {
   created_by: string | null;
   error_rows: Generated<number>;
   errors: Generated<Json>;
+  errors_truncated: Generated<boolean>;
   file_id: string | null;
   finished_at: Timestamp | null;
   id: Generated<string>;
   kind: string;
   options: Generated<Json>;
+  preview: Generated<Json>;
+  processed_rows: Generated<number>;
   status: Generated<string>;
   store_id: string | null;
   success_rows: Generated<number>;
+  summary: Generated<Json>;
   tenant_id: string;
   total_rows: Generated<number>;
   updated_at: Generated<Timestamp>;
@@ -1546,6 +1557,7 @@ export interface DB {
   backups: Backups;
   batches: Batches;
   brands: Brands;
+  catalog_sequences: CatalogSequences;
   categories: Categories;
   cloud_backups: CloudBackups;
   credit_note_lines: CreditNoteLines;
