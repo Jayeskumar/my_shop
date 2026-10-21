@@ -1,3 +1,9 @@
+// CONTRACT CHANGELOG (payments backend; newest last, one line each — the web counterpart reads this)
+// 2026-10-21 PAYMENTS_VALIDATION_KEYS: + 'client_ref_reserved' (POST /payments client_ref may not start with tender: / cn: / dn:).
+// 2026-10-21 + PAYMENTS_ERROR_REASONS / PaymentsErrorReason: every `details.reason` the payments API returns (with status), for translations.
+// 2026-10-21 Semantics (no shape change): createIntent / createLink idempotency = body idempotency_key, else the Idempotency-Key header; replays answer 201 with header idempotent-replayed: true; a replay of an intent whose provider call failed answers the same 502 PROVIDER_ERROR (details.reason 'intent_failed', details.intent_id).
+// 2026-10-21 Semantics: PROVIDER_ERROR details = {provider, provider_error_code, http_status, retryable, intent_id?}; webhook with a bad signature → 401 UNAUTHENTICATED details.reason 'invalid_signature'.
+// 2026-10-21 Semantics: listIntents from/to filter the paid instant of paid intents and the creation instant of the others (tenant timezone).
 /**
  * Contract for the payments module — docs/API.md "payments & UPI"; ARCHITECTURE.md §8.4 (core
  * recordPayment / cancelPayment), §11 (providers, intents, webhooks, dues collection).
@@ -108,8 +114,65 @@ export const PAYMENTS_VALIDATION_KEYS = [
   'reason_required',
   'date_order',
   'empty_patch',
+  'client_ref_reserved',
 ] as const
 export type PaymentsValidationKey = (typeof PAYMENTS_VALIDATION_KEYS)[number]
+
+/**
+ * `details.reason` values of payments API errors (the web translates payments:errors.<reason>).
+ * The intent_* reasons of core recordPayment (POS tenders, apply) are included.
+ */
+export const PAYMENTS_ERROR_REASONS = [
+  // providers / accounts
+  'mock_payments_disabled', // 422 (404 on mock-pay): KADAI_ENABLE_MOCK_PAYMENTS is off
+  'provider_not_implemented', // 422: cashfree / phonepe / paytm have no adapter yet
+  'provider_operation_not_supported', // 422: e.g. polling a static UPI ID
+  'store_not_found', // 422: store_id of an account does not exist
+  'all_stores_required', // 403: all-stores accounts need a member with access to every store
+  'settlement_account_not_bank', // 422: settlement account must be an active bank account
+  'field_not_applicable', // 422: PATCH field does not apply to the provider (details.fields)
+  'payee_name_required', // 422: a UPI ID needs a payee name
+  'inactive_default', // 422: an inactive account cannot be the default
+  'razorpay_key_mode_mismatch', // 422: key id prefix does not match the mode
+  'provider_account_invalid', // 422: account does not serve the store
+  'provider_account_inactive', // 422
+  'no_payment_provider', // 422: no default UPI account for the store
+  'provider_no_qr', // 422: provider cannot show a payment QR
+  'provider_no_links', // 422: provider cannot create links
+  'no_upi_account', // 422: links / standee QR need the shop UPI ID (or Razorpay)
+  'not_static_upi', // 422: standee QR needs a UPI ID account
+  // intents
+  'store_inactive', // 422
+  'register_store', // 422: register of another store
+  'invoice_store', // 422: bill of another store
+  'invoice_not_payable', // 422: bill has nothing due / is not completed
+  'amount_exceeds_due', // 422: intent amount above the bill due
+  'customer_mismatch', // 422: ref and customer name different customers
+  'intent_failed', // 502: the provider could not create the QR / link (replay)
+  'intent_paid', // 409: cancel / confirm of a paid intent
+  'intent_not_open', // 409: intent is expired / failed / cancelled
+  'manual_confirm_not_supported', // 422: only UPI ID intents are confirmed by hand
+  'utr_already_used', // 409: the UTR confirmed another intent (details.intent_id)
+  'not_mock_intent', // 422
+  'intent_not_paid', // 422 (core and apply)
+  'intent_used', // 409 (core and apply)
+  'intent_exceeds_due', // 422: walk-in bill due smaller than the payment
+  'intent_direction', // 422 (core)
+  'intent_method', // 422 (core)
+  'intent_amount_mismatch', // 422 (core)
+  'intent_store', // 422 (core)
+  'intent_customer', // 422 (core)
+  'intent_unallocated', // 422 (core)
+  // links
+  'no_due', // 422: the customer has nothing due
+  'phone_required', // 422: send_via needs a mobile number
+  // receipts & vouchers
+  'payment_not_completed', // 409: already cancelled
+  'payment_not_cancellable', // 409: POS tender / return settlement — cancel the document (details.origin)
+  // webhooks
+  'invalid_signature', // 401
+] as const
+export type PaymentsErrorReason = (typeof PAYMENTS_ERROR_REASONS)[number]
 
 type Bilingual = Readonly<BilingualLabel>
 
