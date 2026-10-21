@@ -1,3 +1,16 @@
+// CONTRACT CHANGELOG (notifications backend; newest last — the web counterpart reads this)
+// - NOTIFICATIONS_VALIDATION_KEYS: + 'whatsapp_template_required' (a WhatsApp override must name
+//   its approved Meta template in provider_template_id), + 'provider_template_id_invalid'
+//   (DLT / MSG91 flow id or WhatsApp template name with invalid characters).
+// - NOTIFICATIONS_ERROR_REASONS: + 'amount_exceeds_due' (422, POST /customers/:id/remind with an
+//   amount_paise above the customer's due).
+// - New NOTIFICATION_ERROR_CODES / NOTIFICATION_ERROR_LABELS / notificationErrorCode(): the
+//   machine codes the sender writes at the start of notifications.error ('<code>: <detail>')
+//   for cancelled / failed messages, with bilingual labels for the outbox.
+// - NotificationListResponseSchema.summary: documented as facet counts — by_status ignores the
+//   `status` filter and by_channel ignores the `channel` filter (all other filters apply).
+// - New PROVIDER_TEMPLATE_ID_RE / WHATSAPP_TEMPLATE_NAME_RE (format rules of provider_template_id).
+
 /**
  * Contract for the notifications module — docs/API.md "notifications"; ARCHITECTURE.md §15.
  *
@@ -74,6 +87,8 @@ export const NOTIFICATIONS_VALIDATION_KEYS = [
   'body_too_long',
   'subject_required',
   'dlt_template_id_required',
+  'whatsapp_template_required',
+  'provider_template_id_invalid',
   'params_invalid',
   'date_order',
 ] as const
@@ -87,6 +102,7 @@ export const NOTIFICATIONS_ERROR_REASONS = [
   'whatsapp_opt_out', // 422: the customer opted out of WhatsApp
   'channel_not_configured', // 422: no provider for the channel (use 'wa_me')
   'invalid_signature', // 401: webhook signature mismatch
+  'amount_exceeds_due', // 422: remind amount_paise above the customer's due
 ] as const
 export type NotificationsErrorReason = (typeof NOTIFICATIONS_ERROR_REASONS)[number]
 
@@ -104,6 +120,77 @@ export const NOTIFICATION_STATUS_LABELS: Readonly<Record<NotificationStatus, Bil
   read: { en: 'Read', ta: 'படிக்கப்பட்டது' },
   failed: { en: 'Failed', ta: 'தோல்வி' },
   cancelled: { en: 'Cancelled', ta: 'ரத்து செய்யப்பட்டது' },
+}
+
+/**
+ * Machine codes the sender writes at the start of `notifications.error` (`<code>: <detail>`) when
+ * a message is cancelled (not sent on purpose) or failed (provider / configuration problem).
+ */
+export const NOTIFICATION_ERROR_CODES = [
+  // cancelled before sending
+  'whatsapp_opt_out', // the customer opted out of WhatsApp
+  'feature_not_in_plan', // the plan has no 'notifications' feature (SMS / WhatsApp)
+  'disabled_in_settings', // settings.notifications switched this message off
+  'channel_not_configured', // no live provider for the channel (production)
+  // failed
+  'template_unavailable', // the template has no text for the channel
+  'no_provider', // no provider registered for the channel
+  'not_configured', // the provider lacks credentials / a DLT template id
+  'invalid_recipient', // the provider rejected the number / address
+  'timeout', // provider call timed out (retried)
+  'network', // network error (retried)
+  'rate_limited', // provider throttling (retried)
+  'provider_error', // other provider error
+  'stuck', // the worker stopped while sending and the attempts ran out
+] as const
+export type NotificationErrorCode = (typeof NOTIFICATION_ERROR_CODES)[number]
+
+export const NOTIFICATION_ERROR_LABELS: Readonly<Record<NotificationErrorCode, BilingualLabel>> = {
+  whatsapp_opt_out: {
+    en: 'Customer opted out of WhatsApp',
+    ta: 'வாடிக்கையாளர் வாட்ஸ்அப் செய்திகளை விரும்பவில்லை',
+  },
+  feature_not_in_plan: {
+    en: 'WhatsApp & SMS are not in your plan',
+    ta: 'உங்கள் திட்டத்தில் வாட்ஸ்அப் & SMS இல்லை',
+  },
+  disabled_in_settings: {
+    en: 'Turned off in notification settings',
+    ta: 'செய்தி அமைப்புகளில் நிறுத்தப்பட்டுள்ளது',
+  },
+  channel_not_configured: {
+    en: 'No SMS / WhatsApp service is set up',
+    ta: 'SMS / வாட்ஸ்அப் சேவை இன்னும் அமைக்கப்படவில்லை',
+  },
+  template_unavailable: {
+    en: 'No message text for this channel',
+    ta: 'இந்த வழிக்குச் செய்தி உரை இல்லை',
+  },
+  no_provider: {
+    en: 'No sending service for this channel',
+    ta: 'இந்த வழிக்கு அனுப்பும் சேவை இல்லை',
+  },
+  not_configured: {
+    en: 'Sending service is not fully set up',
+    ta: 'அனுப்பும் சேவை முழுமையாக அமைக்கப்படவில்லை',
+  },
+  invalid_recipient: { en: 'Invalid number or address', ta: 'தவறான எண் / முகவரி' },
+  timeout: { en: 'Service did not respond in time', ta: 'சேவை நேரத்தில் பதிலளிக்கவில்லை' },
+  network: { en: 'Network problem', ta: 'இணைய இணைப்புச் சிக்கல்' },
+  rate_limited: { en: 'Too many messages, will retry', ta: 'அதிக செய்திகள்; மீண்டும் முயலும்' },
+  provider_error: { en: 'Sending service error', ta: 'அனுப்பும் சேவையில் பிழை' },
+  stuck: { en: 'Sending was interrupted', ta: 'அனுப்புவது இடையில் நின்றுவிட்டது' },
+}
+
+/** The NotificationErrorCode at the start of a stored `error` ('code: detail'), else null. */
+export function notificationErrorCode(
+  error: string | null | undefined,
+): NotificationErrorCode | null {
+  if (!error) return null
+  const code = /^([a-z_]+)(?::|$)/.exec(error.trim())?.[1]
+  return code && (NOTIFICATION_ERROR_CODES as readonly string[]).includes(code)
+    ? (code as NotificationErrorCode)
+    : null
 }
 
 /** Shown next to the SMS template editor and in settings. */
@@ -1187,6 +1274,10 @@ export const NotificationListQuerySchema = PageQuerySchema.extend({
 }).refine(dateOrderOk, DATE_ORDER_ISSUE)
 export type NotificationListQuery = z.input<typeof NotificationListQuerySchema>
 
+/**
+ * `summary` holds facet counts over the filtered range: by_status applies every filter except
+ * `status`, by_channel every filter except `channel` (so status / channel tabs show their counts).
+ */
 export const NotificationListResponseSchema = listOf(NotificationSchema).extend({
   summary: z.object({
     by_status: z.array(z.object({ status: NotificationStatusSchema, count: z.int().min(0) })),
@@ -1333,6 +1424,11 @@ export const NotificationTemplateParamsSchema = z.object({
   channel: NotificationChannelSchema,
   locale: LocaleSchema,
 })
+
+/** provider_template_id: an MSG91 flow / DLT template id (SMS) or an email provider template. */
+export const PROVIDER_TEMPLATE_ID_RE = /^[A-Za-z0-9_.:-]{1,100}$/
+/** Approved WhatsApp (Meta) template names: lower-case letters, digits and underscores. */
+export const WHATSAPP_TEMPLATE_NAME_RE = /^[a-z0-9_]{1,100}$/
 
 /**
  * PUT /notification-templates/:code/:channel/:locale — upsert the tenant override (validated with

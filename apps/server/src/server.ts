@@ -13,6 +13,7 @@ import { createDeps, destroyDeps } from './core/runtime'
 import { migrate } from './db/migrator'
 import { JOB_DEFINITIONS } from './jobs/registry'
 import { type RunningWorker, startWorker } from './jobs/worker-runtime'
+import { createNotificationOtpSender } from './modules/notifications/otp-sender'
 import { VERSION } from './version'
 
 async function main(): Promise<void> {
@@ -36,6 +37,8 @@ async function main(): Promise<void> {
     applicationName: 'kadai-api',
     jobDefinitions: JOB_DEFINITIONS,
     jobRole: config.embeddedWorker ? 'worker' : 'producer',
+    // OTP SMS through the notifications providers (MSG91 DLT template; logged with SMS_PROVIDER=log).
+    otpSender: createNotificationOtpSender(config, logger),
   })
   const app = await buildApp(config, { deps })
   let worker: RunningWorker | null = null

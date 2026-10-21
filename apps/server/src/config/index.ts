@@ -100,6 +100,15 @@ export interface Config {
       senderId: string | null
       dltEntityId: string | null
       otpTemplateId: string | null
+      /** Flow API base URL (MSG91_BASE_URL; overridable for tests / proxies). */
+      baseUrl: string
+      /**
+       * MSG91 Flow template ids (linked to the DLT templates) of the default SMS texts, by
+       * notification template code, from MSG91_TEMPLATE_<CODE> (e.g. MSG91_TEMPLATE_DUE_REMINDER).
+       */
+      templateIds: Readonly<Record<string, string>>
+      /** Shared token MSG91 delivery reports must carry (?token= or X-Kadai-Webhook-Token). */
+      webhookToken: string | null
     }
   }
   whatsapp: {
@@ -109,11 +118,23 @@ export interface Config {
     apiVersion: string
     appSecret: string | null
     webhookVerifyToken: string | null
+    /** Graph API base URL (WHATSAPP_BASE_URL; overridable for tests / proxies). */
+    baseUrl: string
+    /** Template codes whose approved WhatsApp template has a dynamic URL button ({{link}} suffix). */
+    urlButtonTemplates: readonly string[]
   }
   email: {
-    provider: 'log' | 'smtp'
+    /** 'smtp' is reserved (no mail library is bundled): use 'email_webhook'. */
+    provider: 'log' | 'smtp' | 'email_webhook'
     smtpUrl: string | null
     from: string
+    /** email_webhook: JSON POST target and HMAC-SHA256 signing secret (X-Kadai-Signature). */
+    webhookUrl: string | null
+    webhookSecret: string | null
+  }
+  notifications: {
+    /** Timeout of one provider HTTP call. */
+    providerTimeoutMs: number
   }
   razorpayPlatform: {
     keyId: string | null
@@ -174,6 +195,23 @@ const envInt = (fallback: number, min: number, max: number) =>
     }
     return n
   })
+
+const httpUrl = z
+  .string()
+  .trim()
+  .refine((v) => /^https?:\/\/[^\s]+$/.test(v), 'must be an http(s):// URL')
+  .transform((v) => v.replace(/\/+$/, ''))
+
+/** MSG91_TEMPLATE_<CODE>=<flow template id> → { <code>: id } (code lower-cased). */
+export function msg91TemplateIdsFromEnv(env: NodeJS.ProcessEnv): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(env)) {
+    const m = /^MSG91_TEMPLATE_([A-Z][A-Z0-9_]{0,62})$/.exec(key)
+    const v = value?.trim()
+    if (m && v) out[m[1]!.toLowerCase()] = v
+  }
+  return out
+}
 
 const postgresUrl = z
   .string()
@@ -245,9 +283,19 @@ const EnvSchema = z.object({
   WHATSAPP_API_VERSION: optionalString.transform((v) => v ?? 'v21.0'),
   WHATSAPP_APP_SECRET: optionalString,
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: optionalString,
-  EMAIL_PROVIDER: optionalString.pipe(z.enum(['log', 'smtp']).default('log')),
+  WHATSAPP_BASE_URL: optionalString.pipe(httpUrl.optional()),
+  WHATSAPP_URL_BUTTON_TEMPLATES: optionalString,
+  // Older name of WHATSAPP_ACCESS_TOKEN (accepted as a fallback).
+  WHATSAPP_TOKEN: optionalString,
+  MSG91_BASE_URL: optionalString.pipe(httpUrl.optional()),
+  MSG91_WEBHOOK_TOKEN: optionalString,
+  EMAIL_PROVIDER: optionalString.pipe(z.enum(['log', 'smtp', 'email_webhook']).default('log')),
+  EMAIL_WEBHOOK_URL: optionalString.pipe(httpUrl.optional()),
+  EMAIL_WEBHOOK_SECRET: optionalString,
+  EMAIL_FROM: optionalString,
   SMTP_URL: optionalString,
   SMTP_FROM: optionalString.transform((v) => v ?? 'Kadai <no-reply@localhost>'),
+  NOTIFICATION_PROVIDER_TIMEOUT_MS: envInt(10_000, 500, 120_000),
   RAZORPAY_PLATFORM_KEY_ID: optionalString,
   RAZORPAY_PLATFORM_KEY_SECRET: optionalString,
   RAZORPAY_PLATFORM_WEBHOOK_SECRET: optionalString,
@@ -449,17 +497,37 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
         senderId: e.MSG91_SENDER_ID ?? null,
         dltEntityId: e.MSG91_DLT_ENTITY_ID ?? null,
         otpTemplateId: e.MSG91_OTP_TEMPLATE_ID ?? null,
+        baseUrl: e.MSG91_BASE_URL ?? 'https://control.msg91.com',
+        templateIds: {
+          ...msg91TemplateIdsFromEnv(env),
+          ...(e.MSG91_OTP_TEMPLATE_ID ? { otp: e.MSG91_OTP_TEMPLATE_ID } : {}),
+        },
+        webhookToken: e.MSG91_WEBHOOK_TOKEN ?? null,
       },
     },
     whatsapp: {
       provider: e.WHATSAPP_PROVIDER,
       phoneNumberId: e.WHATSAPP_PHONE_NUMBER_ID ?? null,
-      accessToken: e.WHATSAPP_ACCESS_TOKEN ?? null,
+      accessToken: e.WHATSAPP_ACCESS_TOKEN ?? e.WHATSAPP_TOKEN ?? null,
       apiVersion: e.WHATSAPP_API_VERSION,
       appSecret: e.WHATSAPP_APP_SECRET ?? null,
       webhookVerifyToken: e.WHATSAPP_WEBHOOK_VERIFY_TOKEN ?? null,
+      baseUrl: e.WHATSAPP_BASE_URL ?? 'https://graph.facebook.com',
+      urlButtonTemplates: Object.freeze(
+        (e.WHATSAPP_URL_BUTTON_TEMPLATES ?? '')
+          .split(',')
+          .map((c) => c.trim().toLowerCase())
+          .filter(Boolean),
+      ),
     },
-    email: { provider: e.EMAIL_PROVIDER, smtpUrl: e.SMTP_URL ?? null, from: e.SMTP_FROM },
+    email: {
+      provider: e.EMAIL_PROVIDER,
+      smtpUrl: e.SMTP_URL ?? null,
+      from: e.EMAIL_FROM ?? e.SMTP_FROM,
+      webhookUrl: e.EMAIL_WEBHOOK_URL ?? null,
+      webhookSecret: e.EMAIL_WEBHOOK_SECRET ?? null,
+    },
+    notifications: { providerTimeoutMs: e.NOTIFICATION_PROVIDER_TIMEOUT_MS },
     razorpayPlatform: {
       keyId: e.RAZORPAY_PLATFORM_KEY_ID ?? null,
       keySecret: e.RAZORPAY_PLATFORM_KEY_SECRET ?? null,
@@ -492,6 +560,29 @@ export function configWarnings(config: Config): string[] {
   }
   if (config.isProduction && config.sms.provider === 'log') {
     warnings.push('SMS_PROVIDER=log in production: OTP messages are not delivered')
+  }
+  if (
+    config.whatsapp.provider === 'whatsapp_cloud' &&
+    (!config.whatsapp.phoneNumberId || !config.whatsapp.accessToken)
+  ) {
+    warnings.push(
+      'WHATSAPP_PROVIDER=whatsapp_cloud needs WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN: WhatsApp messages fail until they are set',
+    )
+  }
+  if (config.whatsapp.provider === 'whatsapp_cloud' && !config.whatsapp.appSecret) {
+    warnings.push(
+      'WHATSAPP_APP_SECRET is not set: WhatsApp delivery receipts (webhooks) are rejected',
+    )
+  }
+  if (config.email.provider === 'smtp') {
+    warnings.push(
+      'EMAIL_PROVIDER=smtp is not supported by this build (no mail library is bundled): use EMAIL_PROVIDER=email_webhook with EMAIL_WEBHOOK_URL',
+    )
+  }
+  if (config.email.provider === 'email_webhook' && !config.email.webhookUrl) {
+    warnings.push(
+      'EMAIL_PROVIDER=email_webhook needs EMAIL_WEBHOOK_URL: e-mails fail until it is set',
+    )
   }
   if (config.otelEndpoint) {
     warnings.push(
