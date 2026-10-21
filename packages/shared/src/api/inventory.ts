@@ -1,3 +1,25 @@
+// CONTRACT CHANGELOG (inventory backend; one line per change, newest last)
+// - INVENTORY_VALIDATION_KEYS += future_date, received_exceeds_dispatched, unknown_line,
+//   received_before_dispatch (server-side rules on post / dispatch / receive bodies).
+// - New INVENTORY_ERROR_REASONS: details.reason values of 403/409/422 errors (web: inventory:errors.<reason>).
+// - createAdjustment / createTransfer / postAdjustment / cancelAdjustment / dispatchTransfer /
+//   receiveTransfer / cancelTransfer are `idempotent: true` (optional Idempotency-Key: a retried
+//   post/dispatch/receive replays the first response instead of failing with 409 not_draft).
+// - AdjustmentLineInputSchema.unit_cost_paise: documented as the cost of GAINS only — losses are
+//   always valued at the current average cost (core postStock); the posted line shows the cost used.
+// - TransferReceiveSchema: duplicate line_id → 'duplicate_line'; lines not listed are received in full.
+// - Receive semantics documented: received qty → transfer_in at the destination (dispatch cost);
+//   the shortfall is returned to the source (transfer_in) and written off there as 'damage'
+//   (source cost), so the source store bears the loss; journal Dr inventory(to) / Cr inventory(from)
+//   + Dr inventory_writeoff(from).
+// - StockAlertsSchema: out_of_stock lists products with qty ≤ 0 that were stocked in the scope
+//   before or have a reorder level (never-stocked catalogue items are not alerts).
+// - transferAccessStoreId(): which store a member must be able to access for each transfer action.
+// - INVENTORY_EXPORT_MAX_ROWS (100 000): CSV exports above it fail with reason export_too_large.
+// - Transfer routes also need the multi_store feature (server guard; every plan with
+//   stock_transfers has it). Receive journal: the per-movement rounding residue of pack-priced
+//   lines (≤ 1 paisa per line) is booked to inventory_adjustment at the source store.
+
 /**
  * Contract for the inventory module — docs/API.md "inventory": stock levels & valuation,
  * movement ledger, batches & expiry, stock adjustments / stock takes / write-offs, opening
@@ -62,8 +84,39 @@ export const INVENTORY_VALIDATION_KEYS = [
   'transfer_same_store',
   'date_order',
   'empty_patch',
+  /** Adjustment / opening / transfer / receipt dated after today (tenant timezone). */
+  'future_date',
+  /** Receipt: received_qty_milli above the dispatched quantity of the line. */
+  'received_exceeds_dispatched',
+  /** Receipt: line_id that is not a line of this transfer. */
+  'unknown_line',
+  /** Receipt: received_date before the transfer date. */
+  'received_before_dispatch',
 ] as const
 export type InventoryValidationKey = (typeof INVENTORY_VALIDATION_KEYS)[number]
+
+/** `details.reason` of inventory errors (status in the comment; web: inventory:errors.<reason>). */
+export const INVENTORY_ERROR_REASONS = [
+  'not_draft', // 409: only drafts can be edited, deleted, posted or dispatched
+  'not_posted', // 409: only posted adjustments can be cancelled
+  'already_cancelled', // 409: the document is cancelled already
+  'not_dispatched', // 409: only dispatched transfers can be received
+  'already_received', // 409: a received transfer cannot be cancelled
+  'empty_document', // 422: posting / dispatching a document without lines
+  'has_movements', // 409: opening stock for products that already moved (details.product_ids; use force)
+  'not_stock_item', // 422: service, variant template or product without stock tracking
+  'batch_required', // 422: batch-tracked product without a batch
+  'batch_not_allowed', // 422: batch given for a product that does not track batches
+  'batch_product_mismatch', // 422: the batch belongs to another product
+  'store_inactive', // 422: the store is deactivated
+  'all_stores_required', // 403: store_id=all needs access to every store
+  'expiry_change_forbidden', // 403: expiry / mfg date changes need inventory.adjust
+  'export_too_large', // 422: a CSV export above INVENTORY_EXPORT_MAX_ROWS rows (narrow the filters)
+] as const
+export type InventoryErrorReason = (typeof INVENTORY_ERROR_REASONS)[number]
+
+/** Most rows one CSV export (?format=csv on /stock and /stock/movements) may contain. */
+export const INVENTORY_EXPORT_MAX_ROWS = 100_000
 
 const notEmpty = (v: Record<string, unknown>) =>
   Object.entries(v).some(([k, x]) => x !== undefined && k !== 'if_updated_at')
@@ -546,7 +599,11 @@ export const AdjustmentLineInputSchema = z.object({
   qty_delta_milli: z.int().min(-1e12).max(1e12).optional(),
   /** stock_take: physically counted quantity (system quantity is read at posting). */
   counted_qty_milli: z.int().min(0).max(1e12).optional(),
-  /** Per pack excl. tax; default the current average cost of the stock row. */
+  /**
+   * Per pack excl. tax, for GAINS (default: the current average cost of the stock row). Losses
+   * are always valued at the current average cost (core postStock); the posted line shows the
+   * cost actually used.
+   */
   unit_cost_paise: zPaise.optional(),
   reason: zNullableText(200),
 })
@@ -826,18 +883,31 @@ export const TransferUpdateSchema = z
 export type TransferUpdate = z.input<typeof TransferUpdateSchema>
 
 /**
- * POST /stock-transfers/:id/receive (destination store access). Omitted `lines` = everything
- * received in full; a line's shortfall (dispatched − received) is posted as 'damage' at the
- * source cost with its journal.
+ * POST /stock-transfers/:id/receive (destination store access). Omitted `lines` (or a line not
+ * listed) = received in full. The received quantity is posted as transfer_in at the destination
+ * at the dispatch cost; a line's shortfall (dispatched − received) is returned to the source
+ * (transfer_in) and written off there as 'damage' at the source cost, so the source store bears
+ * the loss. Journal: Dr inventory (to) / Cr inventory (from) for the received value and
+ * Dr inventory_writeoff / Cr inventory (from) for the shortfall (rounding residue of pack-priced
+ * lines → inventory_adjustment), so each store's inventory account equals its stock movements.
  */
-export const TransferReceiveSchema = z.object({
-  lines: z
-    .array(z.object({ line_id: zId, received_qty_milli: z.int().min(0) }))
-    .max(500)
-    .optional(),
-  received_date: zDateStr.optional(),
-  shortfall_reason: zNullableText(200),
-})
+export const TransferReceiveSchema = z
+  .object({
+    lines: z
+      .array(z.object({ line_id: zId, received_qty_milli: z.int().min(0) }))
+      .max(500)
+      .optional(),
+    received_date: zDateStr.optional(),
+    shortfall_reason: zNullableText(200),
+  })
+  .superRefine((v, ctx) => {
+    const seen = new Set<string>()
+    v.lines?.forEach((l, i) => {
+      if (seen.has(l.line_id))
+        ctx.addIssue({ code: 'custom', path: ['lines', i, 'line_id'], message: 'duplicate_line' })
+      seen.add(l.line_id)
+    })
+  })
 export type TransferReceive = z.input<typeof TransferReceiveSchema>
 
 /**
@@ -927,6 +997,19 @@ export const TransferListQuerySchema = PageQuerySchema.extend({
 }).refine(dateOrder, { message: 'date_order', path: ['to'] })
 export type TransferListQuery = z.input<typeof TransferListQuerySchema>
 
+export type TransferAction = 'create' | 'update' | 'dispatch' | 'receive' | 'cancel'
+
+/**
+ * The store a member must be able to access (membership store scope) for a transfer action:
+ * receiving needs the destination store, everything else the source store.
+ */
+export function transferAccessStoreId(
+  action: TransferAction,
+  transfer: { from_store_id: string; to_store_id: string },
+): string {
+  return action === 'receive' ? transfer.to_store_id : transfer.from_store_id
+}
+
 /** Shortfall of a line on receipt: dispatched − received (never negative). */
 export function transferShortfall(qty_milli: number, received_qty_milli: number | null): number {
   return received_qty_milli === null ? 0 : Math.max(0, qty_milli - received_qty_milli)
@@ -972,7 +1055,13 @@ export const ExpiryAlertItemSchema = z.object({
 })
 export type ExpiryAlertItem = z.output<typeof ExpiryAlertItemSchema>
 
-/** GET /stock/alerts — counts and top items (expiring = within settings.inventory.expiry_warning_days). */
+/**
+ * GET /stock/alerts — counts and top items (expiring = within settings.inventory.expiry_warning_days).
+ * low_stock: 0 < qty ≤ reorder level; out_of_stock: qty ≤ 0 (negative first) for active products
+ * that were stocked in the scope before or have a reorder level (never-stocked catalogue items are
+ * not alerts); counts.out_of_stock / counts.negative split that list by qty = 0 / qty < 0.
+ * Expiry lists only batches with stock.
+ */
 export const StockAlertsSchema = z.object({
   store_id: zId.nullable(),
   as_of: zDateStr,
@@ -1227,6 +1316,7 @@ export const inventoryRoutes = defineRoutes({
   },
   createAdjustment: {
     method: 'POST',
+    idempotent: true,
     path: '/stock-adjustments',
     permission: 'inventory.adjust',
     body: AdjustmentCreateSchema,
@@ -1257,6 +1347,7 @@ export const inventoryRoutes = defineRoutes({
   },
   postAdjustment: {
     method: 'POST',
+    idempotent: true,
     path: '/stock-adjustments/:id/post',
     permission: 'inventory.adjust',
     params: IdParams,
@@ -1265,6 +1356,7 @@ export const inventoryRoutes = defineRoutes({
   },
   cancelAdjustment: {
     method: 'POST',
+    idempotent: true,
     path: '/stock-adjustments/:id/cancel',
     permission: 'inventory.adjust',
     params: IdParams,
@@ -1284,6 +1376,7 @@ export const inventoryRoutes = defineRoutes({
   },
   createTransfer: {
     method: 'POST',
+    idempotent: true,
     path: '/stock-transfers',
     permission: 'inventory.transfer',
     feature: 'stock_transfers',
@@ -1310,6 +1403,7 @@ export const inventoryRoutes = defineRoutes({
   },
   dispatchTransfer: {
     method: 'POST',
+    idempotent: true,
     path: '/stock-transfers/:id/dispatch',
     permission: 'inventory.transfer',
     feature: 'stock_transfers',
@@ -1319,6 +1413,7 @@ export const inventoryRoutes = defineRoutes({
   },
   receiveTransfer: {
     method: 'POST',
+    idempotent: true,
     path: '/stock-transfers/:id/receive',
     permission: 'inventory.transfer',
     feature: 'stock_transfers',
@@ -1329,6 +1424,7 @@ export const inventoryRoutes = defineRoutes({
   },
   cancelTransfer: {
     method: 'POST',
+    idempotent: true,
     path: '/stock-transfers/:id/cancel',
     permission: 'inventory.transfer',
     feature: 'stock_transfers',
