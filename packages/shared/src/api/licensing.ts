@@ -1,3 +1,9 @@
+// CONTRACT CHANGELOG (licensing backend; newest last — one line per change)
+// - LICENSING_ERROR_REASONS: added not_staff, owner_only, partner_inactive, signing_unavailable, storage_unavailable, backup_not_uploaded, order_state, amount_mismatch, snapshot_too_large, upgrade_not_higher (each with code + ta/en text).
+// - LICENSING_JOBS: added housekeeping ('licensing.housekeeping', hourly: expired console idempotency keys, old request nonces).
+// - Added VENDOR_MESSAGE_TEMPLATES / VendorMessageCode / renderVendorMessage / vendorMessageParamOrder: our own WhatsApp/SMS texts (ta/en) for licence keys, renewal reminders, payment links and receipts (sent with core/notify deliverMessage).
+// - Added CONSOLE_IDEMPOTENCY_TTL_SECONDS and LICENSE_KEY_REPLAY_NOTE: an issue-licence / reissue-key replay (same Idempotency-Key) returns the stored result with the key masked (keys are never stored).
+// - Added CONNECT_TOKEN_TTL_SECONDS (connect session lifetime) and RELAY_RETRYABLE_STATUSES.
 /**
  * Contract for the licensing module — the VENDOR control plane (ARCHITECTURE.md §21; docs/API.md
  * "licensing & vendor console"): platform staff & partners (resellers), licensees (customers),
@@ -199,7 +205,22 @@ export const LICENSING_JOBS = {
   staleInstallations: 'licensing.stale-installations',
   /** Delete cloud backups past expires_at (object + row status 'deleted'). */
   backupRetention: 'licensing.backup-retention',
+  /** Hourly: expired console idempotency keys and old signed-request nonces. */
+  housekeeping: 'licensing.housekeeping',
 } as const
+
+/** Console Idempotency-Key replay window (issue licence, create order). */
+export const CONSOLE_IDEMPOTENCY_TTL_SECONDS = 24 * 60 * 60
+
+/**
+ * Licence keys are never stored: replaying an issue-licence / reissue-key request with the same
+ * Idempotency-Key returns the stored result with `license_key` masked (maskLicenseKey), no
+ * deliveries and no wa.me link — staff re-issue the key if it was lost.
+ */
+export const LICENSE_KEY_REPLAY_NOTE = 'license_key_masked_on_replay'
+
+/** Lifetime of a Kadai Connect owner session (X-Kadai-Connect-Token). */
+export const CONNECT_TOKEN_TTL_SECONDS = 12 * 60 * 60
 
 /**
  * Data of `licensing.fulfil-order`. Enqueued by the platform module's Razorpay webhook
@@ -389,6 +410,56 @@ export const LICENSING_ERROR_REASONS = {
     code: 'PROVIDER_ERROR',
     en: 'Could not reach Kadai. Check the internet connection, or activate offline.',
     ta: 'கடை சேவையகத்தை அடைய முடியவில்லை. இணைய இணைப்பைச் சரிபார்க்கவும் அல்லது இணையமின்றி செயல்படுத்தவும்.',
+  },
+  not_staff: {
+    code: 'FORBIDDEN',
+    en: 'Only Kadai staff and partners can use the vendor console.',
+    ta: 'கடை ஊழியர்களும் கூட்டாளர்களும் மட்டுமே இந்தக் கன்சோலைப் பயன்படுத்த முடியும்.',
+  },
+  owner_only: {
+    code: 'FORBIDDEN',
+    en: 'Only an owner can give or change the owner and admin roles.',
+    ta: 'உரிமையாளர், நிர்வாகி பொறுப்புகளை உரிமையாளர் மட்டுமே வழங்கவோ மாற்றவோ முடியும்.',
+  },
+  partner_inactive: {
+    code: 'FORBIDDEN',
+    en: 'This partner account is suspended. Please contact Kadai.',
+    ta: 'இந்தக் கூட்டாளர் கணக்கு இடைநிறுத்தப்பட்டுள்ளது. கடையைத் தொடர்பு கொள்ளவும்.',
+  },
+  signing_unavailable: {
+    code: 'PROVIDER_ERROR',
+    en: 'Licence or release signing is not set up on this server.',
+    ta: 'இந்தச் சேவையகத்தில் உரிம / வெளியீட்டுக் கையொப்ப வசதி அமைக்கப்படவில்லை.',
+  },
+  storage_unavailable: {
+    code: 'PROVIDER_ERROR',
+    en: 'Cloud backup storage is not available right now. Please try again later.',
+    ta: 'கிளவுட் காப்புப்பிரதி சேமிப்பு இப்போது கிடைக்கவில்லை. பின்னர் முயற்சிக்கவும்.',
+  },
+  backup_not_uploaded: {
+    code: 'CONFLICT',
+    en: 'The backup file has not reached Kadai completely. Upload it again.',
+    ta: 'காப்புப்பிரதி கோப்பு முழுமையாக வந்து சேரவில்லை. மீண்டும் பதிவேற்றவும்.',
+  },
+  order_state: {
+    code: 'CONFLICT',
+    en: 'This order cannot be changed in its current state.',
+    ta: 'இந்த ஆர்டரை அதன் தற்போதைய நிலையில் மாற்ற முடியாது.',
+  },
+  amount_mismatch: {
+    code: 'UNPROCESSABLE',
+    en: 'The amount paid does not match the order total.',
+    ta: 'செலுத்திய தொகை ஆர்டர் மொத்தத்துடன் பொருந்தவில்லை.',
+  },
+  snapshot_too_large: {
+    code: 'VALIDATION_ERROR',
+    en: 'The Kadai Connect dashboard data is too large.',
+    ta: 'கடை கனெக்ட் டாஷ்போர்டு தரவு மிகப் பெரியது.',
+  },
+  upgrade_not_higher: {
+    code: 'UNPROCESSABLE',
+    en: 'Choose an edition higher than the current one to upgrade.',
+    ta: 'மேம்படுத்த, தற்போதைய பதிப்பை விட உயர்ந்த பதிப்பைத் தேர்ந்தெடுக்கவும்.',
   },
 } as const satisfies Record<string, { code: ErrorCode } & BilingualLabel>
 export type LicensingErrorReason = keyof typeof LICENSING_ERROR_REASONS
@@ -4479,6 +4550,112 @@ export const RelayMessageSchema = z.object({
 export type RelayMessage = z.output<typeof RelayMessageSchema>
 
 const RelayMessageParams = z.object({ id: zId })
+
+/**
+ * Relay message statuses after which a retry of the same client_ref is attempted again
+ * (a retryable provider failure); every other status replays the stored message.
+ */
+export const RELAY_RETRYABLE_STATUSES = ['failed'] as const
+
+// =============================================================================================
+// Vendor messages (our own WhatsApp / SMS / email texts to licensees and partners)
+// =============================================================================================
+
+export const VENDOR_MESSAGE_CODES = [
+  'license_key',
+  'renewal_due',
+  'renewal_lapsed',
+  'partner_renewal',
+  'payment_link',
+  'order_receipt',
+] as const
+export const VendorMessageCodeSchema = z.enum(VENDOR_MESSAGE_CODES)
+export type VendorMessageCode = z.infer<typeof VendorMessageCodeSchema>
+
+/**
+ * Texts of the messages the vendor sends (core/notify deliverMessage; WhatsApp template
+ * `kadai_<code>` with body params in placeholder order, SMS DLT id from MSG91_TEMPLATE_<CODE>).
+ * Placeholders are `{{name}}`; every locale uses the same set. Natural, short Tamil.
+ */
+export const VENDOR_MESSAGE_TEMPLATES: Readonly<
+  Record<VendorMessageCode, { label: BilingualLabel; en: string; ta: string }>
+> = {
+  license_key: {
+    label: { en: 'Licence key', ta: 'உரிம விசை' },
+    en:
+      'Kadai licence key for {{business_name}} ({{edition}}): {{license_key}}. Enter it in ' +
+      'Kadai Server → Settings → Licence. Keep it safe; do not share it. Help: {{support}}',
+    ta:
+      '{{business_name}} ({{edition}}) கடை உரிம விசை: {{license_key}}. கடை சர்வரில் அமைப்புகள் → ' +
+      'உரிமம் பகுதியில் இதை உள்ளிடவும். இதைப் பாதுகாப்பாக வைத்திருங்கள், யாரிடமும் பகிர வேண்டாம். உதவிக்கு: {{support}}',
+  },
+  renewal_due: {
+    label: { en: 'Renewal reminder', ta: 'புதுப்பித்தல் நினைவூட்டல்' },
+    en:
+      'Vanakkam {{name}}, the Kadai {{what}} for {{business_name}} ends on {{due_on}}. ' +
+      'Renew for {{amount}}{{offer}}: {{link}}',
+    ta:
+      'வணக்கம் {{name}}, {{business_name}} கடை {{what}} {{due_on}} அன்று முடிகிறது. ' +
+      '{{amount}} செலுத்திப் புதுப்பிக்கவும்{{offer}}: {{link}}',
+  },
+  renewal_lapsed: {
+    label: { en: 'Renewal overdue', ta: 'புதுப்பித்தல் தவறியது' },
+    en:
+      'Vanakkam {{name}}, the Kadai {{what}} for {{business_name}} ended on {{due_on}}. ' +
+      'Renew for {{amount}}{{offer}} to keep getting updates and support: {{link}}',
+    ta:
+      'வணக்கம் {{name}}, {{business_name}} கடை {{what}} {{due_on}} அன்று முடிந்துவிட்டது. ' +
+      'புதுப்பிப்புகளும் ஆதரவும் தொடர {{amount}} செலுத்திப் புதுப்பிக்கவும்{{offer}}: {{link}}',
+  },
+  partner_renewal: {
+    label: { en: 'Partner renewal alert', ta: 'கூட்டாளர் புதுப்பித்தல் தகவல்' },
+    en:
+      'Kadai partner alert: {{business_name}} ({{phone}}) — {{what}} {{state}} {{due_on}}. ' +
+      'Renewal {{amount}}. Please follow up.',
+    ta:
+      'கடை கூட்டாளர் தகவல்: {{business_name}} ({{phone}}) — {{what}} {{due_on}} {{state}}. ' +
+      'புதுப்பித்தல் {{amount}}. தயவுசெய்து தொடர்பு கொள்ளவும்.',
+  },
+  payment_link: {
+    label: { en: 'Payment link', ta: 'கட்டண இணைப்பு' },
+    en: 'Kadai order for {{business_name}}: please pay {{amount}} using this link: {{link}}',
+    ta: '{{business_name}} கடை ஆர்டர்: இந்த இணைப்பில் {{amount}} செலுத்தவும்: {{link}}',
+  },
+  order_receipt: {
+    label: { en: 'Payment receipt', ta: 'கட்டண ரசீது' },
+    en:
+      'Thank you! We received {{amount}} for Kadai invoice {{number}} ({{business_name}}). ' +
+      '{{detail}}',
+    ta:
+      'நன்றி! கடை விலைப்பட்டியல் {{number}} ({{business_name}}) க்கான {{amount}} பெறப்பட்டது. ' +
+      '{{detail}}',
+  },
+}
+
+const VENDOR_PLACEHOLDER_RE = /\{\{([a-z][a-z0-9_]*)\}\}/g
+
+/** Placeholder names of a vendor message in order of first appearance (WhatsApp body params). */
+export function vendorMessageParamOrder(code: VendorMessageCode, locale: 'ta' | 'en'): string[] {
+  const out: string[] = []
+  for (const m of VENDOR_MESSAGE_TEMPLATES[code][locale].matchAll(VENDOR_PLACEHOLDER_RE))
+    if (!out.includes(m[1]!)) out.push(m[1]!)
+  return out
+}
+
+/** Renders a vendor message; missing params render as ''. */
+export function renderVendorMessage(
+  code: VendorMessageCode,
+  locale: 'ta' | 'en',
+  params: Readonly<Record<string, string | number | null | undefined>>,
+): string {
+  return VENDOR_MESSAGE_TEMPLATES[code][locale]
+    .replace(VENDOR_PLACEHOLDER_RE, (_m, key: string) => {
+      const v = params[key]
+      return v === null || v === undefined ? '' : String(v)
+    })
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 
 // =============================================================================================
 // Route catalogues
