@@ -288,6 +288,33 @@ describe('order form', () => {
       { product_id: IDS.atta, qty_milli: 25_000, unit_cost_paise: 24_000 },
     ])
   })
+
+  it('prices a never-bought reorder item at the product purchase price, like the server', () => {
+    const fresh = reorderSuggestions().groups[1]!.items[0]!
+    expect(fresh.last_cost_paise).toBeNull()
+    const line = orderLineFromReorder(fresh)
+    expect(line.unit_cost_paise).toBe(6_200)
+    const totals = computeOrder(
+      {
+        supplier: { id: IDS.supplier, name: 'Sri Lakshmi Traders', phone: null, state_code: '33' },
+        store_id: STORE_ID,
+        order_date: TODAY,
+        expected_date: null,
+        notes: '',
+        terms: '',
+        lines: [line],
+      },
+      '33',
+    )
+    expect(totals.taxable_paise).toBe(fresh.estimated_cost_paise)
+    const body = reorderOrderBody({
+      store_id: STORE_ID,
+      supplier_id: IDS.supplier,
+      client_ref: IDS.file,
+      items: [{ item: fresh, qty_milli: fresh.suggested_qty_milli }],
+    })
+    expect(body.lines[0]).toMatchObject({ unit_cost_paise: 6_200, qty_milli: 12_000 })
+  })
 })
 
 describe('return form', () => {

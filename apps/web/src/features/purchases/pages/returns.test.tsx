@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { configure, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { purchaseReturnPrefillPath } from '@kadai/shared/api/inventory'
@@ -11,6 +11,10 @@ import { server } from '@/test/msw'
 import { renderApp, signIn } from '@/test/render'
 import * as F from '../testing/fixtures'
 import { createPurchasesApi } from '../testing/handlers'
+
+// The first render loads the lazy route and the shell; on a busy machine that can take longer
+// than Testing Library's 1 s default.
+configure({ asyncUtilTimeout: 5_000 })
 
 function setup(replies: Parameters<typeof createPurchasesApi>[0] = {}) {
   const api = createPurchasesApi(replies)

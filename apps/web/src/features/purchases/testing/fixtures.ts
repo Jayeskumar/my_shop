@@ -4,7 +4,7 @@
  * the shared maths (purchaseBillTotals / computePurchaseLine), and every factory's output parses
  * with the contract response schemas (fixtures.test.ts).
  */
-import type { ProductListItem } from '@kadai/shared/api/catalog'
+import type { ProductDetail, ProductListItem } from '@kadai/shared/api/catalog'
 import type { BatchRow } from '@kadai/shared/api/inventory'
 import type { Supplier, SupplierListItem } from '@kadai/shared/api/parties'
 import type { PaymentDetail } from '@kadai/shared/api/payments'
@@ -181,6 +181,63 @@ export function product(over: Partial<ProductListItem> = {}): ProductListItem {
     stock_qty_milli: 6_000,
     low_stock: true,
     updated_at: NOW,
+    ...over,
+  }
+}
+
+/** GET /products/:id of a list item (the bill grid reads the cess rate from it). */
+export function productDetail(
+  item: ProductListItem = product(),
+  over: Partial<ProductDetail> = {},
+): ProductDetail {
+  return {
+    id: item.id,
+    parent_id: item.parent_id,
+    kind: item.kind,
+    sku: item.sku,
+    name: item.name,
+    name_ta: item.name_ta,
+    aliases: [],
+    description: null,
+    category_id: item.category_id,
+    brand_id: item.brand_id,
+    unit: item.unit,
+    pack_size: item.pack_size,
+    allow_loose: item.pack_size > 1,
+    decimal_qty: false,
+    hsn_code: item.hsn_code,
+    gst_rate_bp: item.gst_rate_bp,
+    cess_rate_bp: 0,
+    tax_slab_rule_id: item.tax_slab_rule_id,
+    price_includes_tax: item.price_includes_tax,
+    mrp_paise: item.mrp_paise,
+    sale_price_paise: item.sale_price_paise,
+    wholesale_price_paise: null,
+    purchase_price_paise: item.purchase_price_paise,
+    min_sale_price_paise: null,
+    max_discount_bp: null,
+    track_inventory: item.track_inventory,
+    track_batches: item.track_batches,
+    is_weighed: false,
+    scale_plu: null,
+    reorder_level_milli: item.reorder_level_milli,
+    reorder_qty_milli: null,
+    variant_attributes: item.variant_attributes,
+    variant_axes: [],
+    attributes: {},
+    image_file_id: item.image_file_id,
+    is_active: item.is_active,
+    created_by: null,
+    created_at: NOW,
+    updated_at: item.updated_at,
+    category: null,
+    brand: null,
+    tax_slab_rule: null,
+    barcodes: [],
+    primary_barcode: item.primary_barcode,
+    parent: null,
+    variants: [],
+    stock_qty_milli: item.stock_qty_milli,
     ...over,
   }
 }
@@ -693,6 +750,7 @@ export function reorderSuggestions(): ReorderSuggestions {
     last_cost_paise: 24_000,
     last_bill_date: '2026-10-13',
     gst_rate_bp: 500,
+    unit_cost_paise: 24_000,
     estimated_cost_paise: 480_000,
   }
   const dolo = {
@@ -712,6 +770,7 @@ export function reorderSuggestions(): ReorderSuggestions {
     open_po_qty_milli: 30_000,
     last_cost_paise: 2_250,
     gst_rate_bp: 1200,
+    unit_cost_paise: 2_250,
     estimated_cost_paise: 38_250,
   }
   const fresh = {
@@ -728,7 +787,9 @@ export function reorderSuggestions(): ReorderSuggestions {
     suggested_qty_milli: 12_000,
     last_cost_paise: null,
     last_bill_date: null,
-    estimated_cost_paise: 0,
+    // Never bought from a supplier: the estimate uses the product's purchase price (₹62).
+    unit_cost_paise: 6_200,
+    estimated_cost_paise: 74_400,
   }
   return {
     store_id: STORE_ID,
@@ -740,7 +801,7 @@ export function reorderSuggestions(): ReorderSuggestions {
         items: [atta, dolo],
         estimated_cost_paise: atta.estimated_cost_paise + dolo.estimated_cost_paise,
       },
-      { supplier: null, items: [fresh], estimated_cost_paise: 0 },
+      { supplier: null, items: [fresh], estimated_cost_paise: fresh.estimated_cost_paise },
     ],
   }
 }
@@ -822,6 +883,7 @@ export function debitNote(over: Partial<DebitNoteDetail> = {}): DebitNoteDetail 
     payments: [],
     journal_entry_id: pid(9502),
     adjusted_paise: r.total_paise,
+    supplier_amount_paise: r.total_paise,
     cancelled_at: null,
     cancelled_by: null,
     cancelled_by_name: null,

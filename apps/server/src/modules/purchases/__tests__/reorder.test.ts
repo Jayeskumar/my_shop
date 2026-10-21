@@ -23,6 +23,7 @@ interface Item {
   open_po_qty_milli: number
   last_cost_paise: number | null
   last_bill_date: string | null
+  unit_cost_paise: number
   estimated_cost_paise: number
 }
 interface Suggestions {
@@ -188,6 +189,7 @@ describe('purchases: reorder suggestions', () => {
       days_of_cover: null,
       suggested_qty_milli: 9_000, // 2 × 5 − 1
       last_cost_paise: 2_000,
+      unit_cost_paise: 2_000,
       estimated_cost_paise: 18_000,
     })
     expect(balajiGroup!.items[0]).toMatchObject({
@@ -207,6 +209,7 @@ describe('purchases: reorder suggestions', () => {
       current_stock_milli: 0,
       suggested_qty_milli: 4_000,
       last_cost_paise: null,
+      unit_cost_paise: 300, // the product's purchase price: never bought from a supplier
       estimated_cost_paise: 1_200, // product purchase price × 4
     })
     // Above the level / without a level: not suggested.

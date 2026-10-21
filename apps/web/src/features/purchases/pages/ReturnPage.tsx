@@ -72,7 +72,9 @@ function ReturnDetail({ note }: { note: DebitNoteDetail }) {
     const state = location.state as { print?: boolean } | null
     if (state?.print) {
       navigate(location.pathname, { replace: true, state: null })
+      // A stable id: the arrival effect may run twice (React strict mode) — one toast only.
       notify.info(t('returns.print_prompt', { number: note.number }), {
+        id: `debit-note-print-${note.id}`,
         action: { label: t('common:actions.print'), onClick: print },
       })
     }
@@ -255,11 +257,13 @@ function ReturnDetail({ note }: { note: DebitNoteDetail }) {
             <p className="text-xs text-muted-foreground">
               {!note.bill_id
                 ? t('returns.adjusted_free_form')
-                : note.adjusted_paise >= note.total_paise
+                : note.adjusted_paise >= note.supplier_amount_paise
                   ? t('returns.adjusted_all', { adjusted: formatMoney(note.adjusted_paise) })
                   : t('returns.adjusted_detail', {
                       adjusted: formatMoney(note.adjusted_paise),
-                      advance: formatMoney(Math.max(0, note.total_paise - note.adjusted_paise)),
+                      advance: formatMoney(
+                        Math.max(0, note.supplier_amount_paise - note.adjusted_paise),
+                      ),
                     })}
             </p>
           ) : (

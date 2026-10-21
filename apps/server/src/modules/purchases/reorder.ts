@@ -178,6 +178,7 @@ export async function reorderSuggestions(
       last_cost_paise: lp?.unit_cost_paise ?? null,
       last_bill_date: lp?.received_date ?? null,
       gst_rate_bp: p.gst_rate_bp,
+      unit_cost_paise: cost,
       estimated_cost_paise: amountForQty(cost, suggested, p.pack_size),
     }
     const key = lp?.supplier_id ?? ''

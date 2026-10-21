@@ -8,6 +8,12 @@
 // - PurchaseBillLineSchema.discount_paise documented: the flat discount as entered (round-trips with discount_bp); line discount total = gross − taxable.
 // - PurchaseBillPostResultSchema.stock_lines documented: number of stock movements posted (one per stock-tracked line).
 // - PO received quantities count the charged quantity of posted bill lines (free quantity is a bonus, not a receipt against the order).
+// - (review) ReorderItemSchema += unit_cost_paise (last cost, else the product's purchase price): the basis of estimated_cost_paise and the PO line default; the web estimates with it.
+// - (review) Debit notes against reverse-charge bills: the payable / bill due / refund move by total − tax and the output tax is reversed (mirror of the bill's journal).
+// - (review) PurchaseOrderListRow.received_bp is weighted by the lines' taxable value (quantities of different units do not add up); by quantity when the order has no prices.
+// - (review) PurchaseBillListResponse.summary total / paid leave cancelled bills out unless status=cancelled is filtered.
+// - (review) DebitNoteDetailSchema += supplier_amount_paise (total, or total − tax against a reverse-charge bill): the amount adjusted / refunded; the web shows the advance from it.
+// - (review) Posting with update_prices: false no longer sets the selling price of a NEW batch (its printed MRP is still recorded).
 /**
  * Contract for the purchases module — docs/API.md "purchases"; ARCHITECTURE.md §9 (purchase
  * maths in pricing.ts), §10 (posting rules).
@@ -564,7 +570,10 @@ export const PurchaseOrderListRowSchema = z.object({
   taxable_paise: zPaise,
   tax_paise: zPaise,
   total_paise: zPaise,
-  /** Σ received / Σ ordered in bp (0..10000). */
+  /**
+   * Share of the order received, in bp (0..10000), weighted by the lines' taxable value (by
+   * quantity when the order has no prices).
+   */
   received_bp: zBp,
   sent_at: zTimestamp.nullable(),
   created_at: zTimestamp,
@@ -920,6 +929,10 @@ export const PurchaseBillListQuerySchema = PageQuerySchema.extend({
 }).refine(dateOrderOk, DATE_ORDER_ISSUE)
 export type PurchaseBillListQuery = z.input<typeof PurchaseBillListQuerySchema>
 
+/**
+ * `summary` covers the whole filtered range: count of every listed bill; total / paid of the
+ * non-cancelled ones (cancelled bills count only when the status filter asks for them).
+ */
 export const PurchaseBillListResponseSchema = listOf(PurchaseBillListRowSchema).extend({
   summary: z.object({
     count: z.int(),
@@ -1102,6 +1115,11 @@ export const DebitNoteDetailSchema = DebitNoteListRowSchema.extend({
    * note is the supplier's advance. 0 for refunds and free-form notes.
    */
   adjusted_paise: zPaise.default(0),
+  /**
+   * What the supplier's account moves by: the total, or total − tax for a return against a
+   * reverse-charge bill (the supplier was never owed the GST). Refunds equal this amount.
+   */
+  supplier_amount_paise: zPaise,
   cancelled_at: zTimestamp.nullable(),
   cancelled_by: zId.nullable(),
   cancelled_by_name: z.string().nullable(),
@@ -1210,7 +1228,12 @@ export const ReorderItemSchema = z.object({
   last_cost_paise: zPaise.nullable(),
   last_bill_date: zDateStr.nullable(),
   gst_rate_bp: z.int().min(0),
-  /** suggested × last cost (excl. tax). */
+  /**
+   * Cost per pack (excl. tax) of the estimate and the PO default: the last cost, else the
+   * product's purchase price (never bought from a supplier, e.g. opening stock only).
+   */
+  unit_cost_paise: zPaise,
+  /** suggested × unit_cost_paise (excl. tax). */
   estimated_cost_paise: zPaise,
 })
 export type ReorderItem = z.output<typeof ReorderItemSchema>

@@ -266,7 +266,13 @@ describe('purchases: purchase orders', () => {
       [6_000, 4_000],
       [0, 50_000],
     ])
-    expect(po.received_bp).toBe(1_000) // 6000 / 60000
+    // Weighted by value: 6 × ₹120 = ₹720 of ₹1,390 ordered (10 dal + 5 strips of ₹38); by
+    // quantity alone (6 of 60 units) it would read 10%.
+    expect(po.received_bp).toBe(5_180)
+    const listed = dataOf<OrderView[]>(
+      await req(shop, 'GET', `/purchase-orders?supplier_id=${supplier.id}`),
+    ).find((o) => o.id === order.id)
+    expect(listed?.received_bp).toBe(5_180)
     expect(po.lines[0]!.last_cost_paise).toBe(12_000)
     expect(po.lines[0]!.current_stock_milli).toBe(6_000)
     expectError(

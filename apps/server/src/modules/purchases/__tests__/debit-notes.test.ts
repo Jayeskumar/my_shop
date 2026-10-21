@@ -38,6 +38,7 @@ interface NoteView {
   tax_paise: number
   total_paise: number
   adjusted_paise: number
+  supplier_amount_paise: number
   cancel_reason: string | null
   lines: {
     bill_line_id: string | null
@@ -250,7 +251,11 @@ describe('purchases: debit notes', () => {
       }),
       201,
     )
-    expect(note).toMatchObject({ total_paise: 7_500, adjusted_paise: 2_000 })
+    expect(note).toMatchObject({
+      total_paise: 7_500,
+      adjusted_paise: 2_000,
+      supplier_amount_paise: 7_500,
+    })
     const b = await getBill(shop, bill.id)
     expect(b).toMatchObject({ due_paise: 0, returned_paise: 2_000, payment_status: 'paid' })
     // Supplier owes the shop ₹55 (advance): 10000 − 8000 − 7500.
@@ -262,6 +267,64 @@ describe('purchases: debit notes', () => {
       payment_status: 'partial',
     })
     expect(await assertSupplierBalanceMatchesLedger(t, shop.tenant.id, s.id)).toBe(2_000)
+  })
+
+  it('returns against a reverse-charge bill reduce the payable by the value without GST', async () => {
+    const s = await makeSupplier(t, shop.tenant.id, { gstin: null, state_code: '33' })
+    const p = await makeProduct(t, shop.tenant.id, { gst_rate_bp: 500 })
+    // 4 × ₹250 + 5% GST paid by the shop: the supplier is owed ₹1,000, the GST ₹50 is output tax.
+    const bill = await postedBill(
+      shop,
+      s.id,
+      [{ product_id: p.id, qty_milli: 4_000, unit_cost_paise: 25_000 }],
+      { reverse_charge: true },
+    )
+    expect(bill).toMatchObject({ total_paise: 105_000, due_paise: 100_000 })
+    const note = dataOf<NoteView>(
+      await createNote(shop, {
+        bill_id: bill.id,
+        reason: 'damaged',
+        lines: [{ bill_line_id: bill.lines[0]!.id, qty_milli: 1_000 }],
+      }),
+      201,
+    )
+    // The GST document is worth ₹262.50; the supplier's claim drops by ₹250 only.
+    expect(note).toMatchObject({
+      total_paise: 26_250,
+      tax_paise: 1_250,
+      adjusted_paise: 25_000,
+      supplier_amount_paise: 25_000,
+    })
+    expect(await getBill(shop, bill.id)).toMatchObject({
+      due_paise: 75_000,
+      returned_paise: 25_000,
+    })
+    expect(netBySubtype(await journalOf(t, shop.tenant.id, 'debit_note', note.id))).toEqual({
+      payable: 25_000,
+      output_cgst: 625,
+      output_sgst: 625,
+      inventory: -25_000,
+      input_cgst: -625,
+      input_sgst: -625,
+    })
+    expect(await assertSupplierBalanceMatchesLedger(t, shop.tenant.id, s.id)).toBe(75_000)
+
+    // A cash refund of a reverse-charge return is the value without GST as well.
+    const refund = dataOf<NoteView>(
+      await createNote(shop, {
+        bill_id: bill.id,
+        reason: 'return',
+        settlement: 'refund_cash',
+        lines: [{ bill_line_id: bill.lines[0]!.id, qty_milli: 1_000 }],
+      }),
+      201,
+    )
+    expect(refund.payments).toEqual([expect.objectContaining({ amount_paise: 25_000 })])
+    expect(await assertSupplierBalanceMatchesLedger(t, shop.tenant.id, s.id)).toBe(75_000)
+    dataOf(await req(shop, 'POST', `/debit-notes/${note.id}/cancel`, { reason: 'Entered twice' }))
+    expect(await getBill(shop, bill.id)).toMatchObject({ due_paise: 100_000, returned_paise: 0 })
+    expect(await assertSupplierBalanceMatchesLedger(t, shop.tenant.id, s.id)).toBe(100_000)
+    await assertJournalsBalanced(t, shop.tenant.id)
   })
 
   it('refund_cash records a receipt from the supplier; cancelling the note cancels it', async () => {

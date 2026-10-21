@@ -90,6 +90,8 @@ async function resolveBatch(
     .forUpdate()
     .executeTakeFirst()
   if (!existing) {
+    // The MRP printed on the new batch is a fact of the batch; its own selling price is a price
+    // update and follows `update_prices` like the product's.
     const batchId = newId()
     await tx
       .insertInto('batches')
@@ -102,7 +104,7 @@ async function resolveBatch(
         expiry_date: line.expiry_date,
         mrp_paise: line.mrp_paise ?? product.mrp_paise,
         purchase_price_paise: landedCost,
-        sale_price_paise: line.sale_price_paise,
+        sale_price_paise: updatePrices ? line.sale_price_paise : null,
         supplier_id: bill.supplier_id,
       })
       .execute()

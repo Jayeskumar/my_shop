@@ -328,15 +328,20 @@ function linkOrderLines(lines: BillLineSource[], order: OrderLink | null): void 
   })
 }
 
-/** Dates may not lie in the future (supplier invoice date, received date). */
+/**
+ * Dates may not lie in the future (supplier invoice date, received date), and the bill cannot
+ * fall due before it was issued.
+ */
 function assertDates(
-  h: { supplier_invoice_date: string; received_date: string },
+  h: { supplier_invoice_date: string; received_date: string; due_date: string | null },
   today: string,
 ): void {
-  const issues: Array<{ path: string[]; key: 'future_date' }> = []
+  const issues: Array<{ path: string[]; key: 'future_date' | 'date_order' }> = []
   if (h.supplier_invoice_date > today)
     issues.push({ path: ['supplier_invoice_date'], key: 'future_date' })
   if (h.received_date > today) issues.push({ path: ['received_date'], key: 'future_date' })
+  if (h.due_date !== null && h.due_date < h.supplier_invoice_date)
+    issues.push({ path: ['due_date'], key: 'date_order' })
   if (issues.length) throw fieldIssues(issues)
 }
 
@@ -1307,11 +1312,17 @@ export async function listBills(
 }> {
   const { today } = await businessToday(tx, ctx)
   const result = await paginateQuery(billListSelect(filteredBills(tx, ctx, q, today), q), page)
+  // Cancelled bills are listed (count) but add no value, unless the filter asks for them.
+  const valued = q.status?.includes('cancelled')
+    ? sql<boolean>`true`
+    : sql<boolean>`b.status <> 'cancelled'`
   const summary = await filteredBills(tx, ctx, q, today)
     .select([
       sql<number>`count(*)::bigint`.as('count'),
-      sql<number>`coalesce(sum(b.total_paise), 0)::bigint`.as('total_paise'),
-      sql<number>`coalesce(sum(b.paid_paise), 0)::bigint`.as('paid_paise'),
+      sql<number>`coalesce(sum(b.total_paise) filter (where ${valued}), 0)::bigint`.as(
+        'total_paise',
+      ),
+      sql<number>`coalesce(sum(b.paid_paise) filter (where ${valued}), 0)::bigint`.as('paid_paise'),
       sql<number>`coalesce(sum(b.due_paise), 0)::bigint`.as('due_paise'),
       sql<number>`coalesce(sum(b.due_paise) filter (where b.status = 'posted' and b.due_paise > 0 and b.due_date is not null and b.due_date < ${today}::date), 0)::bigint`.as(
         'overdue_paise',

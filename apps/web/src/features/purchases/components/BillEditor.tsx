@@ -11,6 +11,7 @@
  * confirmation summary (stock in, payable, price updates) and posts the GRN. F3 jumps to the
  * product search. Unsaved changes are guarded.
  */
+import { catalogRoutes } from '@kadai/shared/api/catalog'
 import { type PurchaseBillDetail, purchasesRoutes } from '@kadai/shared/api/purchases'
 import type { SupplierListItem } from '@kadai/shared/api/parties'
 import { DuplicateSupplierInvoiceDetailsSchema } from '@kadai/shared/api/purchases'
@@ -39,7 +40,7 @@ import {
   useConfirm,
 } from '@/components/ui'
 import { Textarea } from '@/components/ui/textarea'
-import { isApiError } from '@/lib/api'
+import { callRoute, isApiError } from '@/lib/api'
 import { useCan, useFeature, useMe } from '@/lib/auth'
 import { cn } from '@/lib/cn'
 import { formatDate } from '@/lib/format'
@@ -340,6 +341,27 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
       return { ...e, header: next }
     })
     requestFocus(firstCellOf(line, batchesFeature || product.track_batches))
+    // The product list has no cess rate; the live totals must use the product's cess like the
+    // server does when it saves the line (e.g. tobacco), so read it from the product detail.
+    void queryClient
+      .fetchQuery({
+        queryKey: routeQueryKey(catalogRoutes.getProduct, { params: { id: product.id } }),
+        queryFn: ({ signal }) =>
+          callRoute(catalogRoutes.getProduct, { params: { id: product.id }, signal }),
+        staleTime: 60_000,
+      })
+      .then((res) => {
+        const cess = res.data.cess_rate_bp
+        if (cess > 0) {
+          setDraft((d) => ({
+            ...d,
+            lines: d.lines.map((l) => (l.key === line.key ? { ...l, cess_rate_bp: cess } : l)),
+          }))
+        }
+      })
+      .catch(() => {
+        // Unknown cess: the server still applies the product's rate on save.
+      })
   }
 
   const focusFirstError = (errs: BillErrors): void => {

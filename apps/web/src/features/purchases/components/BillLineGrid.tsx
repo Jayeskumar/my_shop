@@ -175,7 +175,7 @@ export function BillLineGrid({
       <table
         className={cn(
           'w-full table-fixed border-collapse text-sm',
-          showBatch ? 'min-w-[1240px]' : 'min-w-[1040px]',
+          showBatch ? 'min-w-[1300px]' : 'min-w-[1100px]',
         )}
         onKeyDown={onKeyDown}
       >
@@ -189,15 +189,16 @@ export function BillLineGrid({
               <col className="w-[5rem]" />
             </>
           ) : null}
-          <col className="w-[5.5rem]" />
+          {/* MRP and rate fit ₹1,23,456.00 (rice bags, textiles); amounts fit lakhs. */}
+          <col className="w-[6rem]" />
           <col className="w-[4.5rem]" />
           <col className="w-[3.75rem]" />
-          <col className="w-[5.25rem]" />
+          <col className="w-[6rem]" />
           <col className="w-[3.75rem]" />
           <col className="w-[5rem]" />
-          <col className="w-[5.5rem]" />
-          <col className="w-[4.5rem]" />
-          <col className="w-[5.75rem]" />
+          <col className="w-[6.25rem]" />
+          <col className="w-[5rem]" />
+          <col className="w-[6.5rem]" />
           <col className="w-[6rem]" />
           <col className="w-9" />
         </colgroup>
@@ -655,7 +656,7 @@ function LineRow(props: LineProps) {
 
 function Field({ label, children, error }: { label: string; children: ReactNode; error?: string }) {
   return (
-    <div className="grid min-w-0 gap-1">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       {children}
       <CellError text={error} />

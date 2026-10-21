@@ -433,6 +433,11 @@ export async function createDebitNote(
   }
   const tax = totals.cgst_paise + totals.sgst_paise + totals.igst_paise + totals.cess_paise
   const total = totals.taxable_paise + tax
+  // Reverse-charge purchase: the supplier was owed the value without GST (the shop paid the GST
+  // itself as output tax), so the return reduces the payable by total − tax and gives back the
+  // output tax (mirror of the bill's journal, posting.ts billJournalLines).
+  const reverseCharge = bill?.reverse_charge ?? false
+  const supplierAmount = reverseCharge ? Math.max(0, total - tax) : total
 
   if (body.settlement === 'refund_bank' && body.account_id) {
     const account = await tx
@@ -540,11 +545,35 @@ export async function createDebitNote(
   const journal: JournalLineInput[] = [
     {
       account: { subtype: 'payable' },
-      debit_paise: total,
+      debit_paise: supplierAmount,
       party: { type: 'supplier', id: supplier.id },
     },
     { account: { subtype: 'inventory' }, credit_paise: totals.taxable_paise + (itc ? 0 : tax) },
   ]
+  if (reverseCharge) {
+    journal.push(
+      {
+        account: { subtype: 'output_cgst' },
+        debit_paise: totals.cgst_paise,
+        memo: 'Reverse charge',
+      },
+      {
+        account: { subtype: 'output_sgst' },
+        debit_paise: totals.sgst_paise,
+        memo: 'Reverse charge',
+      },
+      {
+        account: { subtype: 'output_igst' },
+        debit_paise: totals.igst_paise,
+        memo: 'Reverse charge',
+      },
+      {
+        account: { subtype: 'output_cess' },
+        debit_paise: totals.cess_paise,
+        memo: 'Reverse charge',
+      },
+    )
+  }
   if (itc) {
     journal.push(
       { account: { subtype: 'input_cgst' }, credit_paise: totals.cgst_paise },
@@ -565,8 +594,8 @@ export async function createDebitNote(
   // ---- settlement -------------------------------------------------------------------------
   let adjusted = 0
   if (body.settlement === 'adjust_due') {
-    if (bill && total > 0) {
-      adjusted = Math.min(total, Math.max(0, bill.due_paise))
+    if (bill && supplierAmount > 0) {
+      adjusted = Math.min(supplierAmount, Math.max(0, bill.due_paise))
       if (adjusted > 0) {
         await adjustBillDue(tx, ctx, bill, adjusted)
         await tx
@@ -577,17 +606,17 @@ export async function createDebitNote(
           .execute()
       }
     }
-  } else if (total > 0) {
+  } else if (supplierAmount > 0) {
     await recordPayment(tx, ctx, {
       direction: 'in',
       store_id: store.id,
       method: body.settlement === 'refund_cash' ? 'cash' : 'bank_transfer',
-      amount_paise: total,
+      amount_paise: supplierAmount,
       payment_date: noteDate,
       party: { type: 'supplier', id: supplier.id },
       reference: body.refund_reference ?? null,
       account_id: body.settlement === 'refund_bank' ? (body.account_id ?? null) : null,
-      allocations: [{ target_type: 'debit_note', target_id: id, amount_paise: total }],
+      allocations: [{ target_type: 'debit_note', target_id: id, amount_paise: supplierAmount }],
       notes: `Refund for debit note ${numbered.number}`,
       client_ref: paymentClientRef.debitNoteSettlement(id),
     })
@@ -787,7 +816,7 @@ export async function debitNoteDetail(tx: Tx, ctx: Ctx, id: string): Promise<Deb
     note.bill_id
       ? tx
           .selectFrom('purchase_bills')
-          .select(['number', 'supplier_invoice_no'])
+          .select(['number', 'supplier_invoice_no', 'reverse_charge'])
           .where('tenant_id', '=', ctx.tenantId)
           .where('id', '=', note.bill_id)
           .executeTakeFirst()
@@ -797,6 +826,7 @@ export async function debitNoteDetail(tx: Tx, ctx: Ctx, id: string): Promise<Deb
     userNames(tx, [note.created_by, note.cancelled_by]),
   ])
   const name = (uid: string | null): string | null => (uid ? (names.get(uid) ?? null) : null)
+  const tax = note.cgst_paise + note.sgst_paise + note.igst_paise + note.cess_paise
   return {
     id: note.id,
     number: note.number,
@@ -820,7 +850,7 @@ export async function debitNoteDetail(tx: Tx, ctx: Ctx, id: string): Promise<Deb
     sgst_paise: note.sgst_paise,
     igst_paise: note.igst_paise,
     cess_paise: note.cess_paise,
-    tax_paise: note.cgst_paise + note.sgst_paise + note.igst_paise + note.cess_paise,
+    tax_paise: tax,
     round_off_paise: note.round_off_paise,
     notes: note.notes,
     supplier: supplierRef(supplier),
@@ -851,6 +881,9 @@ export async function debitNoteDetail(tx: Tx, ctx: Ctx, id: string): Promise<Deb
     payments,
     journal_entry_id: journalId,
     adjusted_paise: note.adjusted_paise,
+    supplier_amount_paise: bill?.reverse_charge
+      ? Math.max(0, note.total_paise - tax)
+      : note.total_paise,
     cancelled_at: note.cancelled_at ? iso(note.cancelled_at) : null,
     cancelled_by: note.cancelled_by,
     cancelled_by_name: name(note.cancelled_by),

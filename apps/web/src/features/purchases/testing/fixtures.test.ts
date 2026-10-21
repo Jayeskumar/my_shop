@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { z } from 'zod'
-import { ProductListItemSchema } from '@kadai/shared/api/catalog'
+import { ProductDetailSchema, ProductListItemSchema } from '@kadai/shared/api/catalog'
 import { BatchRowSchema } from '@kadai/shared/api/inventory'
 import { SupplierListItemSchema, SupplierSchema } from '@kadai/shared/api/parties'
 import { PaymentDetailSchema } from '@kadai/shared/api/payments'
@@ -27,6 +27,7 @@ const cases: [string, z.ZodType, () => unknown][] = [
   ['supplier', SupplierSchema, F.supplier],
   ['product', ProductListItemSchema, F.product],
   ['batch-tracked product', ProductListItemSchema, F.doloProduct],
+  ['product detail', ProductDetailSchema, () => F.productDetail(F.doloProduct())],
   ['batch', BatchRowSchema, F.batchRow],
   ['posted bill', PurchaseBillDetailSchema, F.bill],
   ['draft bill', PurchaseBillDetailSchema, F.draftBill],

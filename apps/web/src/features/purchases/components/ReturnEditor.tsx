@@ -831,7 +831,8 @@ function Cell({
   children: ReactNode
 }) {
   return (
-    <div className="grid min-w-0 gap-1">
+    // minmax(0, 1fr): a long batch label must truncate inside its column, not overlap the next.
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1">
       <span className={cn('text-xs font-medium text-muted-foreground', !compact && 'sr-only')}>
         {label}
       </span>

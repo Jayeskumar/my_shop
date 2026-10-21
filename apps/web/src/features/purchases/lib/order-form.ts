@@ -110,12 +110,13 @@ export function orderLineFromReorder(item: ReorderItem, qty?: number): OrderLine
       unit: item.unit,
       pack_size: item.pack_size,
       gst_rate_bp: item.gst_rate_bp,
-      purchase_price_paise: item.last_cost_paise ?? 0,
+      purchase_price_paise: item.unit_cost_paise,
       last_cost_paise: item.last_cost_paise,
       stock_qty_milli: item.current_stock_milli,
     },
     qty_milli: qty ?? (item.suggested_qty_milli > 0 ? item.suggested_qty_milli : null),
-    unit_cost_paise: item.last_cost_paise,
+    // The last cost, else the product's purchase price (what the server defaults to as well).
+    unit_cost_paise: item.unit_cost_paise,
     gst_rate_bp: item.gst_rate_bp,
     notes: '',
     suggested_qty_milli: item.suggested_qty_milli,
@@ -327,7 +328,7 @@ export function reorderOrderBody(input: {
     lines: input.items.map(({ item, qty_milli }) => ({
       product_id: item.product_id,
       qty_milli,
-      ...(item.last_cost_paise !== null ? { unit_cost_paise: item.last_cost_paise } : {}),
+      unit_cost_paise: item.unit_cost_paise,
     })),
     client_ref: input.client_ref,
   }

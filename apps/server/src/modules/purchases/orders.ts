@@ -217,9 +217,24 @@ export async function loadOrder(
   return row
 }
 
-function receivedBp(ordered: number, received: number): number {
+function ratioBp(ordered: number, received: number): number {
   if (ordered <= 0) return 0
   return Math.min(10_000, roundDiv(received * 10_000, ordered))
+}
+
+/**
+ * How much of the order has arrived, in bp: weighted by the lines' taxable value (25 kg rice
+ * bags and 1 kg salt packets must not count alike), by quantity when the order has no prices.
+ */
+function receivedBp(totals: {
+  ordered_value: number
+  received_value: number
+  ordered_milli: number
+  received_milli: number
+}): number {
+  return totals.ordered_value > 0
+    ? ratioBp(totals.ordered_value, totals.received_value)
+    : ratioBp(totals.ordered_milli, totals.received_milli)
 }
 
 export async function orderDetail(tx: Tx, ctx: Ctx, id: string): Promise<PurchaseOrderDetail> {
@@ -249,11 +264,13 @@ export async function orderDetail(tx: Tx, ctx: Ctx, id: string): Promise<Purchas
     lastPurchases(tx, ctx, productIds),
     userNames(tx, [o.created_by]),
   ])
-  let ordered = 0
-  let received = 0
+  const progress = { ordered_value: 0, received_value: 0, ordered_milli: 0, received_milli: 0 }
   for (const l of lines) {
-    ordered += l.qty_milli
-    received += Math.min(l.qty_milli, l.received_qty_milli)
+    const got = Math.min(l.qty_milli, l.received_qty_milli)
+    progress.ordered_milli += l.qty_milli
+    progress.received_milli += got
+    progress.ordered_value += l.taxable_paise
+    progress.received_value += Math.floor((l.taxable_paise * got) / l.qty_milli)
   }
   return {
     id: o.id,
@@ -269,7 +286,7 @@ export async function orderDetail(tx: Tx, ctx: Ctx, id: string): Promise<Purchas
     taxable_paise: o.taxable_paise,
     tax_paise: o.tax_paise,
     total_paise: o.total_paise,
-    received_bp: receivedBp(ordered, received),
+    received_bp: receivedBp(progress),
     sent_at: o.sent_at ? iso(o.sent_at) : null,
     created_at: iso(o.created_at),
     updated_at: iso(o.updated_at),
@@ -367,6 +384,12 @@ function orderListSelect(qb: ReturnType<typeof filteredOrders>, q: OrderListQuer
       sql<number>`(select coalesce(sum(least(l.received_qty_milli, l.qty_milli)), 0) from purchase_order_lines l where l.tenant_id = o.tenant_id and l.purchase_order_id = o.id)::bigint`.as(
         'received_milli',
       ),
+      sql<number>`(select coalesce(sum(l.taxable_paise), 0) from purchase_order_lines l where l.tenant_id = o.tenant_id and l.purchase_order_id = o.id)::bigint`.as(
+        'ordered_value',
+      ),
+      sql<number>`(select coalesce(sum(l.taxable_paise * least(l.received_qty_milli, l.qty_milli) / l.qty_milli), 0) from purchase_order_lines l where l.tenant_id = o.tenant_id and l.purchase_order_id = o.id)::bigint`.as(
+        'received_value',
+      ),
     ])
     .orderBy(sql`${sql.ref(sort)} ${sql.raw(q.sort.direction)} nulls last`)
     .orderBy('o.created_at', 'desc')
@@ -392,6 +415,8 @@ type OrderListDbRow = {
   line_count: number
   ordered_milli: number
   received_milli: number
+  ordered_value: number
+  received_value: number
 }
 
 function toOrderListRow(r: OrderListDbRow): PurchaseOrderListRow {
@@ -409,7 +434,12 @@ function toOrderListRow(r: OrderListDbRow): PurchaseOrderListRow {
     taxable_paise: r.taxable_paise,
     tax_paise: r.tax_paise,
     total_paise: r.total_paise,
-    received_bp: receivedBp(Number(r.ordered_milli), Number(r.received_milli)),
+    received_bp: receivedBp({
+      ordered_value: Number(r.ordered_value),
+      received_value: Number(r.received_value),
+      ordered_milli: Number(r.ordered_milli),
+      received_milli: Number(r.received_milli),
+    }),
     sent_at: r.sent_at ? iso(r.sent_at) : null,
     created_at: iso(r.created_at),
     updated_at: iso(r.updated_at),

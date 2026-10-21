@@ -359,6 +359,47 @@ describe('purchases: posting and cancelling bills', () => {
     })
   })
 
+  it('update_prices: false keeps every selling price — also on a new batch — but records the cost', async () => {
+    const p = await makeProduct(t, shop.tenant.id, {
+      track_batches: true,
+      gst_rate_bp: 500,
+      mrp_paise: 5_000,
+      sale_price_paise: 4_500,
+    })
+    const s = await makeSupplier(t, shop.tenant.id)
+    const bill = await draft(shop, s.id, [
+      {
+        product_id: p.id,
+        batch_no: 'NP1',
+        expiry_date: addDays(today, 300),
+        qty_milli: 10_000,
+        unit_cost_paise: 3_000,
+        mrp_paise: 5_500,
+        sale_price_paise: 5_000,
+      },
+    ])
+    const res = dataOf<PostResult>(await post(shop, bill.id, { update_prices: false }))
+    expect(res.batches_created).toBe(1)
+    expect(res.price_updates.map((u) => u.field)).toEqual(['purchase_price_paise'])
+    const batch = await t.deps.db.systemDb
+      .selectFrom('batches')
+      .select(['mrp_paise', 'sale_price_paise', 'purchase_price_paise'])
+      .where('id', '=', res.bill.lines[0]!.batch_id!)
+      .executeTakeFirstOrThrow()
+    // The printed MRP belongs to the batch; its own selling price was not applied.
+    expect(batch).toEqual({ mrp_paise: 5_500, sale_price_paise: null, purchase_price_paise: 3_000 })
+    const product = await t.deps.db.systemDb
+      .selectFrom('products')
+      .select(['mrp_paise', 'sale_price_paise', 'purchase_price_paise'])
+      .where('id', '=', p.id)
+      .executeTakeFirstOrThrow()
+    expect(product).toEqual({
+      mrp_paise: 5_000,
+      sale_price_paise: 4_500,
+      purchase_price_paise: 3_000,
+    })
+  })
+
   it('needs the supplier invoice number to post a draft made from an order and keeps the duplicate guard', async () => {
     const p = await makeProduct(t, shop.tenant.id)
     const s = await makeSupplier(t, shop.tenant.id)
@@ -596,6 +637,24 @@ describe('purchases: posting and cancelling bills', () => {
       paid_paise: 5_000,
       due_paise: 10_000,
       overdue_paise: 10_000,
+    })
+    // A cancelled bill is listed but adds no value — unless cancelled bills are asked for.
+    const wrong = await draft(shop, s.id, [
+      { product_id: p.id, qty_milli: 1_000, unit_cost_paise: 7_000 },
+    ])
+    dataOf<PostResult>(await post(shop, wrong.id))
+    dataOf(
+      await req(shop, 'POST', `/purchase-bills/${wrong.id}/cancel`, { reason: 'Duplicate entry' }),
+    )
+    expect((await list('sort=received_date')).summary).toMatchObject({
+      count: 3,
+      total_paise: 15_000,
+      due_paise: 10_000,
+    })
+    expect((await list('status=cancelled')).summary).toMatchObject({
+      count: 1,
+      total_paise: 7_000,
+      due_paise: 0,
     })
   })
 })

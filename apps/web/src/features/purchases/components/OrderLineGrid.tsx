@@ -358,7 +358,7 @@ function Th({
 
 function Field({ label, children, error }: { label: string; children: ReactNode; error?: string }) {
   return (
-    <div className="grid min-w-0 gap-1">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       {children}
       {error ? (

@@ -41,6 +41,7 @@ const ROUTES: Record<string, RouteDef> = {
   getSupplier: partiesRoutes.getSupplier,
   listProducts: catalogRoutes.listProducts,
   lookupProduct: catalogRoutes.lookupProduct,
+  getProduct: catalogRoutes.getProduct,
   listBatches: inventoryRoutes.listBatches,
   createPayment: paymentsRoutes.createPayment,
   uploadFile: identityRoutes.uploadFile,
@@ -128,6 +129,12 @@ export function createPurchasesApi(
       return json({ data: rows, page: F.page(rows.length, 20) })
     },
     lookupProduct: () => json({ error: { code: 'NOT_FOUND', message: 'none' } }, 404),
+    getProduct: (_c, p) => {
+      const item = [F.product(), F.doloProduct(), F.oilProduct()].find((x) => x.id === p.id)
+      return item
+        ? json({ data: F.productDetail(item) })
+        : json({ error: { code: 'NOT_FOUND', message: 'none' } }, 404)
+    },
     listBatches: () => json({ data: [F.batchRow()], page: F.page(1, 200) }),
     createPayment: (c) =>
       json(

@@ -233,7 +233,7 @@ export function ReorderPanel() {
           const items = chosen(g)
           const estimate = items.reduce(
             (s, { item, qty_milli }) =>
-              s + mulDiv(item.last_cost_paise ?? 0, qty_milli, item.pack_size * 1000),
+              s + mulDiv(item.unit_cost_paise, qty_milli, item.pack_size * 1000),
             0,
           )
           return (
@@ -399,8 +399,8 @@ function ReorderRow({
         </div>
         <Money
           paise={
-            item.last_cost_paise !== null && pick.qty_milli
-              ? mulDiv(item.last_cost_paise, pick.qty_milli, item.pack_size * 1000)
+            pick.qty_milli
+              ? mulDiv(item.unit_cost_paise, pick.qty_milli, item.pack_size * 1000)
               : null
           }
           empty="—"

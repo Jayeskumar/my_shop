@@ -1,5 +1,6 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { configure, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import {
   PurchaseBillCreateSchema,
@@ -10,6 +11,10 @@ import { errorResponse, server } from '@/test/msw'
 import { renderApp, signIn } from '@/test/render'
 import * as F from '../testing/fixtures'
 import { createPurchasesApi } from '../testing/handlers'
+
+// The first render loads the lazy route and the shell; on a busy machine that can take longer
+// than Testing Library's 1 s default.
+configure({ asyncUtilTimeout: 5_000 })
 
 function setup(replies: Parameters<typeof createPurchasesApi>[0] = {}) {
   const api = createPurchasesApi(replies)
@@ -88,6 +93,30 @@ describe('Purchase bill entry', () => {
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(`/purchases/bills/${F.IDS.billDraft}`),
     )
+  })
+
+  it('uses the product cess rate in the live totals and sends it with the line', async () => {
+    const api = setup({
+      getProduct: () =>
+        HttpResponse.json({ data: F.productDetail(F.product(), { cess_rate_bp: 500 }) }),
+    })
+    const user = userEvent.setup()
+    await signIn()
+    renderApp('/purchases/bills/new')
+    await pickSupplier(user)
+    await user.type(screen.getByRole('textbox', { name: /Supplier invoice no/ }), 'SLT/1300')
+    await addProduct(user, 'atta', 'Aashirvaad Atta 5 kg')
+    const qty = await screen.findByRole('textbox', { name: 'Qty, line 1' })
+    await user.type(qty, '20')
+    const rate = screen.getByRole('textbox', { name: 'Rate, line 1' })
+    await user.clear(rate)
+    await user.type(rate, '245')
+    // 20 × ₹245 = ₹4,900 + 5% GST ₹245 + 5% cess ₹245 = ₹5,390.00 (what the server will save).
+    expect((await screen.findAllByText('₹5,390.00')).length).toBeGreaterThan(0)
+    await user.click(screen.getByRole('button', { name: /Save draft/ }))
+    await waitFor(() => expect(api.callsTo(purchasesRoutes.createBill)).toHaveLength(1))
+    const body = PurchaseBillCreateSchema.parse(api.callsTo(purchasesRoutes.createBill)[0]!.body)
+    expect(body.lines[0]).toMatchObject({ product_id: F.IDS.atta, cess_rate_bp: 500 })
   })
 
   it('requires batch and expiry for batch-tracked items before saving', async () => {

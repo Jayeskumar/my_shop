@@ -237,6 +237,18 @@ describe('purchases: purchase bill drafts', () => {
       path: 'supplier_invoice_date',
       message: 'future_date',
     })
+    const dueFirst = await req(shop, 'POST', '/purchase-bills', {
+      supplier_id: supplier.id,
+      store_id: shop.store.id,
+      supplier_invoice_no: 'DUE-1',
+      supplier_invoice_date: today,
+      due_date: addDays(today, -1),
+      lines: twoLines(),
+    })
+    expect(expectError(dueFirst, 400, 'VALIDATION_ERROR').details?.issues?.[0]).toMatchObject({
+      path: 'due_date',
+      message: 'date_order',
+    })
     const service = await makeProduct(t, shop.tenant.id, { kind: 'service' })
     expectError(
       await req(shop, 'POST', '/purchase-bills', {
