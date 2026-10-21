@@ -43,6 +43,14 @@ export interface Accounts {
   updated_at: Generated<Timestamp>;
 }
 
+export interface AnnouncementDismissals {
+  banner_id: string;
+  dismissed_at: Generated<Timestamp>;
+  dismissed_by: string | null;
+  source: string;
+  tenant_id: string;
+}
+
 export interface Announcements {
   audience: Generated<Json>;
   body_en: string;
@@ -856,6 +864,30 @@ export interface PlatformAuditLogs {
   tenant_id: string | null;
 }
 
+export interface PlatformCheckouts {
+  auto_renew: Generated<boolean>;
+  billing_cycle: string;
+  completed_at: Timestamp | null;
+  coupon_code: string | null;
+  covers_months: number | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  expires_at: Timestamp | null;
+  first_charge_on: string | null;
+  id: Generated<string>;
+  mode: string;
+  order_id: string | null;
+  plan_code: string;
+  provider_ref: string;
+  redemptions: Generated<Json>;
+  short_url: string;
+  start_at: Timestamp | null;
+  status: Generated<string>;
+  tenant_id: string;
+  total_paise: Int8;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface PlatformInvoices {
   cgst_paise: Generated<Int8>;
   created_at: Generated<Timestamp>;
@@ -875,6 +907,26 @@ export interface PlatformInvoices {
   tenant_id: string;
   total_paise: Int8;
   updated_at: Generated<Timestamp>;
+}
+
+export interface PlatformPlanPeriods {
+  billing_cycle: string;
+  created_at: Generated<Timestamp>;
+  order_id: string;
+  period_end: Timestamp;
+  period_start: Timestamp;
+  plan_code: string;
+  subscription_id: string | null;
+  tenant_id: string;
+}
+
+export interface PlatformRenewalReminders {
+  days_before: number;
+  notifications: Generated<number>;
+  period_end: Timestamp;
+  sent_at: Generated<Timestamp>;
+  subscription_id: string;
+  tenant_id: string;
 }
 
 export interface PlatformStaff {
@@ -1374,11 +1426,16 @@ export interface Stores {
 export interface Subscriptions {
   billing_cycle: Generated<string>;
   cancel_at_period_end: Generated<boolean>;
+  cancel_feedback: string | null;
+  cancel_reason: string | null;
+  cancel_requested_at: Timestamp | null;
   created_at: Generated<Timestamp>;
   current_period_end: Timestamp;
   current_period_start: Timestamp;
+  ended_at: Timestamp | null;
   id: Generated<string>;
   limit_overrides: Generated<Json>;
+  past_due_since: Timestamp | null;
   plan_code: string;
   provider: string | null;
   provider_customer_id: string | null;
@@ -1539,6 +1596,7 @@ export interface VendorOrders {
 
 export interface DB {
   accounts: Accounts;
+  announcement_dismissals: AnnouncementDismissals;
   announcements: Announcements;
   api_keys: ApiKeys;
   audit_logs: AuditLogs;
@@ -1583,7 +1641,10 @@ export interface DB {
   payments: Payments;
   plans: Plans;
   platform_audit_logs: PlatformAuditLogs;
+  platform_checkouts: PlatformCheckouts;
   platform_invoices: PlatformInvoices;
+  platform_plan_periods: PlatformPlanPeriods;
+  platform_renewal_reminders: PlatformRenewalReminders;
   platform_staff: PlatformStaff;
   product_barcodes: ProductBarcodes;
   products: Products;
