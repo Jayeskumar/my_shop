@@ -22,7 +22,7 @@ export function TaxBreakupTable({
   const hasCess = rows.some((r) => r.cess_paise > 0)
   if (rows.length === 0) return null
   return (
-    <div className={cn('overflow-x-auto', className)}>
+    <div className={cn('relative overflow-x-auto', className)}>
       <table className="w-full text-sm">
         <caption className="sr-only">{t('totals.tax_split')}</caption>
         <thead>
@@ -162,7 +162,9 @@ export function TotalsBlock({
           <TotalRow label={t('totals.sgst')} paise={totals.sgst_paise} />
         </>
       )}
-      {totals.cess_paise > 0 ? <TotalRow label={t('totals.cess')} paise={totals.cess_paise} /> : null}
+      {totals.cess_paise > 0 ? (
+        <TotalRow label={t('totals.cess')} paise={totals.cess_paise} />
+      ) : null}
       {(totals.other_charges_paise ?? 0) > 0 ? (
         <TotalRow label={t('totals.other_charges')} paise={totals.other_charges_paise} />
       ) : null}

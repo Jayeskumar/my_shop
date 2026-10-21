@@ -23,10 +23,7 @@ export function normalizeExpiryTyping(raw: string): string {
   return cleaned.slice(0, 10)
 }
 
-export type ExpiryParse =
-  | { kind: 'empty' }
-  | { kind: 'ok'; date: string }
-  | { kind: 'invalid' }
+export type ExpiryParse = { kind: 'empty' } | { kind: 'ok'; date: string } | { kind: 'invalid' }
 
 /** Parses the expiry cell: MM/YY, MM/YYYY or dd-MM-yyyy. */
 export function parseExpiryText(text: string): ExpiryParse {

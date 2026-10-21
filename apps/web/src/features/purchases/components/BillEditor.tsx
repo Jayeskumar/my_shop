@@ -47,7 +47,15 @@ import { useHotkeyScope, useHotkeys } from '@/lib/hotkeys'
 import { getLanguage, localizedName } from '@/lib/i18n'
 import { routeQueryKey } from '@/lib/query'
 import { useBreakpoint } from '@/lib/use-media-query'
-import { useCreateBill, useDeleteBill, usePostBill, useSupplier, useUpdateBill } from '../api'
+import {
+  useBillFromOrder,
+  useCreateBill,
+  useDeleteBill,
+  useOrders,
+  usePostBill,
+  useSupplier,
+  useUpdateBill,
+} from '../api'
 import {
   type BillContext,
   type BillDraft,
@@ -74,15 +82,21 @@ import {
   toUpdateBody,
   validateBill,
 } from '../lib/bill-form'
-import { errorReason, notifyPurchasesError, validationIssuesOf, validationText } from '../lib/errors'
+import {
+  errorReason,
+  notifyPurchasesError,
+  validationIssuesOf,
+  validationText,
+} from '../lib/errors'
 import { PURCHASES_HOTKEY_SCOPE } from '../lib/labels'
 import { useUnsavedGuard } from '../lib/use-unsaved-guard'
 import { isSevereWarning, warningText } from '../lib/warnings'
 import { AttachmentField } from './AttachmentField'
-import { BillLineGrid, type GridColumn, cellId, firstCellOf } from './BillLineGrid'
+import { type GridColumn, cellId, firstCellOf } from '../lib/grid'
+import { BillLineGrid } from './BillLineGrid'
 import { BillTotalsPanel } from './BillTotalsPanel'
 import { PostBillDialog, type PostSummary } from './PostBillDialog'
-import { ProductAdder, focusAdder } from './ProductAdder'
+import { ProductAdder } from './ProductAdder'
 import { SupplierQuickView } from './SupplierQuickView'
 
 const ADDER_ID = 'bill-add-product'
@@ -125,7 +139,9 @@ const HEADER_IDS = {
   lines: ADDER_ID,
 } as const
 
-function supplierLite(s: SupplierListItem): SupplierLite & { last_bill_date: string | null; overdue_paise: number } {
+function supplierLite(
+  s: SupplierListItem,
+): SupplierLite & { last_bill_date: string | null; overdue_paise: number } {
   return {
     id: s.id,
     name: s.name,
@@ -188,7 +204,10 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
   const [postOpen, setPostOpen] = useState(false)
   const [quickView, setQuickView] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
-  const [supplierExtra, setSupplierExtra] = useState<{ last_bill_date: string | null; overdue_paise: number } | null>(null)
+  const [supplierExtra, setSupplierExtra] = useState<{
+    last_bill_date: string | null
+    overdue_paise: number
+  } | null>(null)
   const pendingFocus = useRef<string | null>(null)
   const [focusTick, setFocusTick] = useState(0)
   const requestFocus = useCallback((id: string) => {
@@ -200,7 +219,8 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
   const update = useUpdateBill()
   const post = usePostBill()
   const remove = useDeleteBill()
-  const saving = create.isPending || update.isPending
+  const fromOrderMut = useBillFromOrder()
+  const saving = create.isPending || update.isPending || fromOrderMut.isPending
   const { allowLeave } = useUnsavedGuard(dirty && !saving && !post.isPending)
 
   const ctx = useMemo<BillContext>(
@@ -217,6 +237,19 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
   const calc = useMemo(() => computeBill(draft, ctx), [draft, ctx])
   const showBatch = batchesFeature || draft.lines.some((l) => l.product.track_batches)
   const { header } = draft
+
+  // A new bill for a supplier with open purchase orders can be received against one of them.
+  const openOrders = useOrders(
+    {
+      supplier_id: header.supplier?.id,
+      ...(header.store_id ? { store_id: header.store_id } : {}),
+      status: ['sent', 'partially_received'],
+      sort: '-order_date',
+      limit: 5,
+    },
+    !bill && Boolean(header.supplier) && !header.purchase_order,
+  )
+  const openOrderRows = !bill && header.supplier ? (openOrders.data?.data ?? []) : []
 
   // ?supplier_id= preselects a supplier on a new bill.
   const initialSupplier = useSupplier(!bill && !header.supplier ? initialSupplierId : null)
@@ -473,6 +506,41 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
     )
   }
 
+  const receiveOrder = async (order: { id: string; number: string }): Promise<void> => {
+    if (draft.lines.length > 0) {
+      const ok = await confirm({
+        title: t('editor.receive_order_title', { number: order.number }),
+        description: t('editor.receive_order_replaces'),
+        confirmLabel: t('editor.receive_order_confirm'),
+      })
+      if (!ok) return
+    }
+    fromOrderMut.mutate(
+      {
+        params: { orderId: order.id },
+        body: {
+          ...(header.supplier_invoice_no.trim()
+            ? { supplier_invoice_no: header.supplier_invoice_no.trim() }
+            : {}),
+          ...(header.supplier_invoice_date
+            ? { supplier_invoice_date: header.supplier_invoice_date }
+            : {}),
+          ...(header.received_date ? { received_date: header.received_date } : {}),
+        },
+      },
+      {
+        onSuccess: (res) => {
+          storeBill(res.data)
+          setDirty(false)
+          allowLeave()
+          notify.success(t('editor.received_from_order', { number: order.number }))
+          navigate(`/purchases/bills/${res.data.id}`, { replace: true })
+        },
+        onError: notifyPurchasesError,
+      },
+    )
+  }
+
   const deleteDraft = async (): Promise<void> => {
     if (!saved) return
     const ok = await confirm({
@@ -510,8 +578,14 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
   const autoInterstate = isInterstateAuto(header.supplier?.state_code ?? null, ctx.store_state_code)
   const interstate = effectiveInterstate(header, ctx)
   const dueDate = effectiveDueDate(header)
-  const supplierState = header.supplier?.state_code ? getState(header.supplier.state_code) : undefined
-  const stateName = supplierState ? (getLanguage() === 'ta' ? supplierState.name_ta : supplierState.name_en) : null
+  const supplierState = header.supplier?.state_code
+    ? getState(header.supplier.state_code)
+    : undefined
+  const stateName = supplierState
+    ? getLanguage() === 'ta'
+      ? supplierState.name_ta
+      : supplierState.name_en
+    : null
   const allWarnings = draft.lines.flatMap((l, i) =>
     lineWarnings(l, i, calc, ctx).map((w) => ({ w, line: l, n: i + 1 })),
   )
@@ -522,7 +596,9 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
           line_count: draft.lines.length,
           stock_lines: draft.lines.length,
           batch_lines: draft.lines.filter((l) => l.product.track_batches).length,
-          payable_paise: header.reverse_charge ? calc.doc.total_paise - calc.doc.tax_paise : calc.doc.total_paise,
+          payable_paise: header.reverse_charge
+            ? calc.doc.total_paise - calc.doc.tax_paise
+            : calc.doc.total_paise,
           due_date: dueDate,
           price_changes: plannedPriceChanges(draft, calc),
           has_expired: draft.lines.some((l) => {
@@ -569,7 +645,10 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
           <div>
             <div className="font-medium">
               {t('editor.from_order', { number: fromOrder.number })}{' '}
-              <Link className="text-primary underline-offset-4 hover:underline" to={`/purchases/orders/${fromOrder.id}`}>
+              <Link
+                className="text-primary underline-offset-4 hover:underline"
+                to={`/purchases/orders/${fromOrder.id}`}
+              >
                 {t('editor.open_order')}
               </Link>
             </div>
@@ -600,7 +679,9 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
                   supplier: s ? supplierLite(s) : null,
                   interstate_manual: null,
                 })
-                setSupplierExtra(s ? { last_bill_date: s.last_bill_date, overdue_paise: s.overdue_paise } : null)
+                setSupplierExtra(
+                  s ? { last_bill_date: s.last_bill_date, overdue_paise: s.overdue_paise } : null,
+                )
               }}
             />
           </FormField>
@@ -621,7 +702,12 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
                   {t('supplier.terms_days', { count: header.supplier.payment_terms_days })}
                 </span>
               ) : null}
-              <Button variant="link" size="sm" leftIcon={<Eye />} onClick={() => setQuickView(true)}>
+              <Button
+                variant="link"
+                size="sm"
+                leftIcon={<Eye />}
+                onClick={() => setQuickView(true)}
+              >
                 {t('editor.supplier_details')}
               </Button>
             </div>
@@ -650,7 +736,10 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
         </FormField>
         {duplicate ? (
           <div className="-mt-2 text-sm md:col-start-3 xl:col-start-3">
-            <Link className="font-medium text-primary underline-offset-4 hover:underline" to={`/purchases/bills/${duplicate.id}`}>
+            <Link
+              className="font-medium text-primary underline-offset-4 hover:underline"
+              to={`/purchases/bills/${duplicate.id}`}
+            >
               {t('editor.open_existing', { number: duplicate.number ?? t('bills.draft_number') })}
             </Link>
           </div>
@@ -692,12 +781,12 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
             header.due_date_manual ? (
               <button
                 type="button"
-                className="text-primary underline-offset-4 hover:underline"
+                className="text-start text-primary underline-offset-4 hover:underline"
                 onClick={() => setHeader({ due_date_manual: false, due_date: null })}
               >
                 {t('editor.due_auto_reset')}
               </button>
-            ) : header.supplier?.payment_terms_days != null ? (
+            ) : !header.supplier ? undefined : header.supplier.payment_terms_days != null ? (
               t('editor.due_auto', { count: header.supplier.payment_terms_days })
             ) : (
               t('editor.due_none')
@@ -713,7 +802,11 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
         </FormField>
 
         {stores.filter((s) => s.is_active).length > 1 ? (
-          <FormField label={t('editor.store')} id={HEADER_IDS.store} error={validationText(errors.header.store)}>
+          <FormField
+            label={t('editor.store')}
+            id={HEADER_IDS.store}
+            error={validationText(errors.header.store)}
+          >
             <StorePicker
               id={HEADER_IDS.store}
               value={header.store_id}
@@ -738,7 +831,9 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
                   : t('editor.interstate_auto')
                 : t('editor.interstate_manual')
             }
-            onCheckedChange={(on) => setHeader({ interstate_manual: on === autoInterstate ? null : on })}
+            onCheckedChange={(on) =>
+              setHeader({ interstate_manual: on === autoInterstate ? null : on })
+            }
           />
         </div>
 
@@ -776,13 +871,52 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
         </div>
       </section>
 
+      {openOrderRows.length > 0 ? (
+        <section
+          aria-labelledby="bill-open-orders"
+          className="mb-4 rounded-xl border border-info/40 bg-info-soft/40 p-3"
+        >
+          <h2 id="bill-open-orders" className="flex items-center gap-2 text-sm font-semibold">
+            <ClipboardList className="size-4 text-info" aria-hidden />
+            {t('editor.open_orders', { count: openOrderRows.length })}
+          </h2>
+          <p className="mb-2 text-sm text-muted-foreground">{t('editor.open_orders_hint')}</p>
+          <ul className="flex flex-wrap gap-2">
+            {openOrderRows.map((o) => (
+              <li key={o.id}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  loading={
+                    fromOrderMut.isPending && fromOrderMut.variables?.params.orderId === o.id
+                  }
+                  disabled={saving}
+                  onClick={() => void receiveOrder(o)}
+                >
+                  {t('editor.receive_order', {
+                    number: o.number,
+                    date: formatDate(o.order_date),
+                    count: o.line_count,
+                  })}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {/* ---- lines ---- */}
-      <section aria-labelledby="bill-lines-title" className="mb-4 grid gap-3">
+      <section
+        aria-labelledby="bill-lines-title"
+        className="mb-4 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3"
+      >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="bill-lines-title" className="text-base font-semibold">
             {t('lines.title')}{' '}
             {draft.lines.length > 0 ? (
-              <span className="text-sm font-normal text-muted-foreground">({draft.lines.length})</span>
+              <span className="text-sm font-normal text-muted-foreground">
+                ({draft.lines.length})
+              </span>
             ) : null}
           </h2>
           <p className="hidden text-xs text-muted-foreground lg:block">
@@ -840,13 +974,19 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
               aria-labelledby="bill-warnings-title"
               className="rounded-xl border border-warning/40 bg-warning-soft/30 p-4"
             >
-              <h2 id="bill-warnings-title" className="mb-2 flex items-center gap-2 text-sm font-semibold">
+              <h2
+                id="bill-warnings-title"
+                className="mb-2 flex items-center gap-2 text-sm font-semibold"
+              >
                 <AlertTriangle className="size-4 text-warning" aria-hidden />
                 {t('editor.warnings_title', { count: allWarnings.length })}
               </h2>
               <ul className="grid gap-1 text-sm">
                 {allWarnings.map(({ w, line, n }) => (
-                  <li key={`${line.key}-${w.code}`} className={isSevereWarning(w) ? 'text-danger' : undefined}>
+                  <li
+                    key={`${line.key}-${w.code}`}
+                    className={isSevereWarning(w) ? 'text-danger' : undefined}
+                  >
                     <span className="font-medium">
                       {n}. {localizedName(line.product.name, line.product.name_ta)}:
                     </span>{' '}
@@ -897,7 +1037,12 @@ export function BillEditor({ bill, initialSupplierId }: BillEditorProps) {
             ) : null}
           </div>
           <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-            <Button variant="outline" leftIcon={<Save />} loading={saving && !postOpen} onClick={() => void saveDraft()}>
+            <Button
+              variant="outline"
+              leftIcon={<Save />}
+              loading={saving && !postOpen}
+              onClick={() => void saveDraft()}
+            >
               {t('editor.save_draft')}
               <Kbd combo="ctrl+s" className="ms-1 hidden lg:inline-flex" />
             </Button>

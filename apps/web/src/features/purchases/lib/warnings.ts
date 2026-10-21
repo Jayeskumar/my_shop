@@ -5,6 +5,7 @@
 import type { PurchaseWarning } from '@kadai/shared/api/purchases'
 import { formatBp, formatDate, formatMoney } from '@/lib/format'
 import { translate } from '@/lib/i18n'
+import { translatePlural } from './i18n'
 
 function num(params: PurchaseWarning['params'], key: string): number | null {
   const v = params[key]
@@ -31,9 +32,8 @@ export function warningText(w: PurchaseWarning): string {
         amount: money(num(p, 'previous_mrp_paise')),
       })
     case 'near_expiry':
-      return translate('purchases:warnings.near_expiry', {
+      return translatePlural('purchases:warnings.near_expiry', num(p, 'days') ?? 0, {
         date: formatDate(str(p, 'expiry_date')),
-        count: num(p, 'days') ?? 0,
       })
     case 'expired':
       return translate('purchases:warnings.expired', { date: formatDate(str(p, 'expiry_date')) })

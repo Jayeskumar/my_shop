@@ -38,7 +38,7 @@ export interface PayBillDialogProps {
 }
 
 export function PayBillDialog({ bill, open, onOpenChange, onPaid }: PayBillDialogProps) {
-  const { t } = useTranslation('purchases')
+  const { t } = useTranslation(['purchases', 'common'])
   const me = useMe()
   const today = todayIn(me?.tenant.timezone)
   const [amount, setAmount] = useState<number | null>(bill.due_paise)
@@ -87,7 +87,11 @@ export function PayBillDialog({ bill, open, onOpenChange, onPaid }: PayBillDialo
           ...(reference.trim() ? { reference: reference.trim() } : {}),
           ...(notes.trim() ? { notes: notes.trim() } : {}),
           ...(allocated > 0
-            ? { allocations: [{ target_type: 'purchase_bill', target_id: bill.id, amount_paise: allocated }] }
+            ? {
+                allocations: [
+                  { target_type: 'purchase_bill', target_id: bill.id, amount_paise: allocated },
+                ],
+              }
             : {}),
           client_ref: clientRef,
         },
@@ -100,7 +104,9 @@ export function PayBillDialog({ bill, open, onOpenChange, onPaid }: PayBillDialo
               amount: formatMoney(res.data.amount_paise),
               name: bill.supplier_name,
             }),
-            res.data.number ? { description: t('pay.voucher', { number: res.data.number }) } : undefined,
+            res.data.number
+              ? { description: t('pay.voucher', { number: res.data.number }) }
+              : undefined,
           )
           onOpenChange(false)
           onPaid?.()
@@ -162,7 +168,11 @@ export function PayBillDialog({ bill, open, onOpenChange, onPaid }: PayBillDialo
             <DatePicker value={date} onChange={setDate} max={today} />
           </FormField>
           <FormField label={t('pay.reference')} optional hint={t('pay.reference_hint')}>
-            <Input value={reference} maxLength={100} onChange={(e) => setReference(e.target.value)} />
+            <Input
+              value={reference}
+              maxLength={100}
+              onChange={(e) => setReference(e.target.value)}
+            />
           </FormField>
         </div>
         <FormField label={t('pay.notes')} optional>

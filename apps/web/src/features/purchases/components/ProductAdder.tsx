@@ -22,7 +22,14 @@ export interface ProductAdderProps {
   className?: string
 }
 
-export function ProductAdder({ id, onPick, storeId, disabled, hotkey, className }: ProductAdderProps) {
+export function ProductAdder({
+  id,
+  onPick,
+  storeId,
+  disabled,
+  hotkey,
+  className,
+}: ProductAdderProps) {
   const { t } = useTranslation('purchases')
   return (
     <div className={cn('flex min-w-0 items-center gap-2', className)}>
@@ -49,9 +56,4 @@ export function ProductAdder({ id, onPick, storeId, disabled, hotkey, className 
       {hotkey ? <Kbd combo={hotkey} className="hidden shrink-0 lg:inline-flex" /> : null}
     </div>
   )
-}
-
-/** Moves focus to the adder's trigger (after the picker's popover returned focus to it). */
-export function focusAdder(id: string): void {
-  window.setTimeout(() => document.getElementById(id)?.focus(), 0)
 }

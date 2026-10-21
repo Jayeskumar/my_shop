@@ -8,6 +8,7 @@ import type {
   PurchaseOrderStatus,
   PurchasePaymentStatus,
 } from '@kadai/shared'
+import { getUnit } from '@kadai/shared/units'
 import type { Tone } from '@/components/ui'
 import { getLanguage } from '@/lib/i18n'
 
@@ -66,4 +67,11 @@ export function bilingual(label: { en: string; ta: string }): string {
 /** Pharmacy strips & similar: the pack word used next to a pack size (TAB/CAP → strip). */
 export function packUnitFor(unit: string): string {
   return unit === 'TAB' || unit === 'CAP' ? 'STRIP' : 'PACK'
+}
+
+/** Unit symbol in the UI language (plural form in English: "tabs", "strips"). */
+export function unitLabel(code: string): string {
+  const def = getUnit(code)
+  if (!def) return code
+  return getLanguage() === 'ta' ? def.symbol_ta : def.symbol_en_plural
 }

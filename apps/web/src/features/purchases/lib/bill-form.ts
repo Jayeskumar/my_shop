@@ -22,6 +22,7 @@ import {
   purchaseLineWarnings,
 } from '@kadai/shared/api/purchases'
 import { addDays, compareDates } from '@kadai/shared/fy'
+import { isValidGstRate } from '@kadai/shared/gst'
 import { newId } from '@kadai/shared/ids'
 import { type ValidationKey, validationToken } from '@/lib/validation'
 import { expiryInputText, parseExpiryText } from './expiry'
@@ -264,7 +265,11 @@ export function draftFromBill(
  * Keeps the supplier's exact round-off of a saved draft when it differs from the automatic one
  * (computed with the saved lines).
  */
-export function savedRoundOff(bill: PurchaseBillDetail, draft: BillDraft, ctx: BillContext): number | null {
+export function savedRoundOff(
+  bill: PurchaseBillDetail,
+  draft: BillDraft,
+  ctx: BillContext,
+): number | null {
   const auto = computeBill({ ...draft, header: { ...draft.header, round_off_manual: null } }, ctx)
   if (!auto.doc) return null
   return auto.doc.round_off_paise === bill.round_off_paise ? null : bill.round_off_paise
@@ -466,14 +471,7 @@ export type HeaderField =
   | 'lines'
 
 export type LineField =
-  | 'qty'
-  | 'free'
-  | 'unit_cost'
-  | 'discount'
-  | 'batch_no'
-  | 'expiry'
-  | 'mrp'
-  | 'sale_price'
+  'qty' | 'free' | 'unit_cost' | 'discount' | 'batch_no' | 'expiry' | 'mrp' | 'sale_price'
 
 /** Messages are purchases validation keys or shared validation tokens (validationText()). */
 export interface BillErrors {
@@ -524,7 +522,8 @@ export function validateBill(
   }
   const due = effectiveDueDate(header)
   if (header.due_date_manual && due && header.supplier_invoice_date) {
-    if (compareDates(due, header.supplier_invoice_date) < 0) errors.header.due_date = key('date_order')
+    if (compareDates(due, header.supplier_invoice_date) < 0)
+      errors.header.due_date = key('date_order')
   }
   if (header.round_off_manual !== null && Math.abs(header.round_off_manual) > 99) {
     errors.header.round_off = token('invalid')
@@ -598,8 +597,9 @@ export function toLineInput(l: BillLineDraft): PurchaseBillLineInput {
     product_id: l.product.id,
     qty_milli: l.qty_milli ?? 0,
     unit_cost_paise: l.unit_cost_paise ?? 0,
-    gst_rate_bp: l.gst_rate_bp,
   }
+  // The grid only offers valid slab rates; an unknown saved rate falls back to the product's.
+  if (isValidGstRate(l.gst_rate_bp)) input.gst_rate_bp = l.gst_rate_bp
   if (l.purchase_order_line_id) input.purchase_order_line_id = l.purchase_order_line_id
   if (l.product.track_batches) {
     if (l.batch_no.trim()) input.batch_no = l.batch_no.trim()
@@ -616,7 +616,11 @@ export function toLineInput(l: BillLineDraft): PurchaseBillLineInput {
   return input
 }
 
-export function toCreateBody(draft: BillDraft, ctx: BillContext, clientRef: string): PurchaseBillCreate {
+export function toCreateBody(
+  draft: BillDraft,
+  ctx: BillContext,
+  clientRef: string,
+): PurchaseBillCreate {
   const { header } = draft
   const body: PurchaseBillCreate = {
     supplier_id: header.supplier?.id ?? '',
@@ -659,7 +663,8 @@ export function toUpdateBody(
     if_updated_at: bill.updated_at,
   }
   if (header.supplier) body.supplier_id = header.supplier.id
-  if (header.supplier_invoice_no.trim()) body.supplier_invoice_no = header.supplier_invoice_no.trim()
+  if (header.supplier_invoice_no.trim())
+    body.supplier_invoice_no = header.supplier_invoice_no.trim()
   if (header.supplier_invoice_date) body.supplier_invoice_date = header.supplier_invoice_date
   const due = effectiveDueDate(header)
   if (due) body.due_date = due

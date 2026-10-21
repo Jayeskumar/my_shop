@@ -7,15 +7,7 @@ import { getState } from '@kadai/shared/gst'
 import { ArrowRight, FileText, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
-import {
-  Badge,
-  Button,
-  Drawer,
-  EmptyState,
-  Money,
-  PhoneLink,
-  Skeleton,
-} from '@/components/ui'
+import { Badge, Button, Drawer, EmptyState, Money, PhoneLink, Skeleton } from '@/components/ui'
 import { useCan } from '@/lib/auth'
 import { formatDate, formatMoney } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n'
@@ -33,7 +25,12 @@ export interface SupplierQuickViewProps {
 
 const RECENT_BILLS = 5
 
-export function SupplierQuickView({ supplierId, fallback, open, onOpenChange }: SupplierQuickViewProps) {
+export function SupplierQuickView({
+  supplierId,
+  fallback,
+  open,
+  onOpenChange,
+}: SupplierQuickViewProps) {
   const { t } = useTranslation('purchases')
   const navigate = useNavigate()
   const canSuppliers = useCan('suppliers.read')
@@ -105,7 +102,11 @@ export function SupplierQuickView({ supplierId, fallback, open, onOpenChange }: 
           </div>
           <div className="rounded-lg border border-border bg-surface-2/50 p-3">
             <div className="text-xs text-muted-foreground">{t('supplier.overdue')}</div>
-            <div className={overdue > 0 ? 'mt-0.5 text-lg font-bold text-danger' : 'mt-0.5 text-lg font-bold'}>
+            <div
+              className={
+                overdue > 0 ? 'mt-0.5 text-lg font-bold text-danger' : 'mt-0.5 text-lg font-bold'
+              }
+            >
               <Money paise={overdue} />
             </div>
           </div>

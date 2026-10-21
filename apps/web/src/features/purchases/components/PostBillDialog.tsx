@@ -34,7 +34,13 @@ export interface PostBillDialogProps {
 
 const MAX_PRICE_ROWS = 8
 
-export function PostBillDialog({ open, onOpenChange, summary, posting, onConfirm }: PostBillDialogProps) {
+export function PostBillDialog({
+  open,
+  onOpenChange,
+  summary,
+  posting,
+  onConfirm,
+}: PostBillDialogProps) {
   const { t } = useTranslation(['purchases', 'common'])
   const [updatePrices, setUpdatePrices] = useState(true)
   const [allowExpired, setAllowExpired] = useState(false)
@@ -46,7 +52,9 @@ export function PostBillDialog({ open, onOpenChange, summary, posting, onConfirm
   }, [open])
   if (!summary) return null
   const optional = summary.price_changes.filter((c) => c.field !== 'purchase_price_paise')
-  const shown = updatePrices ? summary.price_changes : summary.price_changes.filter((c) => c.field === 'purchase_price_paise')
+  const shown = updatePrices
+    ? summary.price_changes
+    : summary.price_changes.filter((c) => c.field === 'purchase_price_paise')
   const blocked = summary.has_expired && !allowExpired
 
   return (
@@ -66,7 +74,9 @@ export function PostBillDialog({ open, onOpenChange, summary, posting, onConfirm
             variant="success"
             loading={posting}
             disabled={blocked}
-            onClick={() => onConfirm({ update_prices: updatePrices, allow_past_expiry: allowExpired })}
+            onClick={() =>
+              onConfirm({ update_prices: updatePrices, allow_past_expiry: allowExpired })
+            }
           >
             {t('post.confirm')}
           </Button>
@@ -145,7 +155,9 @@ export function PostBillDialog({ open, onOpenChange, summary, posting, onConfirm
                       <td className="max-w-48 truncate px-3 py-1.5">
                         {localizedName(c.product.name, c.product.name_ta)}
                       </td>
-                      <td className="px-3 py-1.5 text-muted-foreground">{t(`post.field.${c.field}`)}</td>
+                      <td className="px-3 py-1.5 text-muted-foreground">
+                        {t(`post.field.${c.field}`)}
+                      </td>
                       <td className="px-3 py-1.5 text-end">
                         <Money paise={c.old_paise} />
                       </td>
@@ -176,7 +188,9 @@ export function PostBillDialog({ open, onOpenChange, summary, posting, onConfirm
           </div>
         ) : null}
         {summary.warning_count > 0 ? (
-          <p className="text-sm text-warning">{t('post.warnings', { count: summary.warning_count })}</p>
+          <p className="text-sm text-warning">
+            {t('post.warnings', { count: summary.warning_count })}
+          </p>
         ) : null}
         <p className="text-xs text-muted-foreground">{t('post.final_note')}</p>
       </div>

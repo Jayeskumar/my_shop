@@ -40,7 +40,10 @@ export function BillTotalsPanel({
       aria-labelledby="bill-totals-title"
       className="rounded-xl border border-border bg-surface p-4 shadow-card"
     >
-      <h2 id="bill-totals-title" className="mb-2 flex items-center justify-between text-base font-semibold">
+      <h2
+        id="bill-totals-title"
+        className="mb-2 flex items-center justify-between text-base font-semibold"
+      >
         {t('totals.title')}
         <span className="text-xs font-normal text-muted-foreground">
           {t('totals.items', { count: lineCount })}
@@ -60,7 +63,9 @@ export function BillTotalsPanel({
             <TotalRow label={t('totals.sgst')} paise={doc?.sgst_paise ?? 0} />
           </>
         )}
-        {doc && doc.cess_paise > 0 ? <TotalRow label={t('totals.cess')} paise={doc.cess_paise} /> : null}
+        {doc && doc.cess_paise > 0 ? (
+          <TotalRow label={t('totals.cess')} paise={doc.cess_paise} />
+        ) : null}
 
         <div className="my-2 grid gap-3 border-t border-dashed border-border pt-3">
           <FormField label={t('totals.other_charges')} hint={t('totals.other_charges_hint')}>
@@ -84,7 +89,12 @@ export function BillTotalsPanel({
               />
             </div>
             {autoRound ? (
-              <TotalRow label={t('totals.round_off_auto_value')} paise={doc?.round_off_paise ?? 0} signed muted />
+              <TotalRow
+                label={t('totals.round_off_auto_value')}
+                paise={doc?.round_off_paise ?? 0}
+                signed
+                muted
+              />
             ) : (
               <FormField
                 label={t('totals.round_off_supplier')}
@@ -108,7 +118,9 @@ export function BillTotalsPanel({
         <TotalRow label={t('totals.payable')} paise={doc?.total_paise ?? 0} strong />
         {header.reverse_charge && doc ? (
           <p className="mt-1 text-xs text-muted-foreground">
-            {t('totals.reverse_charge_note', { amount: formatMoney(doc.total_paise - doc.tax_paise) })}
+            {t('totals.reverse_charge_note', {
+              amount: formatMoney(doc.total_paise - doc.tax_paise),
+            })}
           </p>
         ) : null}
         {!calc.itc_eligible && doc && doc.tax_paise > 0 ? (
@@ -117,9 +129,16 @@ export function BillTotalsPanel({
       </div>
 
       {doc && doc.tax_breakup.length > 0 ? (
-        <details className="mt-3 rounded-lg border border-border px-3 py-2" open={doc.tax_breakup.length > 1}>
+        <details
+          className="mt-3 rounded-lg border border-border px-3 py-2"
+          open={doc.tax_breakup.length > 1}
+        >
           <summary className="cursor-pointer text-sm font-medium">{t('totals.tax_split')}</summary>
-          <TaxBreakupTable rows={doc.tax_breakup} interstate={calc.is_interstate} className="mt-2" />
+          <TaxBreakupTable
+            rows={doc.tax_breakup}
+            interstate={calc.is_interstate}
+            className="mt-2"
+          />
         </details>
       ) : null}
 

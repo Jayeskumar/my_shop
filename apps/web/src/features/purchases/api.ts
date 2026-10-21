@@ -60,7 +60,10 @@ export const useUpdateBill = () =>
   useRouteMutation(r.updateBill, { invalidates: BILLS, meta: { errorToast: false } })
 
 export const useDeleteBill = () =>
-  useRouteMutation(r.deleteBill, { invalidates: [...BILLS, ...ORDERS], meta: { errorToast: false } })
+  useRouteMutation(r.deleteBill, {
+    invalidates: [...BILLS, ...ORDERS],
+    meta: { errorToast: false },
+  })
 
 export const usePostBill = () =>
   useRouteMutation(r.postBill, {
@@ -75,7 +78,10 @@ export const useCancelBill = () =>
   })
 
 export const useBillFromOrder = () =>
-  useRouteMutation(r.billFromOrder, { invalidates: [...BILLS, ...ORDERS], meta: { errorToast: false } })
+  useRouteMutation(r.billFromOrder, {
+    invalidates: [...BILLS, ...ORDERS],
+    meta: { errorToast: false },
+  })
 
 /** Supplier payment (voucher) allocated to bills — payments contract. */
 export const useCreateSupplierPayment = () =>

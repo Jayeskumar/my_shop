@@ -1,5 +1,5 @@
 /**
- * List page state kept in the URL (?q=&filter=&sort=&offset=&limit=&from=&to=&supplier_id=&tab=),
+ * List page state kept in the URL (?q=&filter=&sort=&offset=&limit=&from=&to=&supplier_id=&store_id=),
  * so a refresh, the back button or a shared link restores the same view. Changing a filter
  * resets to page 1.
  */
@@ -17,11 +17,12 @@ export interface ListState<F extends string> {
   from: string
   to: string
   supplier_id: string
+  store_id: string
 }
 
 export const LIST_PAGE_SIZES = [20, 50, 100, 200] as const
 
-const RESETS_PAGE = ['q', 'filter', 'sort', 'from', 'to', 'supplier_id'] as const
+const RESETS_PAGE = ['q', 'filter', 'sort', 'from', 'to', 'supplier_id', 'store_id'] as const
 
 export function useListState<F extends string>(defaults: {
   filter: F
@@ -43,6 +44,7 @@ export function useListState<F extends string>(defaults: {
       return isDateStr(v) ? v : ''
     }
     const supplier = params.get('supplier_id') ?? ''
+    const store = params.get('store_id') ?? ''
     return {
       q: params.get('q') ?? '',
       filter:
@@ -55,6 +57,7 @@ export function useListState<F extends string>(defaults: {
       from: date('from'),
       to: date('to'),
       supplier_id: isUuid(supplier) ? supplier : '',
+      store_id: isUuid(store) ? store : '',
     }
   }, [params, defaults.filter, defaults.filters, defaults.sort, defaults.sorts, defaultLimit])
 

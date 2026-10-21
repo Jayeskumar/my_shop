@@ -44,37 +44,10 @@ import {
   toPackMilli,
 } from '../lib/bill-form'
 import { normalizeExpiryTyping, parseExpiryText } from '../lib/expiry'
-import { packUnitFor } from '../lib/labels'
+import { packUnitFor, unitLabel } from '../lib/labels'
 import { validationText } from '../lib/errors'
 import { formatMargin, isSevereWarning, marginTone, warningText } from '../lib/warnings'
-import { getUnit } from '@kadai/shared/units'
-
-export const GRID_COLUMNS = [
-  'batch_no',
-  'expiry',
-  'mrp',
-  'qty',
-  'free',
-  'unit_cost',
-  'discount',
-  'gst',
-  'sale_price',
-] as const
-export type GridColumn = (typeof GRID_COLUMNS)[number]
-
-export function cellId(key: string, col: GridColumn): string {
-  return `bl-${key}-${col}`
-}
-
-function columnEnabled(line: BillLineDraft, col: GridColumn, showBatch: boolean): boolean {
-  if (col === 'batch_no' || col === 'expiry') return showBatch && line.product.track_batches
-  return true
-}
-
-/** First editable cell of a new row (batch for batch-tracked items, else quantity). */
-export function firstCellOf(line: BillLineDraft, showBatch: boolean): string {
-  return cellId(line.key, columnEnabled(line, 'batch_no', showBatch) ? 'batch_no' : 'qty')
-}
+import { GRID_COLUMNS, cellId, columnEnabled } from '../lib/grid'
 
 export interface BillLineGridProps {
   lines: BillLineDraft[]
@@ -174,7 +147,11 @@ export function BillLineGrid({
 
   if (layout === 'cards') {
     return (
-      <ol className="grid gap-3" onKeyDown={onKeyDown} aria-label={t('lines.title')}>
+      <ol
+        className="grid grid-cols-[minmax(0,1fr)] gap-3"
+        onKeyDown={onKeyDown}
+        aria-label={t('lines.title')}
+      >
         {lines.map((line, i) => (
           <LineCard
             key={line.key}
@@ -194,27 +171,35 @@ export function BillLineGrid({
   }
 
   return (
-    <div className="scrollbar-thin overflow-x-auto rounded-xl border border-border bg-surface">
-      <table className="w-full min-w-[1080px] border-collapse text-sm" onKeyDown={onKeyDown}>
+    <div className="scrollbar-thin relative min-w-0 overflow-x-auto rounded-xl border border-border bg-surface">
+      <table
+        className={cn(
+          'w-full table-fixed border-collapse text-sm',
+          showBatch ? 'min-w-[1240px]' : 'min-w-[1040px]',
+        )}
+        onKeyDown={onKeyDown}
+      >
         <caption className="sr-only">{t('lines.title')}</caption>
         <colgroup>
-          <col className="w-[22%] min-w-48" />
+          {/* Fixed layout: the item column takes the rest; numbers keep readable widths. */}
+          <col />
           {showBatch ? (
             <>
-              <col className="w-24" />
-              <col className="w-[4.5rem]" />
+              <col className="w-[5.5rem]" />
+              <col className="w-[5rem]" />
             </>
           ) : null}
-          <col className="w-24" />
+          <col className="w-[5.5rem]" />
           <col className="w-[4.5rem]" />
-          <col className="w-16" />
-          <col className="w-24" />
-          <col className="w-16" />
+          <col className="w-[3.75rem]" />
+          <col className="w-[5.25rem]" />
+          <col className="w-[3.75rem]" />
+          <col className="w-[5rem]" />
+          <col className="w-[5.5rem]" />
           <col className="w-[4.5rem]" />
-          <col className="w-24" />
-          <col className="w-28" />
-          <col className="w-28" />
-          <col className="w-10" />
+          <col className="w-[5.75rem]" />
+          <col className="w-[6rem]" />
+          <col className="w-9" />
         </colgroup>
         <thead className="bg-surface-2 text-xs text-muted-foreground">
           <tr>
@@ -232,6 +217,7 @@ export function BillLineGrid({
             <Th align="end">{t('lines.disc')}</Th>
             <Th align="end">{t('lines.gst')}</Th>
             <Th align="end">{t('lines.taxable')}</Th>
+            <Th align="end">{t('lines.tax')}</Th>
             <Th align="end">{t('lines.amount')}</Th>
             <Th align="end">{t('lines.sale_price')}</Th>
             <Th>
@@ -265,7 +251,7 @@ function Th({ children, align }: { children: ReactNode; align?: 'end' }) {
     <th
       scope="col"
       className={cn(
-        'whitespace-nowrap border-b border-border px-2 py-2 font-semibold first:ps-3 last:pe-3',
+        'whitespace-nowrap border-b border-border px-1.5 py-2 font-semibold first:sticky first:start-0 first:z-10 first:border-e first:bg-surface-2 first:ps-3 last:pe-3',
         align === 'end' ? 'text-end' : 'text-start',
       )}
     >
@@ -315,7 +301,7 @@ function useCells({ index, line, calc, ctx, errors, showBatch, disabled, onChang
       disabled={disabled}
       aria-label={label(t('lines.batch'))}
       placeholder={t('lines.batch_placeholder')}
-      className="font-mono uppercase"
+      className="px-1.5 font-mono uppercase"
       onChange={(e) => set({ batch_no: e.target.value.toUpperCase() })}
       onFocus={(e) => e.currentTarget.select()}
       {...invalid('batch_no')}
@@ -337,10 +323,12 @@ function useCells({ index, line, calc, ctx, errors, showBatch, disabled, onChang
       disabled={disabled}
       aria-label={label(t('lines.expiry'))}
       placeholder={t('lines.expiry_placeholder')}
-      className="tabular-nums"
+      className="px-1.5 tabular-nums"
       onChange={(e) => set({ expiry_text: normalizeExpiryTyping(e.target.value) })}
       onFocus={(e) => e.currentTarget.select()}
-      {...(errors.expiry || expiryState.kind === 'invalid' ? { 'aria-invalid': true as const } : {})}
+      {...(errors.expiry || expiryState.kind === 'invalid'
+        ? { 'aria-invalid': true as const }
+        : {})}
     />
   ) : (
     <span className="block px-1 text-muted-foreground">—</span>
@@ -352,6 +340,7 @@ function useCells({ index, line, calc, ctx, errors, showBatch, disabled, onChang
       data-cell={cellId(line.key, 'mrp')}
       size="sm"
       showSymbol={false}
+      className="px-1.5"
       value={line.mrp_paise}
       disabled={disabled}
       aria-label={label(t('lines.mrp'))}
@@ -370,7 +359,7 @@ function useCells({ index, line, calc, ctx, errors, showBatch, disabled, onChang
       value={packed ? toPackMilli(line.qty_milli, p.pack_size) : line.qty_milli}
       disabled={disabled}
       aria-label={label(t('lines.qty'))}
-      className="text-end"
+      className="px-1.5 text-end"
       onFocus={(e) => e.currentTarget.select()}
       onChange={(v) => set({ qty_milli: packed ? fromPackMilli(v, p.pack_size) : v })}
       {...invalid('qty')}
@@ -387,7 +376,7 @@ function useCells({ index, line, calc, ctx, errors, showBatch, disabled, onChang
       value={packed ? toPackMilli(line.free_qty_milli, p.pack_size) : line.free_qty_milli}
       disabled={disabled}
       aria-label={label(t('lines.free'))}
-      className="text-end"
+      className="px-1.5 text-end"
       onFocus={(e) => e.currentTarget.select()}
       onChange={(v) => set({ free_qty_milli: packed ? fromPackMilli(v, p.pack_size) : v })}
       {...invalid('free')}
@@ -400,6 +389,7 @@ function useCells({ index, line, calc, ctx, errors, showBatch, disabled, onChang
       data-cell={cellId(line.key, 'unit_cost')}
       size="sm"
       showSymbol={false}
+      className="px-1.5"
       value={line.unit_cost_paise}
       disabled={disabled}
       aria-label={label(t('lines.rate'))}
@@ -419,7 +409,7 @@ function useCells({ index, line, calc, ctx, errors, showBatch, disabled, onChang
       value={line.discount_bp}
       disabled={disabled}
       aria-label={label(t('lines.disc'))}
-      className="text-end"
+      className="px-1.5 text-end"
       onFocus={(e) => e.currentTarget.select()}
       onChange={(v) => set({ discount_bp: v })}
       {...invalid('discount')}
@@ -433,7 +423,7 @@ function useCells({ index, line, calc, ctx, errors, showBatch, disabled, onChang
       value={line.gst_rate_bp}
       disabled={disabled}
       aria-label={label(t('lines.gst'))}
-      className={cn(fieldVariants({ size: 'sm' }), 'pe-1 text-end tabular-nums')}
+      className={cn(fieldVariants({ size: 'sm' }), 'px-1 text-end tabular-nums')}
       onChange={(e) => set({ gst_rate_bp: Number(e.target.value) })}
     >
       {GST_RATES_BP.map((r) => (
@@ -450,6 +440,7 @@ function useCells({ index, line, calc, ctx, errors, showBatch, disabled, onChang
       data-cell={cellId(line.key, 'sale_price')}
       size="sm"
       showSymbol={false}
+      className="px-1.5"
       value={line.sale_price_paise}
       placeholder={formatMoney(p.sale_price_paise, { symbol: false })}
       disabled={disabled}
@@ -491,7 +482,10 @@ function useCells({ index, line, calc, ctx, errors, showBatch, disabled, onChang
         <span className="min-w-0 font-medium leading-snug [overflow-wrap:anywhere]">{name}</span>
         {line.purchase_order_line_id ? (
           <Tooltip content={t('lines.from_order')}>
-            <PackageCheck className="mt-0.5 size-4 shrink-0 text-info" aria-label={t('lines.from_order')} />
+            <PackageCheck
+              className="mt-0.5 size-4 shrink-0 text-info"
+              aria-label={t('lines.from_order')}
+            />
           </Tooltip>
         ) : null}
         <WarningIcon warnings={warnings} />
@@ -500,28 +494,34 @@ function useCells({ index, line, calc, ctx, errors, showBatch, disabled, onChang
         {[
           other && other !== name ? other : null,
           p.sku,
-          packed ? t('lines.pack_of', { count: p.pack_size, unit: unitLabel(p.unit), pack: packWord }) : null,
+          packed
+            ? t('lines.pack_of', { count: p.pack_size, unit: unitLabel(p.unit), pack: packWord })
+            : null,
         ]
           .filter(Boolean)
           .join(' · ')}
         {p.stock_qty_milli !== null ? (
           <>
             {' · '}
-            {t('lines.stock')} <Qty milli={p.stock_qty_milli} unit={p.unit} packSize={p.pack_size} packUnit={packUnitFor(p.unit)} />
+            {t('lines.stock')}{' '}
+            <Qty
+              milli={p.stock_qty_milli}
+              unit={p.unit}
+              packSize={p.pack_size}
+              packUnit={packUnitFor(p.unit)}
+            />
           </>
         ) : null}
       </div>
     </div>
   )
 
-  const amounts = (
-    <>
-      <Money paise={result?.taxable_paise ?? null} />
-    </>
-  )
+  const amounts = <Money paise={result?.taxable_paise ?? null} />
+  const tax = <Money paise={result?.tax_paise ?? null} className="text-muted-foreground" />
+  const amount = <Money paise={result?.total_paise ?? null} className="font-semibold" />
   const total = (
     <div className="text-end">
-      <Money paise={result?.total_paise ?? null} className="font-semibold" />
+      {amount}
       {result ? (
         <div className="text-[11px] text-muted-foreground tabular-nums">
           {t('lines.tax_amount', { amount: formatMoney(result.tax_paise) })}
@@ -543,17 +543,13 @@ function useCells({ index, line, calc, ctx, errors, showBatch, disabled, onChang
     marginBadge,
     product,
     amounts,
+    tax,
+    amount,
     total,
     errorOf,
     warnings,
     packWord,
   }
-}
-
-function unitLabel(code: string): string {
-  const def = getUnit(code)
-  if (!def) return code
-  return getLanguage() === 'ta' ? def.symbol_ta : def.symbol_en_plural
 }
 
 function WarningIcon({ warnings }: { warnings: PurchaseWarning[] }) {
@@ -598,7 +594,8 @@ function LineRow(props: LineProps) {
   const { t } = useTranslation('purchases')
   const { line, showBatch, disabled, onRemove, index } = props
   const c = useCells(props)
-  const td = 'border-b border-border/70 px-2 py-1.5 align-top first:ps-3 last:pe-3'
+  const td =
+    'border-b border-border/70 px-1.5 py-1.5 align-top first:sticky first:start-0 first:z-10 first:border-e first:bg-surface first:ps-3 last:pe-3'
   const hasError = Object.keys(props.errors).length > 0
   return (
     <tr className={cn('group', hasError && 'bg-danger-soft/30')}>
@@ -634,7 +631,8 @@ function LineRow(props: LineProps) {
       </td>
       <td className={td}>{c.gst}</td>
       <td className={cn(td, 'pt-3 text-end')}>{c.amounts}</td>
-      <td className={cn(td, 'pt-3')}>{c.total}</td>
+      <td className={cn(td, 'pt-3 text-end')}>{c.tax}</td>
+      <td className={cn(td, 'pt-3 text-end')}>{c.amount}</td>
       <td className={cn(td, 'text-end')}>
         {c.sale}
         {c.marginBadge}
@@ -674,7 +672,7 @@ function LineCard(props: LineProps) {
   return (
     <li
       className={cn(
-        'rounded-xl border bg-surface p-3 shadow-card',
+        'min-w-0 rounded-xl border bg-surface p-3 shadow-card',
         hasError ? 'border-danger/60' : 'border-border',
       )}
     >

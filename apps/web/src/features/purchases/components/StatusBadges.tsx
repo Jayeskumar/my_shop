@@ -16,7 +16,13 @@ import {
 
 type Size = 'sm' | 'md'
 
-export function OrderStatusBadge({ status, size = 'sm' }: { status: PurchaseOrderStatus; size?: Size }) {
+export function OrderStatusBadge({
+  status,
+  size = 'sm',
+}: {
+  status: PurchaseOrderStatus
+  size?: Size
+}) {
   const { t } = useTranslation('purchases')
   return (
     <Badge tone={orderStatusTone(status)} size={size} dot>
@@ -25,7 +31,13 @@ export function OrderStatusBadge({ status, size = 'sm' }: { status: PurchaseOrde
   )
 }
 
-export function BillStatusBadge({ status, size = 'sm' }: { status: PurchaseBillStatus; size?: Size }) {
+export function BillStatusBadge({
+  status,
+  size = 'sm',
+}: {
+  status: PurchaseBillStatus
+  size?: Size
+}) {
   const { t } = useTranslation('purchases')
   return (
     <Badge tone={billStatusTone(status)} size={size} dot>
@@ -51,7 +63,13 @@ export function PaymentStatusBadge({
   )
 }
 
-export function DebitNoteStatusBadge({ status, size = 'sm' }: { status: DebitNoteStatus; size?: Size }) {
+export function DebitNoteStatusBadge({
+  status,
+  size = 'sm',
+}: {
+  status: DebitNoteStatus
+  size?: Size
+}) {
   const { t } = useTranslation('purchases')
   return (
     <Badge tone={debitNoteStatusTone(status)} size={size} dot>

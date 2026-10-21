@@ -32,9 +32,7 @@ export function AttachmentField({ fileId, onChange, readOnly, className }: Attac
     if (!file) return
     const issue = fileUploadIssue('attachment', file)
     if (issue) {
-      notify.error(
-        t(`attachment.${issue}`, { size: Math.round(RULE.max_bytes / (1024 * 1024)) }),
-      )
+      notify.error(t(`attachment.${issue}`, { size: Math.round(RULE.max_bytes / (1024 * 1024)) }))
       return
     }
     setUploading(true)
@@ -91,7 +89,11 @@ export function AttachmentField({ fileId, onChange, readOnly, className }: Attac
         {content.loading ? (
           <Spinner size="sm" label={t('attachment.loading')} />
         ) : content.url && isImage ? (
-          <img src={content.url} alt={t('attachment.preview_alt')} className="size-full object-cover" />
+          <img
+            src={content.url}
+            alt={t('attachment.preview_alt')}
+            className="size-full object-cover"
+          />
         ) : (
           <FileText className="size-8 text-muted-foreground" />
         )}
