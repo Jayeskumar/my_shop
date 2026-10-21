@@ -9,3 +9,6 @@
   - build A2: wf_41ccc9b7-87f  modules [catalog, inventory, purchases, accounting, notifications, platform, onprem]  skip [catalog:backend, catalog:frontend, inventory:backend, purchases:backend]
   - build B2: wf_cebe53ef-d97  modules [identity, sales, payments, reports, licensing]  skip [identity:backend, identity:frontend, sales:backend]
   - parties: complete (reviewed) — merge only
+- 2026-10-21 19:35 restart after usage-limit stop (catalog, identity reviewed; inventory/purchases/sales FE done; accounting BE done):
+  - build A3: wf_a338c7bf-e4b  modules [inventory, purchases, accounting, notifications, platform, onprem]  skip [inventory:backend, inventory:frontend, purchases:backend, purchases:frontend, accounting:backend]
+  - build B3: wf_0fda2ca1-3c1  modules [sales, payments, reports, licensing]  skip [sales:backend, sales:frontend-pos, sales:frontend-sales-back-office]
