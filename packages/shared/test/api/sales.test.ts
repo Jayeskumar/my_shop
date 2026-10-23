@@ -215,7 +215,7 @@ export const invoiceDetail = {
   },
   audit: [
     {
-      id: id(),
+      id: 101,
       action: 'sales_invoice.create',
       summary: 'S1-A/2627/00042',
       user_name: 'Kavitha',
