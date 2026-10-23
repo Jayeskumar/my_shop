@@ -491,7 +491,15 @@
     "assumptions_shelf": "Shelf life {{days}} days when the product has none.",
     "assumptions_shelf_product": "Shelf life comes from the product when set; otherwise quantity is not capped.",
     "assumptions_fallback": "No sales history uses the reorder level and reorder quantity.",
-    "assumptions_import": "Imported sales add to recorded sales and do not change stock."
+    "assumptions_import": "Imported sales add to recorded sales and do not change stock.",
+    "model_smart": "Smart forecast (ML)",
+    "assumptions_smart": "Smart forecast: for each product, Holt-Winters (trend + weekday pattern), Croston-SBA (irregular sellers) and the weekday average are tested on the last 14 days of sales, and the most accurate one is used. Safety stock covers about 95% of days.",
+    "forecast_line": "Forecast: {{method}} · {{accuracy}}% accurate (last {{days}} days)",
+    "forecast_line_untested": "Forecast: {{method}} · not enough history to test accuracy yet",
+    "safety_stock": "Safety stock{{qty}}",
+    "method_holt_winters": "Holt-Winters",
+    "method_croston_sba": "Croston-SBA",
+    "method_weekday_average": "Weekday average"
   },
   "returns": {
     "adjusted_all": "{{adjusted}} reduced from the bill's due.",
@@ -606,9 +614,9 @@
     "via_share": "Share on WhatsApp from this device",
     "via_share_hint": "Opens WhatsApp with the order ready to send. Works without any setup.",
     "via_sms": "Send by SMS",
-    "via_sms_hint": "Kadai sends a text message.",
+    "via_sms_hint": "StockSense sends a text message.",
     "via_whatsapp": "Send by WhatsApp Business",
-    "via_whatsapp_hint": "Kadai sends it from your business number."
+    "via_whatsapp_hint": "StockSense sends it from your business number."
   },
   "settlement": {
     "adjust_due": "Reduce the supplier's due",

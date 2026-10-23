@@ -52,6 +52,7 @@ import {
 } from '../enums'
 import { mulDiv, roundDiv } from '../math'
 import { milliToDecimalString } from '../units'
+import { FORECAST_METHODS } from '../forecast'
 import {
   type PurchaseDocumentResult,
   type PurchaseLineBase,
@@ -1302,6 +1303,8 @@ export interface StockSensePlanInput {
   daily_milli: number
   /** Demand over the lead time (forecastDemandMilli). Ignored without history. */
   demand_milli: number
+  /** Buffer for forecast error (smart forecast), added to the need. Default 0. */
+  safety_stock_milli?: number
   lead_time_days: number
   /** Null: do not cap the order by shelf life. */
   shelf_life_days: number | null
@@ -1372,7 +1375,8 @@ export function planStockSense(input: StockSensePlanInput): StockSensePlan {
     suggested = roundUpToPack(Math.max(0, classic - incoming), input.pack_size)
     reason = 'no_history'
   } else {
-    let need = Math.max(0, input.demand_milli - durable - incoming)
+    const safety = Math.max(0, input.safety_stock_milli ?? 0)
+    let need = Math.max(0, input.demand_milli + safety - durable - incoming)
     if (input.shelf_life_days != null) {
       const cap = input.shelf_life_days <= 0 ? 0 : daily * input.shelf_life_days
       if (need > cap) {
@@ -1390,7 +1394,7 @@ export function planStockSense(input: StockSensePlanInput): StockSensePlan {
     const shortAtDelivery = input.demand_milli > durable + incoming
     reason = capped
       ? 'shelf_life'
-      : !shortAtDelivery || suggested === 0
+      : suggested === 0 || (!shortAtDelivery && safety === 0)
         ? 'covered'
         : days != null && days < lead
           ? 'stockout'
@@ -1498,6 +1502,12 @@ export const ReorderSuggestionsQuerySchema = z.object({
   weekday_adjust: zBooleanQuery.optional(),
   /** Shelf life used when the product has no shelf_life_days attribute. */
   shelf_life_days: z.coerce.number().int().min(0).max(3650).optional(),
+  /**
+   * StockSense demand model: 'smart' (default) backtests Holt-Winters, Croston-SBA and the
+   * weekday average per product over 90 days and adds safety stock; 'average' is the
+   * window_days moving average.
+   */
+  model: z.enum(['smart', 'average']).optional(),
 })
 export type ReorderSuggestionsQuery = z.input<typeof ReorderSuggestionsQuerySchema>
 
@@ -1540,6 +1550,14 @@ export const ReorderItemSchema = z.object({
   reason: ReorderReasonSchema.default('classic'),
   /** English explanation. The web translates `reason`. */
   explanation: z.string().default(''),
+  /** Smart forecast: model chosen by backtest (null for the moving average). */
+  forecast_method: z.enum(FORECAST_METHODS).nullable().default(null),
+  /** Smart forecast: 1 − WAPE of the chosen model on the holdout, basis points. */
+  forecast_accuracy_bp: z.int().min(0).max(10_000).nullable().default(null),
+  /** Days of the backtest holdout (0 = not enough history to score). */
+  forecast_holdout_days: z.int().min(0).default(0),
+  /** Smart forecast: safety stock added to the order (z × σ × √lead time). */
+  safety_stock_milli: zMilli0.default(0),
   /** Still pending on sent / partially received purchase orders (informational). */
   open_po_qty_milli: zMilli0,
   last_cost_paise: zPaise.nullable(),
@@ -1565,6 +1583,8 @@ export const ReorderSuggestionsSchema = z.object({
   forecast: z.boolean().default(false),
   lead_time_days: z.int().min(1).max(365).default(STOCKSENSE_DEFAULT_LEAD_TIME_DAYS),
   weekday_adjusted: z.boolean().default(false),
+  /** Demand model of a StockSense plan. */
+  model: z.enum(['smart', 'average']).default('average'),
   /** Planning assumptions (lead time is not stored on the supplier, and so on). */
   assumptions: z.array(z.string()).default([]),
   /** Grouped by the supplier of the latest posted bill line (null = never purchased). */

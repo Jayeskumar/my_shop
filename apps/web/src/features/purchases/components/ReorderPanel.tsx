@@ -79,6 +79,7 @@ export function ReorderPanel() {
   const [created, setCreated] = useState<{ id: string; number: string; supplier: string }[]>([])
   const [leadTime, setLeadTime] = useState(7)
   const [windowDays, setWindowDays] = useState<7 | 30>(7)
+  const [smartModel, setSmartModel] = useState(true)
   const [weekdayAdjust, setWeekdayAdjust] = useState(true)
   const [shelfLife, setShelfLife] = useState<number | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -91,6 +92,7 @@ export function ReorderPanel() {
       ? {
           store_id: storeId,
           lead_time_days: leadTime,
+          model: smartModel ? 'smart' : 'average',
           window_days: windowDays,
           weekday_adjust: weekdayAdjust,
           ...(shelfLife != null ? { shelf_life_days: shelfLife } : {}),
@@ -222,27 +224,42 @@ export function ReorderPanel() {
             if (v != null && v >= 1) setLeadTime(v)
           }}
         />
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           <Button
             size="sm"
-            variant={windowDays === 7 ? 'primary' : 'outline'}
-            onClick={() => setWindowDays(7)}
+            variant={smartModel ? 'primary' : 'outline'}
+            onClick={() => setSmartModel(true)}
+          >
+            {t('reorder.model_smart')}
+          </Button>
+          <Button
+            size="sm"
+            variant={!smartModel && windowDays === 7 ? 'primary' : 'outline'}
+            onClick={() => {
+              setSmartModel(false)
+              setWindowDays(7)
+            }}
           >
             {t('reorder.window_7')}
           </Button>
           <Button
             size="sm"
-            variant={windowDays === 30 ? 'primary' : 'outline'}
-            onClick={() => setWindowDays(30)}
+            variant={!smartModel && windowDays === 30 ? 'primary' : 'outline'}
+            onClick={() => {
+              setSmartModel(false)
+              setWindowDays(30)
+            }}
           >
             {t('reorder.window_30')}
           </Button>
         </div>
-        <Switch
-          checked={weekdayAdjust}
-          label={t('reorder.weekday')}
-          onCheckedChange={setWeekdayAdjust}
-        />
+        {smartModel ? null : (
+          <Switch
+            checked={weekdayAdjust}
+            label={t('reorder.weekday')}
+            onCheckedChange={setWeekdayAdjust}
+          />
+        )}
         <NumberInput
           size="sm"
           className="w-28"
@@ -282,10 +299,12 @@ export function ReorderPanel() {
       </div>
       <p className="text-xs text-muted-foreground">
         {t('reorder.assumptions_lead', { lead: leadTime })}{' '}
-        {t('reorder.assumptions_window', {
-          days: windowDays,
-          weekday: weekdayAdjust ? t('reorder.assumptions_weekday') : '',
-        })}{' '}
+        {smartModel
+          ? t('reorder.assumptions_smart')
+          : t('reorder.assumptions_window', {
+              days: windowDays,
+              weekday: weekdayAdjust ? t('reorder.assumptions_weekday') : '',
+            })}{' '}
         {shelfLife != null
           ? t('reorder.assumptions_shelf', { days: shelfLife })
           : t('reorder.assumptions_shelf_product')}{' '}
@@ -448,7 +467,7 @@ export function ReorderPanel() {
                     key={item.product_id}
                     item={item}
                     forecast={forecast}
-                    windowDays={windowDays}
+                    windowDays={smartModel ? (query.data?.data.window_days ?? windowDays) : windowDays}
                     pick={
                       picks[item.product_id] ?? {
                         selected: false,
@@ -480,6 +499,7 @@ function viewedPlan(item: ReorderItem, onHand: number | null) {
     incoming_milli: item.open_po_qty_milli,
     daily_milli: item.avg_daily_sales_milli,
     demand_milli: item.forecast_demand_milli,
+    safety_stock_milli: item.safety_stock_milli,
     lead_time_days: item.lead_time_days,
     shelf_life_days: item.shelf_life_days,
     pack_size: item.pack_size,
@@ -568,6 +588,27 @@ function ReorderRow({
         {urgency > 0 ? (
           <p className="mt-1 text-xs font-semibold text-danger">
             {t('reorder.urgency', { count: urgency })}
+          </p>
+        ) : null}
+        {item.forecast_method ? (
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs font-medium text-primary">
+            <span>
+              {item.forecast_accuracy_bp != null && item.forecast_holdout_days > 0
+                ? t('reorder.forecast_line', {
+                    method: t(`reorder.method_${item.forecast_method}`),
+                    accuracy: Math.round(item.forecast_accuracy_bp / 100),
+                    days: item.forecast_holdout_days,
+                  })
+                : t('reorder.forecast_line_untested', {
+                    method: t(`reorder.method_${item.forecast_method}`),
+                  })}
+            </span>
+            {item.safety_stock_milli > 0 ? (
+              <span className="text-muted-foreground">
+                · {t('reorder.safety_stock', { qty: '' })}{' '}
+                {qty(Math.ceil(item.safety_stock_milli / 1000) * 1000)}
+              </span>
+            ) : null}
           </p>
         ) : null}
         {item.margin_bp != null ? (

@@ -11,7 +11,15 @@
  * stock-movement ledger plus rows imported to demand_history (those imports do not change stock).
  */
 import { sql } from 'kysely'
-import { addDays, amountForQty, dayOfWeek, instantRangeForDates } from '@kadai/shared'
+import {
+  SMART_FORECAST_HISTORY_DAYS,
+  type SmartForecast,
+  addDays,
+  amountForQty,
+  dayOfWeek,
+  instantRangeForDates,
+  smartForecast,
+} from '@kadai/shared'
 import {
   REORDER_SALES_WINDOW_DAYS,
   STOCKSENSE_DEFAULT_LEAD_TIME_DAYS,
@@ -47,6 +55,9 @@ export async function reorderSuggestions(
   const leadTime = q.lead_time_days ?? STOCKSENSE_DEFAULT_LEAD_TIME_DAYS
   const windowDays = forecastMode ? (q.window_days ?? 7) : REORDER_SALES_WINDOW_DAYS
   const weekdayAdjusted = forecastMode && (q.weekday_adjust ?? true)
+  // Smart (default): per-product model chosen by backtest over a longer history.
+  const smart = forecastMode && (q.model ?? 'smart') === 'smart'
+  const historyDays = smart ? SMART_FORECAST_HISTORY_DAYS : windowDays
   const deliveryDate = addDays(cal.today, leadTime)
 
   let qb = tx
@@ -115,7 +126,7 @@ export async function reorderSuggestions(
   const products = await qb.orderBy('p.name').orderBy('p.id').limit(MAX_ITEMS).execute()
   const ids = products.map((p) => p.id)
 
-  const windowStart = addDays(cal.today, -(windowDays - 1))
+  const windowStart = addDays(cal.today, -(historyDays - 1))
   const window = instantRangeForDates(windowStart, cal.today, cal.timezone)
   const saleDate = sql<string>`(created_at AT TIME ZONE ${cal.timezone})::date`
   const [sales, saleDays, imported, stockSplit, openPo, last] = await Promise.all([
@@ -146,7 +157,9 @@ export async function reorderSuggestions(
           .where('movement_type', 'in', ['sale', 'sale_return', 'sale_cancel'])
           .where('created_at', '>=', window.start)
           .where('created_at', '<', window.end)
-          .groupBy(['product_id', saleDate])
+          // By the output column: saleDate's timezone is a bind parameter, so repeating the
+          // expression here would bind it again and Postgres would not match the two.
+          .groupBy(['product_id', sql`sale_date`])
           .execute()
       : Promise.resolve([]),
     ids.length && forecastMode
@@ -220,7 +233,7 @@ export async function reorderSuggestions(
     for (const row of imported) addSold(row.product_id, row.sale_date, Number(row.sold))
   }
   const dates: string[] = []
-  for (let i = 0; i < windowDays; i++) dates.push(addDays(windowStart, i))
+  for (let i = 0; i < historyDays; i++) dates.push(addDays(windowStart, i))
   const todayWeekday = dayOfWeek(cal.today)
 
   const groups = new Map<
@@ -241,7 +254,10 @@ export async function reorderSuggestions(
     const usable = forecastMode ? Math.max(0, usableOf.get(p.id) ?? 0) : Math.max(0, stock)
     const durable = forecastMode ? Math.max(0, Math.min(usable, durableOf.get(p.id) ?? 0)) : usable
     const dayMap = soldByDay.get(p.id)
-    const forecast = forecastMode
+    const smartResult = smart ? smartForecastFor(dates, dayMap, leadTime) : null
+    const forecast = smartResult
+      ? smartResult
+      : forecastMode
       ? forecastDemandMilli({
           days: dates.map((date) => ({
             weekday: dayOfWeek(date),
@@ -265,6 +281,7 @@ export async function reorderSuggestions(
       incoming_milli: incoming,
       daily_milli: forecast.daily_milli,
       demand_milli: forecast.demand_milli,
+      safety_stock_milli: smartResult?.safety_stock_milli ?? 0,
       lead_time_days: leadTime,
       shelf_life_days: forecastMode ? shelf : null,
       pack_size: p.pack_size,
@@ -288,9 +305,9 @@ export async function reorderSuggestions(
       cess_rate_bp: p.cess_rate_bp,
       cost_paise: cost,
     })
-    const explanation = explainReorder({
+    const baseExplanation = explainReorder({
       reason: plan.reason,
-      window_days: windowDays,
+      window_days: historyDays,
       lead_time_days: leadTime,
       shelf_life_days: forecastMode ? shelf : null,
       daily_milli: forecast.daily_milli,
@@ -298,6 +315,9 @@ export async function reorderSuggestions(
       urgency_days: plan.stockout_urgency_days,
       suggested_qty_milli: plan.suggested_qty_milli,
     })
+    const explanation = smartResult
+      ? `${baseExplanation} ${explainSmartForecast(smartResult)}`
+      : baseExplanation
     const item: ReorderItem = {
       product_id: p.id,
       name: p.name,
@@ -325,6 +345,10 @@ export async function reorderSuggestions(
       capped_by_shelf_life: plan.capped_by_shelf_life,
       reason: plan.reason,
       explanation,
+      forecast_method: smartResult?.has_history ? smartResult.method : null,
+      forecast_accuracy_bp: smartResult?.has_history ? smartResult.accuracy_bp : null,
+      forecast_holdout_days: smartResult?.has_history ? smartResult.holdout_days : 0,
+      safety_stock_milli: smartResult?.safety_stock_milli ?? 0,
       last_cost_paise: lp?.unit_cost_paise ?? null,
       last_bill_date: lp?.received_date ?? null,
       gst_rate_bp: p.gst_rate_bp,
@@ -361,16 +385,19 @@ export async function reorderSuggestions(
   return {
     store_id: store.id,
     generated_at: iso(new Date()),
-    window_days: windowDays,
+    window_days: historyDays,
     forecast: forecastMode,
+    model: smart ? 'smart' : 'average',
     lead_time_days: leadTime,
     weekday_adjusted: weekdayAdjusted,
     assumptions: forecastMode
       ? [
           `Supplier lead time is ${leadTime} days (entered for this plan; suppliers have no lead-time field).`,
-          weekdayAdjusted
-            ? `Demand is a ${windowDays}-day moving average, adjusted by weekday.`
-            : `Demand is a ${windowDays}-day moving average.`,
+          smart
+            ? `Demand is forecast per product from up to ${historyDays} days of sales: Holt-Winters (trend + weekday pattern), Croston-SBA (irregular sellers) and the weekday average are tested on the last 14 days and the most accurate one is used. Safety stock covers about 95% of days.`
+            : weekdayAdjusted
+              ? `Demand is a ${windowDays}-day moving average, adjusted by weekday.`
+              : `Demand is a ${windowDays}-day moving average.`,
           q.shelf_life_days != null
             ? `Shelf life defaults to ${q.shelf_life_days} days when the product has none. Order quantities are capped so new stock can sell before it expires.`
             : 'Shelf life is taken from the product when set. Otherwise the order quantity is not capped. Expired batches are left out of usable stock.',
@@ -380,6 +407,38 @@ export async function reorderSuggestions(
       : [],
     groups: ordered,
   }
+}
+
+const METHOD_LABELS: Readonly<Record<SmartForecast['method'], string>> = {
+  holt_winters: 'Holt-Winters (trend + weekday pattern)',
+  croston_sba: 'Croston-SBA (irregular sales)',
+  weekday_average: 'weekday average',
+}
+
+/** Smart forecast on the product's daily history, leading days before its first sale dropped. */
+function smartForecastFor(
+  dates: readonly string[],
+  dayMap: Map<string, number> | undefined,
+  leadTime: number,
+): SmartForecast {
+  const series = dates.map((date) => dayMap?.get(date) ?? 0)
+  const first = series.findIndex((v) => v > 0)
+  const start = first < 0 ? series.length : first
+  return smartForecast({
+    history_milli: series.slice(start),
+    first_weekday: dayOfWeek(dates[start] ?? dates[dates.length - 1]!),
+    lead_time_days: leadTime,
+  })
+}
+
+function explainSmartForecast(f: SmartForecast): string {
+  if (!f.has_history) return ''
+  const accuracy =
+    f.accuracy_bp === null
+      ? 'not enough history to test accuracy yet'
+      : `${(f.accuracy_bp / 100).toFixed(0)}% accurate on the last ${f.holdout_days} days`
+  const safety = f.safety_stock_milli > 0 ? `, safety stock ${(f.safety_stock_milli / 1000).toFixed(1)}` : ''
+  return `Forecast: ${METHOD_LABELS[f.method]}, ${accuracy}${safety}.`
 }
 
 function dateKey(value: unknown): string {
