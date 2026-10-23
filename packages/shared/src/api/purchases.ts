@@ -1,3 +1,20 @@
+// CONTRACT CHANGELOG (purchases backend; one line per change — web counterpart please read)
+// - PURCHASES_VALIDATION_KEYS += 'future_date', 'batch_no_required', 'expiry_required' (bill lines of batch-tracked products; dates after today).
+// - Added PURCHASES_ERROR_REASONS (details.reason of 4xx errors raised by the purchases routes; translate as purchases:errors.<reason>).
+// - DebitNoteDetailSchema += adjusted_paise (part applied against the bill due for adjust_due; the rest is the supplier's advance). Default 0.
+// - DebitNoteDetailSchema.cancel_reason now comes from the new debit_notes.cancel_reason column (migration 0600), not the audit log.
+// - reverse_charge documented: the supplier is owed total − tax (the GST is the shop's own liability); due_paise starts there.
+// - itc_eligible documented: forced false for composition / unregistered tenants (tax goes into cost).
+// - PurchaseBillLineSchema.discount_paise documented: the flat discount as entered (round-trips with discount_bp); line discount total = gross − taxable.
+// - PurchaseBillPostResultSchema.stock_lines documented: number of stock movements posted (one per stock-tracked line).
+// - PO received quantities count the charged quantity of posted bill lines (free quantity is a bonus, not a receipt against the order).
+// - (review) ReorderItemSchema += unit_cost_paise (last cost, else the product's purchase price): the basis of estimated_cost_paise and the PO line default; the web estimates with it.
+// - (review) Debit notes against reverse-charge bills: the payable / bill due / refund move by total − tax and the output tax is reversed (mirror of the bill's journal).
+// - (review) PurchaseOrderListRow.received_bp is weighted by the lines' taxable value (quantities of different units do not add up); by quantity when the order has no prices.
+// - (review) PurchaseBillListResponse.summary total / paid leave cancelled bills out unless status=cancelled is filtered.
+// - (review) DebitNoteDetailSchema += supplier_amount_paise (total, or total − tax against a reverse-charge bill): the amount adjusted / refunded; the web shows the advance from it.
+// - (review) Posting with update_prices: false no longer sets the selling price of a NEW batch (its printed MRP is still recorded).
+// - StockSense: reorder suggestions gain a forecast (7- or 30-day average, optional weekday adjustment), lead time, shelf-life cap, priority and explanation. Pass lead_time_days to turn the forecast on; without it the previous reorder quantity is unchanged. POST /purchases/sales-history imports product,date,qty and does not post stock.
 /**
  * Contract for the purchases module — docs/API.md "purchases"; ARCHITECTURE.md §9 (purchase
  * maths in pricing.ts), §10 (posting rules).
@@ -34,6 +51,7 @@ import {
   PurchasePaymentStatusSchema,
 } from '../enums'
 import { mulDiv, roundDiv } from '../math'
+import { milliToDecimalString } from '../units'
 import {
   type PurchaseDocumentResult,
   type PurchaseLineBase,
@@ -93,8 +111,47 @@ export const PURCHASES_VALIDATION_KEYS = [
   'reason_required',
   'date_order',
   'empty_patch',
+  'future_date',
+  'batch_no_required',
+  'expiry_required',
+  'sales_history_columns',
 ] as const
 export type PurchasesValidationKey = (typeof PURCHASES_VALIDATION_KEYS)[number]
+
+/**
+ * `details.reason` of the 4xx errors raised by the purchases routes (web:
+ * purchases:errors.<reason>). Status in the comment.
+ */
+export const PURCHASES_ERROR_REASONS = [
+  'duplicate_supplier_invoice', // 409 DUPLICATE (DuplicateSupplierInvoiceDetailsSchema)
+  'order_not_draft', // 409: only draft purchase orders can be edited / deleted
+  'order_not_sendable', // 409: only draft / sent orders can be sent
+  'order_has_receipts', // 409: goods were received against the order → close it instead
+  'order_not_cancellable', // 409: only draft / sent orders can be cancelled
+  'order_not_closable', // 409: only sent / partially received orders can be closed
+  'order_has_bills', // 409: bills reference the draft order (delete / cancel them first)
+  'order_not_receivable', // 422: the order is cancelled / closed / received
+  'order_mismatch', // 422: the order belongs to another supplier / store
+  'order_line_mismatch', // 422: purchase_order_line_id is not a line of the bill's order / product
+  'bill_not_draft', // 409: only draft bills can be edited / deleted / posted
+  'bill_not_posted', // 409 / 422: cancelling or returning against a bill that is not posted
+  'bill_has_payments', // 409: cancel the supplier payments allocated to the bill first
+  'bill_has_debit_notes', // 409: cancel the debit notes against the bill first
+  'supplier_invoice_no_required', // 422: a draft from a purchase order needs the invoice number to post
+  'expired_batch', // 422 EXPIRED_BATCH: expiry before today (post with allow_past_expiry)
+  'batch_expiry_mismatch', // 422: the batch exists with another expiry date
+  'product_not_purchasable', // 422: services / variant templates / inactive products
+  'supplier_inactive', // 422
+  'store_inactive', // 422
+  'returnable_exceeded', // 422: more than charged + free − returned
+  'batch_mismatch', // 422: the batch belongs to another product / is required / not allowed
+  'debit_note_cancelled', // 409: already cancelled
+  'debit_note_has_payments', // 409: cancel the supplier receipts allocated to the note first
+  'bill_mismatch', // 422: supplier_id / store_id differ from the debit note's bill
+  'refund_account_invalid', // 422: refund_bank account must be an active asset (cash / bank) account
+  'recipient_phone_required', // 422: sending a PO needs the supplier's (or a given) phone
+] as const
+export type PurchasesErrorReason = (typeof PURCHASES_ERROR_REASONS)[number]
 
 type Bilingual = Readonly<BilingualLabel>
 
@@ -516,7 +573,10 @@ export const PurchaseOrderListRowSchema = z.object({
   taxable_paise: zPaise,
   tax_paise: zPaise,
   total_paise: zPaise,
-  /** Σ received / Σ ordered in bp (0..10000). */
+  /**
+   * Share of the order received, in bp (0..10000), weighted by the lines' taxable value (by
+   * quantity when the order has no prices).
+   */
   received_bp: zBp,
   sent_at: zTimestamp.nullable(),
   created_at: zTimestamp,
@@ -611,8 +671,16 @@ const BillFields = {
     .optional()
     .describe("Default: supplier invoice date + supplier's payment terms"),
   is_interstate: z.boolean().optional().describe('Default: supplier state ≠ store state'),
-  reverse_charge: z.boolean().default(false),
-  itc_eligible: z.boolean().default(true),
+  reverse_charge: z
+    .boolean()
+    .default(false)
+    .describe(
+      'Reverse charge: the supplier is owed total − tax; the GST is the shop’s own liability (output tax)',
+    ),
+  itc_eligible: z
+    .boolean()
+    .default(true)
+    .describe('Input tax credit; always false for composition / unregistered shops (tax → cost)'),
   other_charges_paise: zPaise.default(0),
   round_off_paise: z
     .int()
@@ -721,6 +789,7 @@ export const PurchaseBillLineSchema = z.object({
   mrp_paise: zPaise.nullable(),
   unit_cost_paise: zPaise,
   discount_bp: zBp,
+  /** Flat discount as entered (with discount_bp); the line's total discount is gross − taxable. */
   discount_paise: zPaise,
   gross_paise: zPaise,
   ...TaxAmountFields,
@@ -833,7 +902,7 @@ export const PurchaseBillPostResultSchema = z.object({
   bill: PurchaseBillDetailSchema,
   price_updates: z.array(PriceUpdateSchema),
   batches_created: z.int().min(0),
-  /** Stock received (Σ charged + free, milli) per line count. */
+  /** Number of stock movements posted (one per stock-tracked line, charged + free quantity). */
   stock_lines: z.int().min(0),
 })
 export type PurchaseBillPostResult = z.output<typeof PurchaseBillPostResultSchema>
@@ -863,6 +932,10 @@ export const PurchaseBillListQuerySchema = PageQuerySchema.extend({
 }).refine(dateOrderOk, DATE_ORDER_ISSUE)
 export type PurchaseBillListQuery = z.input<typeof PurchaseBillListQuerySchema>
 
+/**
+ * `summary` covers the whole filtered range: count of every listed bill; total / paid of the
+ * non-cancelled ones (cancelled bills count only when the status filter asks for them).
+ */
 export const PurchaseBillListResponseSchema = listOf(PurchaseBillListRowSchema).extend({
   summary: z.object({
     count: z.int(),
@@ -1040,10 +1113,19 @@ export const DebitNoteDetailSchema = DebitNoteListRowSchema.extend({
   /** Refund receipts (refund_cash / refund_bank). */
   payments: z.array(PurchasePaymentRefSchema),
   journal_entry_id: zId.nullable(),
+  /**
+   * adjust_due: the part applied against the bill's due (bill returned_paise); the rest of the
+   * note is the supplier's advance. 0 for refunds and free-form notes.
+   */
+  adjusted_paise: zPaise.default(0),
+  /**
+   * What the supplier's account moves by: the total, or total − tax for a return against a
+   * reverse-charge bill (the supplier was never owed the GST). Refunds equal this amount.
+   */
+  supplier_amount_paise: zPaise,
   cancelled_at: zTimestamp.nullable(),
   cancelled_by: zId.nullable(),
   cancelled_by_name: z.string().nullable(),
-  /** From the audit log (debit_notes has no reason column). */
   cancel_reason: z.string().nullable(),
   created_by: zId.nullable(),
   created_by_name: z.string().nullable(),
@@ -1111,8 +1193,286 @@ export const DebitNotePrefillSchema = z.object({
 export type DebitNotePrefill = z.output<typeof DebitNotePrefillSchema>
 
 // =============================================================================================
-// Reorder suggestions
+// Reorder suggestions (StockSense)
 // =============================================================================================
+
+/** Days of supplier lead time used when the plan does not say. Suppliers have no lead-time column. */
+export const STOCKSENSE_DEFAULT_LEAD_TIME_DAYS = 7
+
+export const REORDER_PRIORITIES = ['urgent', 'high', 'normal', 'low'] as const
+export const ReorderPrioritySchema = z.enum(REORDER_PRIORITIES)
+export type ReorderPriority = z.output<typeof ReorderPrioritySchema>
+
+/** Higher sorts first. */
+export const REORDER_PRIORITY_RANK: Readonly<Record<ReorderPriority, number>> = {
+  urgent: 3,
+  high: 2,
+  normal: 1,
+  low: 0,
+}
+
+export const REORDER_REASONS = [
+  'classic',
+  'no_history',
+  'stockout',
+  'cover',
+  'shelf_life',
+  'covered',
+] as const
+export const ReorderReasonSchema = z.enum(REORDER_REASONS)
+export type ReorderReason = z.output<typeof ReorderReasonSchema>
+
+/** One day of net sales in the averaging window (0 = Sunday). */
+export interface ForecastDay {
+  weekday: number
+  sold_milli: number
+}
+
+/**
+ * Demand until the next delivery.
+ *
+ * Without weekday adjustment this is a flat moving average: 70 units over 7 days → 10 a day,
+ * times the lead time. With adjustment, each day of the lead time uses the average of past
+ * days with the same weekday (the overall average when that weekday is missing). No sales in
+ * the window → daily and demand are 0; the caller falls back to reorder settings.
+ */
+export function forecastDemandMilli(input: {
+  days: readonly ForecastDay[]
+  lead_time_days: number
+  /** Weekday of "today" (0 = Sunday). Day 1 of the horizon is tomorrow. */
+  today_weekday: number
+  weekday_adjusted: boolean
+}): { daily_milli: number; demand_milli: number; has_history: boolean } {
+  const lead = input.lead_time_days
+  if (!Number.isSafeInteger(lead) || lead <= 0) {
+    throw new RangeError('lead_time_days must be > 0')
+  }
+  if (
+    !Number.isSafeInteger(input.today_weekday) ||
+    input.today_weekday < 0 ||
+    input.today_weekday > 6
+  ) {
+    throw new RangeError('today_weekday must be 0..6')
+  }
+  let total = 0
+  const byDow: number[][] = [[], [], [], [], [], [], []]
+  for (const day of input.days) {
+    if (!Number.isSafeInteger(day.sold_milli)) throw new RangeError('sold_milli must be an integer')
+    if (!Number.isSafeInteger(day.weekday) || day.weekday < 0 || day.weekday > 6) {
+      throw new RangeError('weekday must be 0..6')
+    }
+    const sold = Math.max(0, day.sold_milli)
+    total += sold
+    byDow[day.weekday]!.push(sold)
+  }
+  if (input.days.length === 0 || total <= 0) {
+    return { daily_milli: 0, demand_milli: 0, has_history: false }
+  }
+  const overall = roundDiv(total, input.days.length)
+  if (!input.weekday_adjusted) {
+    return { daily_milli: overall, demand_milli: overall * lead, has_history: true }
+  }
+  let demand = 0
+  for (let i = 1; i <= lead; i++) {
+    const dow = (input.today_weekday + i) % 7
+    const samples = byDow[dow]!
+    const dayAvg =
+      samples.length === 0
+        ? overall
+        : roundDiv(
+            samples.reduce((sum, n) => sum + n, 0),
+            samples.length,
+          )
+    demand += dayAvg
+  }
+  return { daily_milli: roundDiv(demand, lead), demand_milli: demand, has_history: true }
+}
+
+export interface StockSensePlanInput {
+  reorder_level_milli: number
+  reorder_qty_milli: number | null
+  /** On-hand that is not already expired. */
+  usable_stock_milli: number
+  /**
+   * Usable stock whose expiry is unknown or on/after the delivery date. Stock that expires
+   * before delivery is not counted as still being there when the order arrives.
+   */
+  durable_stock_milli: number
+  incoming_milli: number
+  daily_milli: number
+  /** Demand over the lead time (forecastDemandMilli). Ignored without history. */
+  demand_milli: number
+  lead_time_days: number
+  /** Null: do not cap the order by shelf life. */
+  shelf_life_days: number | null
+  pack_size: number
+  has_history: boolean
+  /**
+   * False keeps suggestedReorderQtyMilli (incoming is not subtracted). True is the StockSense
+   * quantity: forecast need, shelf-life cap, pack rounding; reorder settings only when there
+   * is no sales history.
+   */
+  use_forecast: boolean
+}
+
+export interface StockSensePlan {
+  suggested_qty_milli: number
+  days_of_cover: number | null
+  stockout_urgency_days: number
+  priority: ReorderPriority
+  capped_by_shelf_life: boolean
+  reason: ReorderReason
+}
+
+function packMilli(packSize: number): number {
+  const size = Number.isSafeInteger(packSize) && packSize >= 1 ? packSize : 1
+  return size * 1000
+}
+
+function roundUpToPack(qtyMilli: number, packSize: number): number {
+  if (qtyMilli <= 0) return 0
+  const pack = packMilli(packSize)
+  return Math.ceil(qtyMilli / pack) * pack
+}
+
+function roundDownToPack(qtyMilli: number, packSize: number): number {
+  if (qtyMilli <= 0) return 0
+  const pack = packMilli(packSize)
+  return Math.floor(qtyMilli / pack) * pack
+}
+
+/** Forecast order quantity, urgency and priority. See StockSensePlanInput. */
+export function planStockSense(input: StockSensePlanInput): StockSensePlan {
+  const lead = input.lead_time_days
+  if (!Number.isSafeInteger(lead) || lead <= 0) throw new RangeError('lead_time_days must be > 0')
+  const usable = Math.max(0, input.usable_stock_milli)
+  const durable = Math.max(0, Math.min(usable, input.durable_stock_milli))
+  const incoming = Math.max(0, input.incoming_milli)
+  const daily = Math.max(0, input.daily_milli)
+  const days = daily > 0 ? Math.floor(usable / daily) : null
+  const history = input.has_history && input.demand_milli > 0 && daily > 0
+
+  let suggested: number
+  let capped = false
+  let reason: ReorderReason
+
+  if (!input.use_forecast) {
+    suggested = suggestedReorderQtyMilli({
+      reorder_level_milli: input.reorder_level_milli,
+      reorder_qty_milli: input.reorder_qty_milli,
+      stock_milli: input.usable_stock_milli,
+    })
+    reason = 'classic'
+  } else if (!history) {
+    const classic = suggestedReorderQtyMilli({
+      reorder_level_milli: input.reorder_level_milli,
+      reorder_qty_milli: input.reorder_qty_milli,
+      stock_milli: usable,
+    })
+    suggested = roundUpToPack(Math.max(0, classic - incoming), input.pack_size)
+    reason = 'no_history'
+  } else {
+    let need = Math.max(0, input.demand_milli - durable - incoming)
+    if (input.shelf_life_days != null) {
+      const cap = input.shelf_life_days <= 0 ? 0 : daily * input.shelf_life_days
+      if (need > cap) {
+        need = cap
+        capped = true
+      }
+    }
+    const rounded = roundUpToPack(need, input.pack_size)
+    if (capped && input.shelf_life_days != null) {
+      const cap = input.shelf_life_days <= 0 ? 0 : daily * input.shelf_life_days
+      suggested = rounded > cap ? roundDownToPack(cap, input.pack_size) : rounded
+    } else {
+      suggested = rounded
+    }
+    const shortAtDelivery = input.demand_milli > durable + incoming
+    reason = capped
+      ? 'shelf_life'
+      : !shortAtDelivery || suggested === 0
+        ? 'covered'
+        : days != null && days < lead
+          ? 'stockout'
+          : 'cover'
+  }
+
+  let urgency = 0
+  if (history) {
+    const shortAtDelivery = input.demand_milli > durable + incoming
+    if (days != null && days < lead) urgency = lead - days
+    else if (shortAtDelivery) urgency = durable + incoming <= 0 ? lead : Math.max(urgency, 1)
+  }
+
+  let priority: ReorderPriority
+  if (urgency > 0 && (days === 0 || usable <= 0)) priority = 'urgent'
+  else if (urgency > 0) priority = 'high'
+  else if (suggested > 0) priority = 'normal'
+  else priority = 'low'
+
+  return {
+    suggested_qty_milli: suggested,
+    days_of_cover: days,
+    stockout_urgency_days: urgency,
+    priority,
+    capped_by_shelf_life: capped,
+    reason,
+  }
+}
+
+/** Short English explanation. The web translates `reason` instead of this string. */
+export function explainReorder(input: {
+  reason: ReorderReason
+  window_days: number
+  lead_time_days: number
+  shelf_life_days: number | null
+  daily_milli: number
+  usable_stock_milli: number
+  urgency_days: number
+  suggested_qty_milli: number
+}): string {
+  const daily = milliToDecimalString(input.daily_milli)
+  const stock = milliToDecimalString(Math.max(0, input.usable_stock_milli))
+  const qty = milliToDecimalString(input.suggested_qty_milli)
+  switch (input.reason) {
+    case 'classic':
+      return 'Quantity from the reorder level and reorder quantity.'
+    case 'no_history':
+      return `No sales in the last ${input.window_days} days. Using the reorder level and reorder quantity, minus open orders. Order ${qty}.`
+    case 'stockout':
+      return `Likely to run out ${input.urgency_days} days before the ${input.lead_time_days}-day delivery. About ${daily} a day, ${stock} on hand. Order ${qty}.`
+    case 'shelf_life':
+      return `Capped at ${qty} so it can sell within ${input.shelf_life_days ?? 0} days of shelf life (about ${daily} a day).`
+    case 'covered':
+      return `About ${daily} a day is covered by ${stock} on hand and open orders for the ${input.lead_time_days} days until delivery.`
+    case 'cover':
+      return `Order ${qty} to cover ${input.lead_time_days} days at about ${daily} a day, after stock on hand and open orders.`
+  }
+}
+
+export function compareReorderRank(
+  a: {
+    priority: ReorderPriority
+    stockout_urgency_days: number
+    margin_bp: number | null
+    name: string
+  },
+  b: {
+    priority: ReorderPriority
+    stockout_urgency_days: number
+    margin_bp: number | null
+    name: string
+  },
+): number {
+  const byPriority = REORDER_PRIORITY_RANK[b.priority] - REORDER_PRIORITY_RANK[a.priority]
+  if (byPriority !== 0) return byPriority
+  const byUrgency = b.stockout_urgency_days - a.stockout_urgency_days
+  if (byUrgency !== 0) return byUrgency
+  const byMargin =
+    (b.margin_bp ?? Number.NEGATIVE_INFINITY) - (a.margin_bp ?? Number.NEGATIVE_INFINITY)
+  if (byMargin !== 0) return byMargin
+  return a.name.localeCompare(b.name, 'en')
+}
 
 export const ReorderSuggestionsQuerySchema = z.object({
   store_id: zId,
@@ -1124,6 +1484,20 @@ export const ReorderSuggestionsQuerySchema = z.object({
    * inventory's reorderPrefillPath(): /purchases/orders/new?source=reorder&product_ids=…).
    */
   product_ids: zQueryIds.optional(),
+  /**
+   * Turns on StockSense. Demand over this many days, shelf-life cap and ranking. Omit to keep
+   * the previous reorder quantity (max of reorder qty and 2 × level − stock).
+   */
+  lead_time_days: z.coerce.number().int().min(1).max(365).optional(),
+  /** 7 or 30. Used only together with lead_time_days (default 7). */
+  window_days: z
+    .union([z.literal(7), z.literal(30), z.literal('7'), z.literal('30')])
+    .transform((v) => Number(v) as 7 | 30)
+    .optional(),
+  /** Default true when lead_time_days is set. */
+  weekday_adjust: zBooleanQuery.optional(),
+  /** Shelf life used when the product has no shelf_life_days attribute. */
+  shelf_life_days: z.coerce.number().int().min(0).max(3650).optional(),
 })
 export type ReorderSuggestionsQuery = z.input<typeof ReorderSuggestionsQuerySchema>
 
@@ -1138,18 +1512,45 @@ export const ReorderItemSchema = z.object({
   current_stock_milli: z.int(),
   reorder_level_milli: zMilli0,
   reorder_qty_milli: zMilli0.nullable(),
-  /** Over the last REORDER_SALES_WINDOW_DAYS days (averageDailySalesMilli). */
+  /** Moving average (weekday-adjusted when the plan asked for it). */
   avg_daily_sales_milli: zMilli0,
-  /** current stock ÷ average daily sales (null when nothing sold). */
+  /** Demand over the lead time. 0 when StockSense is off or there is no history. */
+  forecast_demand_milli: zMilli0.default(0),
+  /** current usable stock ÷ average daily sales (null when nothing sold). */
   days_of_cover: z.int().nullable(),
-  /** suggestedReorderQtyMilli. */
+  /**
+   * StockSense quantity when lead_time_days was set (planStockSense); otherwise
+   * suggestedReorderQtyMilli.
+   */
   suggested_qty_milli: zMilli0,
+  /** On-hand that is not already expired. Equals current stock when StockSense is off. */
+  usable_stock_milli: z.int().min(0).default(0),
+  /** Usable stock still in date when the delivery arrives. */
+  durable_stock_milli: z.int().min(0).default(0),
+  lead_time_days: z.int().min(1).max(365).default(STOCKSENSE_DEFAULT_LEAD_TIME_DAYS),
+  /** Product shelf life, else the query default. Null = quantity was not capped. */
+  shelf_life_days: z.int().min(0).max(3650).nullable().default(null),
+  /** How many days before delivery the stock runs out (0 = covers the lead time). */
+  stockout_urgency_days: z.int().min(0).default(0),
+  priority: ReorderPrioritySchema.default('normal'),
+  /** Margin of the selling price over cost, in basis points. Null when the net price is 0. */
+  margin_bp: z.int().nullable().default(null),
+  has_sales_history: z.boolean().default(false),
+  capped_by_shelf_life: z.boolean().default(false),
+  reason: ReorderReasonSchema.default('classic'),
+  /** English explanation. The web translates `reason`. */
+  explanation: z.string().default(''),
   /** Still pending on sent / partially received purchase orders (informational). */
   open_po_qty_milli: zMilli0,
   last_cost_paise: zPaise.nullable(),
   last_bill_date: zDateStr.nullable(),
   gst_rate_bp: z.int().min(0),
-  /** suggested × last cost (excl. tax). */
+  /**
+   * Cost per pack (excl. tax) of the estimate and the PO default: the last cost, else the
+   * product's purchase price (never bought from a supplier, e.g. opening stock only).
+   */
+  unit_cost_paise: zPaise,
+  /** suggested × unit_cost_paise (excl. tax). */
   estimated_cost_paise: zPaise,
 })
 export type ReorderItem = z.output<typeof ReorderItemSchema>
@@ -1160,6 +1561,12 @@ export const ReorderSuggestionsSchema = z.object({
   store_id: zId,
   generated_at: zTimestamp,
   window_days: z.int().min(1),
+  /** True when the request set lead_time_days (StockSense quantities and ranking). */
+  forecast: z.boolean().default(false),
+  lead_time_days: z.int().min(1).max(365).default(STOCKSENSE_DEFAULT_LEAD_TIME_DAYS),
+  weekday_adjusted: z.boolean().default(false),
+  /** Planning assumptions (lead time is not stored on the supplier, and so on). */
+  assumptions: z.array(z.string()).default([]),
   /** Grouped by the supplier of the latest posted bill line (null = never purchased). */
   groups: z.array(
     z.object({
@@ -1170,6 +1577,28 @@ export const ReorderSuggestionsSchema = z.object({
   ),
 })
 export type ReorderSuggestions = z.output<typeof ReorderSuggestionsSchema>
+
+export const SalesHistoryImportSchema = z.object({
+  store_id: zId,
+  /** CSV text. Header row: product (SKU, barcode or id), date (YYYY-MM-DD), qty (base units). */
+  csv: z.string().min(1).max(1_000_000),
+})
+export type SalesHistoryImport = z.input<typeof SalesHistoryImportSchema>
+
+export const SalesHistoryImportResultSchema = z.object({
+  imported_rows: z.int().min(0),
+  products: z.int().min(0),
+  skipped_count: z.int().min(0),
+  skipped: z
+    .array(
+      z.object({
+        row: z.int().min(1),
+        reason: z.enum(['unknown_product', 'bad_date', 'future_date', 'bad_qty', 'too_many']),
+      }),
+    )
+    .max(20),
+})
+export type SalesHistoryImportResult = z.output<typeof SalesHistoryImportResultSchema>
 
 // =============================================================================================
 // Route catalogue (docs/API.md "purchases")
@@ -1400,6 +1829,18 @@ export const purchasesRoutes = defineRoutes({
     feature: 'purchases',
     query: ReorderSuggestionsQuerySchema,
     response: dataOf(ReorderSuggestionsSchema),
-    summary: 'Products at / below reorder level with suggested quantities, grouped by supplier',
+    summary:
+      'Reorder list. With lead_time_days, StockSense forecasts demand and ranks suggested quantities.',
+  },
+  importSalesHistory: {
+    method: 'POST',
+    path: '/purchases/sales-history',
+    permission: WRITE,
+    feature: 'purchases',
+    idempotent: true,
+    body: SalesHistoryImportSchema,
+    response: dataOf(SalesHistoryImportResultSchema),
+    summary:
+      'Import historical sales (product, date, quantity) for StockSense. Does not change stock.',
   },
 })

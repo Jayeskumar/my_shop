@@ -297,7 +297,9 @@ export interface DebitNoteLines {
 }
 
 export interface DebitNotes {
+  adjusted_paise: Generated<Int8>;
   bill_id: string | null;
+  cancel_reason: string | null;
   cancelled_at: Timestamp | null;
   cancelled_by: string | null;
   cess_paise: Generated<Int8>;
@@ -322,6 +324,17 @@ export interface DebitNotes {
   tenant_id: string;
   total_paise: Generated<Int8>;
   updated_at: Generated<Timestamp>;
+}
+
+export interface DemandHistory {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  product_id: string;
+  qty_milli: Int8;
+  sale_date: string;
+  store_id: string;
+  tenant_id: string;
 }
 
 export interface Devices {
@@ -1553,6 +1566,7 @@ export interface DB {
   customers: Customers;
   debit_note_lines: DebitNoteLines;
   debit_notes: DebitNotes;
+  demand_history: DemandHistory;
   devices: Devices;
   doctors: Doctors;
   expenses: Expenses;
