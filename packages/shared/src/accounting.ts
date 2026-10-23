@@ -33,6 +33,7 @@ export const SYSTEM_ACCOUNT_SUBTYPES = [
   'cogs',
   'inventory_adjustment',
   'inventory_writeoff',
+  'cash_short_excess',
   'bank_charges',
   'discount_allowed',
 ] as const
@@ -151,6 +152,8 @@ export const DEFAULT_CHART: readonly ChartAccount[] = [
     'Expired / damaged stock written off',
     'காலாவதி / சேதமடைந்த சரக்கு தள்ளுபடி',
   ),
+  // Shift-close differences (counted − expected drawer cash): shortage Dr / excess Cr.
+  a('5250', 'expense', 'cash_short_excess', 'Cash short / excess', 'ரொக்கக் குறைவு / மிகுதி'),
   ...EXPENSE_ACCOUNT_PRESETS,
   a('5400', 'expense', 'discount_allowed', 'Discount allowed', 'வழங்கிய தள்ளுபடி'),
 ]

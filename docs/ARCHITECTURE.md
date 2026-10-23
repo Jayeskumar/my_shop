@@ -519,6 +519,7 @@ systemAccountId(tx, ctx, subtype: SystemAccountSubtype): Promise<string>   // ca
   | 5100 | cogs | Cost of goods sold |
   | 5200 | inventory_adjustment | Stock adjustment / shrinkage |
   | 5210 | inventory_writeoff | Expired / damaged stock written off |
+  | 5250 | cash_short_excess | Cash short / excess (shift-close drawer differences; migration 0700 backfilled older tenants) |
   | 5300–5390 | (expense) | Rent, Electricity, Salaries, Transport, Repairs, Telephone & internet, Bank & PSP charges, Packing, Miscellaneous |
   | 5360 | bank_charges | Bank & PSP charges (also the posting account for PSP fees, e.g. `payment_intents.fee_paise`) |
   | 5400 | discount_allowed | Discount allowed |

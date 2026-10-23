@@ -1,3 +1,17 @@
+// CONTRACT CHANGELOG (accounting backend; newest last, one line each)
+// - cash_short_excess is now a real system subtype: added to shared SYSTEM_ACCOUNT_SUBTYPES and
+//   DEFAULT_CHART (5250, seeded by onboarding; migration 0700 backfills existing tenants);
+//   AccountSubtypeSchema is z.enum(SYSTEM_ACCOUNT_SUBTYPES) (same accepted values as before).
+// - ACCOUNTING_ERROR_REASONS += 'account_in_use' (409: deactivating / deleting a cash / bank
+//   account that is the settlement account of an active payment provider).
+// - ACCOUNTING_ERROR_REASONS += 'shift_user_required' (422: API keys cannot open shifts; a shift
+//   belongs to a user).
+// - ACCOUNTING_VALIDATION_KEYS += 'cash_entry_same_account' (a pay-in / pay-out counter account
+//   cannot be the drawer's own cash account).
+// - Manual journals: source_id is the voucher id; JournalSourceRef.path / source_path of a
+//   'manual' entry (and of its reversal) point at the original JV entry (/accounting/journal?id=
+//   <entry id>), so the web drawer opens with GET /journal-entries/:id.
+
 /**
  * Contract for the accounting module — docs/API.md "accounting"; ARCHITECTURE.md §8.3 (ledger
  * posting), §10 (posting rules).
@@ -100,6 +114,7 @@ export const ACCOUNTING_VALIDATION_KEYS = [
   'paid_from_not_allowed_for_credit',
   'denominations_total_mismatch',
   'cash_entry_counter_both',
+  'cash_entry_same_account',
   'party_pair_required',
   'compare_range_incomplete',
   'reason_required',
@@ -131,6 +146,8 @@ export const ACCOUNTING_ERROR_REASONS = [
   'shift_closed', // 409
   'not_own_shift', // 403: closing / cash entries on another member's shift need shifts.manage
   'all_stores_required', // 403: trial balance / balance sheet need access to every store
+  'account_in_use', // 409: settlement account of an active payment provider
+  'shift_user_required', // 422: shifts belong to a user (API keys cannot open them)
 ] as const
 export type AccountingErrorReason = (typeof ACCOUNTING_ERROR_REASONS)[number]
 
@@ -212,18 +229,17 @@ export const STATEMENT_LINE_LABELS = {
 } as const satisfies Record<string, BilingualLabel>
 
 // =============================================================================================
-// Cash short / excess system account (cross-module: shared accounting.ts + migration 07xx)
+// Cash short / excess system account (shared accounting.ts DEFAULT_CHART + migration 0700)
 // =============================================================================================
 
 /**
- * Posting subtype for shift-close differences. The accounting module adds it to
- * SYSTEM_ACCOUNT_SUBTYPES / DEFAULT_CHART (shared accounting.ts, seeded by onboarding) and
- * backfills existing tenants with a 07xx migration; until then core systemAccountId() cannot
- * resolve it. Shortage: Dr cash_short_excess / Cr cash; excess: Dr cash / Cr cash_short_excess.
+ * Posting subtype for shift-close differences — part of SYSTEM_ACCOUNT_SUBTYPES / DEFAULT_CHART
+ * (seeded by onboarding; migration 0700 backfilled tenants created before it). Shortage: Dr
+ * cash_short_excess / Cr cash; excess: Dr cash / Cr cash_short_excess.
  */
 export const CASH_SHORT_EXCESS_SUBTYPE = 'cash_short_excess' as const
 
-/** The chart row to add (expense type: a shortage is a loss, an excess reduces it). */
+/** Its DEFAULT_CHART row (expense type: a shortage is a loss, an excess reduces it). */
 export const CASH_SHORT_EXCESS_ACCOUNT = {
   code: '5250',
   type: 'expense',
@@ -237,14 +253,8 @@ export const CASH_SHORT_EXCESS_ACCOUNT = {
 // Accounts (chart of accounts)
 // =============================================================================================
 
-/**
- * System posting subtype of an account (null for plain accounts). Includes every subtype of
- * shared SYSTEM_ACCOUNT_SUBTYPES (and cash_short_excess, which the accounting module adds there).
- */
-export const AccountSubtypeSchema = z.union([
-  z.enum(SYSTEM_ACCOUNT_SUBTYPES),
-  z.literal(CASH_SHORT_EXCESS_SUBTYPE),
-])
+/** System posting subtype of an account (null for plain accounts): shared SYSTEM_ACCOUNT_SUBTYPES. */
+export const AccountSubtypeSchema = z.enum(SYSTEM_ACCOUNT_SUBTYPES)
 export type AccountSubtype = z.infer<typeof AccountSubtypeSchema>
 
 /** First code digit by account type (DEFAULT_CHART follows it; custom codes must too). */
@@ -775,7 +785,7 @@ export function computeExpenseAmounts(input: {
 
 /** Abstract journal line of a posting plan (account by id or system subtype). */
 export interface PlannedJournalLine {
-  account: { id: string } | { subtype: SystemAccountSubtype | typeof CASH_SHORT_EXCESS_SUBTYPE }
+  account: { id: string } | { subtype: SystemAccountSubtype }
   debit_paise: number
   credit_paise: number
   party?: { type: 'customer' | 'supplier'; id: string } | null

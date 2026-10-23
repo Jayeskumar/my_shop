@@ -247,18 +247,21 @@ Every list, book and statement takes `?format=csv`; errors carry `details.reason
 | Method & path | perm | Notes |
 |---|---|---|
 | `GET /accounts?as_of=&store_id=&type=&money=cash\|bank&q=&include_inactive=&balances=` | `accounting.read`, `expenses.write`, `shifts.operate` or `payments.configure` | whole chart, not paginated; balances need `accounting.read` |
-| `C /accounts` · `G/U/D /accounts/:id` | `accounting.write` (C: also `expenses.write` for expense heads) | code 3–6 digits starting with the type digit (`suggestAccountCode()`), unique; parent of the same type; system accounts: name / name_ta / bank details only (422 `system_account_locked`); D = delete without journal lines, else deactivate (balance-sheet accounts need a zero balance: 409 `account_has_balance`) |
+| `C /accounts` · `G/U/D /accounts/:id` | `accounting.write` (C: also `expenses.write` for expense heads) | code 3–6 digits starting with the type digit (`suggestAccountCode()`), unique; parent of the same type; system accounts: name / name_ta / bank details only (422 `system_account_locked`); D = delete without journal lines, else deactivate (balance-sheet accounts need a zero balance: 409 `account_has_balance`; never a payment provider's settlement account: 409 `account_in_use`) |
 | `L /journal-entries` (`from`, `to`, `source_type`, `source_id`, `account_id`, `party_type`+`party_id`, `store_id`, `reversals`, `q`, `sort`) · `G /journal-entries/:id` | `accounting.read` (+feat `accounting`) | detail: lines with account / party names and the source document link (`journalSourcePath()`) |
 | `C /journal-entries` · `POST /journal-entries/:id/reverse` `{reason, entry_date?}` | `accounting.write` (+feat `accounting`) | manual JV: balanced, ≥ 2 lines, receivable / payable lines need a party, JV number, audited; reverse manual entries only (409 `not_manual`), once (409 `already_reversed`) |
 | `L/C /expenses` · `G /expenses/:id` · `POST /expenses/:id/cancel` `{reason}` | `expenses.write` (L/G: or `accounting.read`) | amount as `total_paise` (incl. GST) or `taxable_paise`; ITC; cash / bank / credit (`supplier_id` → payable); EXP number; cash paid from a counter joins its open shift; list `summary` by category and method; cancel = reversal (409 `expense_has_payments`) |
-| `POST /shifts/open` `{register_id, opening_cash_paise, denominations?}` · `GET /shifts/current?register_id=` · `L /shifts` · `G /shifts/:id` | `shifts.operate` (+feat `shifts`; current: or `pos.use`) | one open shift per register (409 `shift_already_open`); detail = live X report while open, stored Z report once closed; operate-only members see their own shifts |
+| `POST /shifts/open` `{register_id, opening_cash_paise, denominations?}` · `GET /shifts/current?register_id=` · `L /shifts` · `G /shifts/:id` | `shifts.operate` (+feat `shifts`; current: or `pos.use`) | one open shift per register (409 `shift_already_open`); a shift belongs to a user (API keys: 422 `shift_user_required`); detail = live X report while open, stored Z report once closed; operate-only members see their own shifts |
 | `POST /shifts/:id/cash-entries` `{kind, amount_paise, reason, account_id? \| counter?}` · `POST /shifts/:id/close` `{counted_cash_paise, denominations?, notes?}` | `shifts.operate` (another member's shift: `shifts.manage`) | pay-in / pay-out journal vs drawings / capital / bank / other income or an account; close: expected = opening + cash receipts − cash payments + pay-ins − pay-outs − cash expenses, the difference posts to `cash_short_excess`; no reopen (corrections by journal) |
 | `GET /books/day-book?date=&store_id=` · `GET /books/cash-book?from=&to=&account_id=` · `GET /books/ledger/:accountId?from=&to=&party_type=&party_id=` | `accounting.read` (+feat `accounting`) | paginated rows with the running balance over the whole range; opening / closing |
 | `GET /statements/trial-balance?as_of=` · `/statements/profit-loss?from=&to=&store_id=&compare_from=&compare_to=` · `/statements/balance-sheet?as_of=` | `accounting.read` (+feat `accounting`) | TB / BS tenant-wide (store-scoped members: 403 `all_stores_required`); BS equity includes this FY's profit and earlier years' profit; `balanced` checks |
 
-Cross-module: the accounting module adds the system subtype `cash_short_excess` (5250 "Cash short /
-excess", `CASH_SHORT_EXCESS_ACCOUNT`) to the shared DEFAULT_CHART and backfills existing tenants
-with a 07xx migration.
+Cross-module: the system subtype `cash_short_excess` (5250 "Cash short / excess",
+`CASH_SHORT_EXCESS_ACCOUNT`) is part of the shared DEFAULT_CHART (seeded by onboarding); migration
+`0700_accounting_cash_short_excess.sql` backfilled older tenants (first free code when 5250 was
+taken). Manual journals carry `source_type: 'manual'` with a voucher id as `source_id`; their
+source link (and their reversal's) is `/accounting/journal?id=<original JV entry id>`. Shift cash
+entries and the close difference post with `source_type: 'shift'`, `source_id` = the shift id.
 
 ## reports & GST
 
