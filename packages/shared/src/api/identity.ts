@@ -1,3 +1,19 @@
+// CONTRACT CHANGELOG (identity backend; newest last — one line per change)
+// - IDENTITY_VALIDATION_KEYS: + pin_weak, role_unknown, store_unknown, register_unknown, logo_file,
+//   fy, next_number_decrease, register_series_only (server-side rules; settings:validation.*).
+// - New IDENTITY_ERROR_REASONS: `details.reason` values of identity 403/409/422 errors (translate in
+//   settings:errors.*).
+// - New FILE_UPLOAD_PERMISSIONS: POST /files needs, per purpose, any-of these permissions
+//   (logo → settings.manage, product_image → catalog.write, prescription → POS/sales, import →
+//   the importing modules' write permissions; attachment → any member). 403 reason upload_permission.
+// - New TEMPORARY_PASSWORD_RE: shape of generated temporary passwords (xxxx-xxxx-xxxx).
+// - MemberCreateResultSchema.temporary_password: an idempotent replay (same Idempotency-Key)
+//   answers null — the password is shown once and never stored (use reset-password).
+// - Server rule (no schema change): business-wide writes — PATCH /settings, PATCH
+//   /settings/business, PATCH/DELETE /roles/:id (and POST /stores, as before) — answer 403
+//   reason all_stores_required to store-scoped members; the web hides them for such members.
+// - Server rule (review; no schema change): GET /users/:id follows the list's store scope — a
+//   store-scoped admin gets 404 for members who cannot work in any of the admin's stores.
 /**
  * Contract for the identity module — docs/API.md "identity": members (users), roles &
  * permissions, stores, registers, trusted devices, tenant settings, business profile, number
@@ -463,8 +479,53 @@ export const IDENTITY_VALIDATION_KEYS = [
   'series_too_long',
   'empty_patch',
   'store_ids_empty',
+  // Server-side rules (VALIDATION_ERROR issue messages / codes)
+  'pin_weak',
+  'role_unknown',
+  'store_unknown',
+  'logo_file',
+  'fy',
+  'next_number_decrease',
+  'register_series_only',
+  'register_unknown',
 ] as const
 export type IdentityValidationKey = (typeof IDENTITY_VALIDATION_KEYS)[number]
+
+/**
+ * `details.reason` of identity errors (403 FORBIDDEN / 409 CONFLICT / 422 UNPROCESSABLE); the web
+ * shows settings:errors.<reason> when present, else the generic text of the error code.
+ */
+export const IDENTITY_ERROR_REASONS = [
+  'self_action', // 409: cannot disable / change the role of / admin-reset yourself
+  'last_owner', // 409: the business must keep at least one active owner
+  'owner_only', // 403: only an owner may grant the owner role or manage an owner
+  'role_exceeds_own_permissions', // 403: a role with permissions the caller does not hold
+  'store_scope', // 403: member or store outside the caller's store access
+  'all_stores_required', // 403: business-wide changes (stores, settings, business, roles) need every store
+  'shared_identity', // 409: the user also belongs to another business (name/email/password are theirs)
+  'already_member', // 409: the mobile number is already a member (details.user_id, status)
+  'account_disabled', // 409: the mobile number belongs to a disabled Kadai account
+  'email_taken', // 409: the email belongs to another Kadai account
+  'sms_not_configured', // 422: OTP first sign-in needs an SMS provider
+  'system_role', // 409: system roles cannot be deleted / their permissions are fixed
+  'role_in_use', // 409: the role is assigned to members (details.member_count)
+  'role_code_reserved', // 409: system role codes cannot be used for custom roles
+  'store_code_locked', // 409: the store already has number series (codes are part of numbers)
+  'register_code_locked', // 409: the register already has number series
+  'last_active_store', // 409: the business must keep one active store
+  'store_inactive', // 422: the store is deactivated
+  'register_inactive', // 422: the register is deactivated
+  'register_store_mismatch', // 422: the register belongs to another store
+  'series_exists', // 409: the series already exists (details.id) — PATCH it instead
+  'series_in_use', // 409: documents were issued in the series — changing the prefix needs force
+  'prefix_in_use', // 409: another series of the same FY uses this prefix
+  'gst_scheme_change_requires_confirm', // 409: invoices exist in the current FY
+  'upload_permission', // 403: the member may not upload files for this purpose
+] as const
+export type IdentityErrorReason = (typeof IDENTITY_ERROR_REASONS)[number]
+
+/** Generated temporary passwords (invite / admin reset): three groups of 4, e.g. 'k7mq-9x4p-a2bd'. */
+export const TEMPORARY_PASSWORD_RE = /^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$/
 
 const notEmpty = (v: Record<string, unknown>) =>
   Object.entries(v).some(([k, x]) => x !== undefined && k !== 'if_updated_at')
@@ -1253,6 +1314,18 @@ export const FILE_UPLOAD_RULES: Readonly<Record<UploadPurpose, UploadRule>> = {
     content_types: [...IMAGE_TYPES, 'application/pdf'],
     accept: 'image/png,image/jpeg,image/webp,application/pdf',
   },
+}
+
+/**
+ * Who may upload per purpose (any-of; empty = any member). The server answers 403 FORBIDDEN
+ * (reason upload_permission) otherwise; the web hides upload controls accordingly.
+ */
+export const FILE_UPLOAD_PERMISSIONS: Readonly<Record<UploadPurpose, readonly Permission[]>> = {
+  logo: ['settings.manage'],
+  product_image: ['catalog.write'],
+  prescription: ['pos.use', 'sales.create', 'sales.return'],
+  import: ['catalog.write', 'customers.write', 'suppliers.write', 'inventory.adjust'],
+  attachment: [],
 }
 
 /** Client/server pre-check: 'file_empty' | 'file_type' | 'file_too_large' | null (ok). */
