@@ -42,6 +42,11 @@ export interface SmartForecastInput {
   lead_time_days: number
   /** z of the service level (default 1.645 ≈ 95%). */
   z?: number
+  /**
+   * Standard deviation of the supplier's lead time (days). With it, safety stock also covers late
+   * deliveries: z × √(L × σd² + d² × σL²).
+   */
+  lead_time_sd_days?: number
 }
 
 export interface ForecastCandidate {
@@ -250,13 +255,19 @@ export function smartForecast(input: SmartForecastInput): SmartForecast {
   const horizon = MODELS[chosen.method](y, input.first_weekday, lead)
   const demand = Math.round(horizon.reduce((s, v) => s + v, 0))
 
-  let safety = 0
+  // Safety stock = z × √(L × σd² + d² × σL²): demand error over the lead time plus late deliveries.
+  let demandVariance = 0
   if (chosen.errors.length >= 2) {
     const meanErr = chosen.errors.reduce((s, e) => s + e, 0) / chosen.errors.length
-    const variance =
+    demandVariance =
       chosen.errors.reduce((s, e) => s + (e - meanErr) ** 2, 0) / (chosen.errors.length - 1)
-    safety = Math.round(z * Math.sqrt(variance) * Math.sqrt(lead))
   }
+  const sdLead = Math.max(0, input.lead_time_sd_days ?? 0)
+  const dailyDemand = demand / lead
+  const safety =
+    demand > 0
+      ? Math.round(z * Math.sqrt(lead * demandVariance + dailyDemand ** 2 * sdLead ** 2))
+      : 0
 
   return {
     method: chosen.method,

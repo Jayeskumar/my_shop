@@ -1305,6 +1305,11 @@ export interface StockSensePlanInput {
   demand_milli: number
   /** Buffer for forecast error (smart forecast), added to the need. Default 0. */
   safety_stock_milli?: number
+  /**
+   * Share of an order the supplier usually delivers (Supplier Trust Score), basis points. Below
+   * 10000 the order is grossed up so the expected delivery covers the need. Default 10000.
+   */
+  fill_rate_bp?: number
   lead_time_days: number
   /** Null: do not cap the order by shelf life. */
   shelf_life_days: number | null
@@ -1376,9 +1381,11 @@ export function planStockSense(input: StockSensePlanInput): StockSensePlan {
     reason = 'no_history'
   } else {
     const safety = Math.max(0, input.safety_stock_milli ?? 0)
-    let need = Math.max(0, input.demand_milli + safety - durable - incoming)
+    // Short-supplying supplier: order more so that what arrives covers the need (and the cap).
+    const fill = Math.min(10_000, Math.max(1_000, input.fill_rate_bp ?? 10_000))
+    let need = Math.ceil((Math.max(0, input.demand_milli + safety - durable - incoming) * 10_000) / fill)
     if (input.shelf_life_days != null) {
-      const cap = input.shelf_life_days <= 0 ? 0 : daily * input.shelf_life_days
+      const cap = input.shelf_life_days <= 0 ? 0 : Math.floor((daily * input.shelf_life_days * 10_000) / fill)
       if (need > cap) {
         need = cap
         capped = true
@@ -1386,7 +1393,7 @@ export function planStockSense(input: StockSensePlanInput): StockSensePlan {
     }
     const rounded = roundUpToPack(need, input.pack_size)
     if (capped && input.shelf_life_days != null) {
-      const cap = input.shelf_life_days <= 0 ? 0 : daily * input.shelf_life_days
+      const cap = input.shelf_life_days <= 0 ? 0 : Math.floor((daily * input.shelf_life_days * 10_000) / fill)
       suggested = rounded > cap ? roundDownToPack(cap, input.pack_size) : rounded
     } else {
       suggested = rounded
@@ -1508,6 +1515,11 @@ export const ReorderSuggestionsQuerySchema = z.object({
    * window_days moving average.
    */
   model: z.enum(['smart', 'average']).optional(),
+  /**
+   * 'learned' (default): each supplier's lead time and delivery spread from the Supplier Trust
+   * Score where it has enough history, else lead_time_days. 'entered': lead_time_days for all.
+   */
+  lead_time_source: z.enum(['learned', 'entered']).optional(),
 })
 export type ReorderSuggestionsQuery = z.input<typeof ReorderSuggestionsQuerySchema>
 
@@ -1556,8 +1568,16 @@ export const ReorderItemSchema = z.object({
   forecast_accuracy_bp: z.int().min(0).max(10_000).nullable().default(null),
   /** Days of the backtest holdout (0 = not enough history to score). */
   forecast_holdout_days: z.int().min(0).default(0),
-  /** Smart forecast: safety stock added to the order (z × σ × √lead time). */
+  /** Smart forecast: safety stock added to the order (z × √(L σd² + d² σL²)). */
   safety_stock_milli: zMilli0.default(0),
+  /** Where lead_time_days comes from: the supplier's learned deliveries or the entered value. */
+  lead_time_source: z.enum(['learned', 'entered']).default('entered'),
+  /** Learned spread of the supplier's lead time (days). */
+  lead_time_sd_days: z.number().min(0).nullable().default(null),
+  /** Supplier Trust Score of the last supplier (null while learning). */
+  supplier_trust: z.int().min(0).max(100).nullable().default(null),
+  /** Share of orders the supplier usually delivers, basis points (null while learning). */
+  supplier_fill_rate_bp: z.int().min(0).max(10_000).nullable().default(null),
   /** Still pending on sent / partially received purchase orders (informational). */
   open_po_qty_milli: zMilli0,
   last_cost_paise: zPaise.nullable(),
@@ -1574,6 +1594,42 @@ export const ReorderItemSchema = z.object({
 export type ReorderItem = z.output<typeof ReorderItemSchema>
 
 export const REORDER_SALES_WINDOW_DAYS = 30
+
+// ---- Supplier Trust Score ---------------------------------------------------------------------
+
+export const SupplierAlertSchema = z.discriminatedUnion('code', [
+  z.object({ code: z.literal('order_earlier'), days: z.int().min(1) }),
+  z.object({ code: z.literal('short_supply'), fill_pct: z.int().min(0).max(100) }),
+  z.object({ code: z.literal('price_up'), pct: z.number() }),
+  z.object({ code: z.literal('reliable') }),
+])
+
+export const SupplierTrustRowSchema = z.object({
+  supplier_id: zId,
+  name: z.string(),
+  phone: z.string().nullable(),
+  orders_measured: z.int().min(0),
+  avg_lead_days: z.number().nullable(),
+  sd_lead_days: z.number().nullable(),
+  avg_promised_days: z.number().nullable(),
+  on_time_bp: z.int().nullable(),
+  fill_rate_bp: z.int().nullable(),
+  price_change_bp: z.int().nullable(),
+  trust: z.int().min(0).max(100).nullable(),
+  level: z.enum(['good', 'watch', 'poor', 'learning']),
+  learned_lead_days: z.int().nullable(),
+  alerts: z.array(SupplierAlertSchema),
+  last_delivery_date: zDateStr.nullable(),
+})
+export type SupplierTrustRow = z.output<typeof SupplierTrustRowSchema>
+
+export const SupplierTrustResponseSchema = z.object({
+  generated_at: zTimestamp,
+  window_days: z.int().min(1),
+  min_orders: z.int().min(1),
+  suppliers: z.array(SupplierTrustRowSchema),
+})
+export type SupplierTrustResponse = z.output<typeof SupplierTrustResponseSchema>
 
 export const ReorderSuggestionsSchema = z.object({
   store_id: zId,
@@ -1851,6 +1907,15 @@ export const purchasesRoutes = defineRoutes({
     response: dataOf(ReorderSuggestionsSchema),
     summary:
       'Reorder list. With lead_time_days, StockSense forecasts demand and ranks suggested quantities.',
+  },
+  supplierTrust: {
+    method: 'GET',
+    path: '/purchases/supplier-trust',
+    permission: READ,
+    feature: 'purchases',
+    response: dataOf(SupplierTrustResponseSchema),
+    summary:
+      'Supplier Trust Score: learned lead time, on-time rate, fill rate and price change per supplier.',
   },
   importSalesHistory: {
     method: 'POST',

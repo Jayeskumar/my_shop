@@ -37,6 +37,7 @@ import type { z } from 'zod'
 import type { Tx } from '../../db/tenant'
 import { type Ctx, businessToday, iso, lastPurchases, loadStore } from './common'
 import { likePattern } from './orders'
+import { supplierTrustMap } from './supplier-trust'
 
 type ReorderQuery = z.output<typeof ReorderSuggestionsQuerySchema>
 
@@ -58,7 +59,6 @@ export async function reorderSuggestions(
   // Smart (default): per-product model chosen by backtest over a longer history.
   const smart = forecastMode && (q.model ?? 'smart') === 'smart'
   const historyDays = smart ? SMART_FORECAST_HISTORY_DAYS : windowDays
-  const deliveryDate = addDays(cal.today, leadTime)
 
   let qb = tx
     .selectFrom('products as p')
@@ -180,19 +180,17 @@ export async function reorderSuggestions(
           .leftJoin('batches as b', (j) =>
             j.onRef('b.tenant_id', '=', 'sl.tenant_id').onRef('b.id', '=', 'sl.batch_id'),
           )
+          // Per product and expiry date: usable / still-in-date-at-delivery stock is summed per
+          // item below, because each supplier's learned lead time gives its own delivery date.
           .select([
             'sl.product_id',
-            sql<number>`sum(case when b.expiry_date is not null and b.expiry_date < ${cal.today}::date then 0 else sl.qty_milli end)::bigint`.as(
-              'usable',
-            ),
-            sql<number>`sum(case when b.expiry_date is not null and b.expiry_date < ${deliveryDate}::date then 0 else sl.qty_milli end)::bigint`.as(
-              'durable',
-            ),
+            sql<string | null>`b.expiry_date::text`.as('expiry'),
+            sql<number>`sum(sl.qty_milli)::bigint`.as('qty'),
           ])
           .where('sl.tenant_id', '=', t)
           .where('sl.store_id', '=', store.id)
           .where('sl.product_id', 'in', ids)
-          .groupBy('sl.product_id')
+          .groupBy(['sl.product_id', sql`b.expiry_date`])
           .execute()
       : Promise.resolve([]),
     ids.length
@@ -216,8 +214,21 @@ export async function reorderSuggestions(
   ])
   const soldOf = new Map(sales.map((r) => [r.product_id, Number(r.sold)]))
   const pendingOf = new Map(openPo.map((r) => [r.product_id, Number(r.pending)]))
-  const usableOf = new Map(stockSplit.map((r) => [r.product_id, Number(r.usable)]))
-  const durableOf = new Map(stockSplit.map((r) => [r.product_id, Number(r.durable)]))
+  const stockByExpiry = new Map<string, { expiry: string | null; qty: number }[]>()
+  for (const r of stockSplit) {
+    const list = stockByExpiry.get(r.product_id) ?? []
+    list.push({ expiry: r.expiry, qty: Number(r.qty) })
+    stockByExpiry.set(r.product_id, list)
+  }
+  /** Stock with no expiry or expiring on/after `date`. */
+  const inDateOn = (productId: string, date: string): number =>
+    (stockByExpiry.get(productId) ?? []).reduce(
+      (sum, r) => (r.expiry === null || r.expiry >= date ? sum + r.qty : sum),
+      0,
+    )
+  // Supplier Trust Score: each supplier's learned lead time, its spread and fill rate.
+  const trust = forecastMode ? await supplierTrustMap(tx, ctx, cal.today) : new Map()
+  const useLearned = (q.lead_time_source ?? 'learned') === 'learned'
   const soldByDay = new Map<string, Map<string, number>>()
   if (forecastMode) {
     const addSold = (productId: string, date: unknown, sold: number): void => {
@@ -251,10 +262,17 @@ export async function reorderSuggestions(
     const incoming = pendingOf.get(p.id) ?? 0
     const cost = lp?.unit_cost_paise ?? p.purchase_price_paise
     const shelf = shelfLifeDays(p.attributes, q.shelf_life_days)
-    const usable = forecastMode ? Math.max(0, usableOf.get(p.id) ?? 0) : Math.max(0, stock)
-    const durable = forecastMode ? Math.max(0, Math.min(usable, durableOf.get(p.id) ?? 0)) : usable
+    const st = lp ? trust.get(lp.supplier_id) : undefined
+    const learned = forecastMode && useLearned && st?.learned_lead_days != null ? st : null
+    const itemLead: number = learned?.learned_lead_days ?? leadTime
+    const sdLead: number = learned?.sd_lead_days ?? 0
+    const fillBp: number = learned?.fill_rate_bp ?? 10_000
+    const usable = forecastMode ? Math.max(0, inDateOn(p.id, cal.today)) : Math.max(0, stock)
+    const durable = forecastMode
+      ? Math.max(0, Math.min(usable, inDateOn(p.id, addDays(cal.today, itemLead))))
+      : usable
     const dayMap = soldByDay.get(p.id)
-    const smartResult = smart ? smartForecastFor(dates, dayMap, leadTime) : null
+    const smartResult = smart ? smartForecastFor(dates, dayMap, itemLead, sdLead) : null
     const forecast = smartResult
       ? smartResult
       : forecastMode
@@ -263,7 +281,7 @@ export async function reorderSuggestions(
             weekday: dayOfWeek(date),
             sold_milli: dayMap?.get(date) ?? 0,
           })),
-          lead_time_days: leadTime,
+          lead_time_days: itemLead,
           today_weekday: todayWeekday,
           weekday_adjusted: weekdayAdjusted,
         })
@@ -282,7 +300,8 @@ export async function reorderSuggestions(
       daily_milli: forecast.daily_milli,
       demand_milli: forecast.demand_milli,
       safety_stock_milli: smartResult?.safety_stock_milli ?? 0,
-      lead_time_days: leadTime,
+      fill_rate_bp: fillBp,
+      lead_time_days: itemLead,
       shelf_life_days: forecastMode ? shelf : null,
       pack_size: p.pack_size,
       has_history: forecast.has_history,
@@ -308,7 +327,7 @@ export async function reorderSuggestions(
     const baseExplanation = explainReorder({
       reason: plan.reason,
       window_days: historyDays,
-      lead_time_days: leadTime,
+      lead_time_days: itemLead,
       shelf_life_days: forecastMode ? shelf : null,
       daily_milli: forecast.daily_milli,
       usable_stock_milli: usable,
@@ -336,7 +355,11 @@ export async function reorderSuggestions(
       open_po_qty_milli: incoming,
       usable_stock_milli: usable,
       durable_stock_milli: durable,
-      lead_time_days: leadTime,
+      lead_time_days: itemLead,
+      lead_time_source: learned ? 'learned' : 'entered',
+      lead_time_sd_days: learned ? sdLead : null,
+      supplier_trust: learned ? learned.trust : null,
+      supplier_fill_rate_bp: learned ? learned.fill_rate_bp : null,
       shelf_life_days: forecastMode ? shelf : null,
       stockout_urgency_days: plan.stockout_urgency_days,
       priority: plan.priority,
@@ -392,7 +415,9 @@ export async function reorderSuggestions(
     weekday_adjusted: weekdayAdjusted,
     assumptions: forecastMode
       ? [
-          `Supplier lead time is ${leadTime} days (entered for this plan; suppliers have no lead-time field).`,
+          useLearned
+            ? `Lead time is learned per supplier from its past deliveries (Supplier Trust Score); ${leadTime} days for suppliers with too little history. Safety stock also covers late deliveries, and orders are raised for suppliers who send less than ordered.`
+            : `Supplier lead time is ${leadTime} days for every supplier (entered for this plan).`,
           smart
             ? `Demand is forecast per product from up to ${historyDays} days of sales: Holt-Winters (trend + weekday pattern), Croston-SBA (irregular sellers) and the weekday average are tested on the last 14 days and the most accurate one is used. Safety stock covers about 95% of days.`
             : weekdayAdjusted
@@ -420,6 +445,7 @@ function smartForecastFor(
   dates: readonly string[],
   dayMap: Map<string, number> | undefined,
   leadTime: number,
+  leadTimeSdDays = 0,
 ): SmartForecast {
   const series = dates.map((date) => dayMap?.get(date) ?? 0)
   const first = series.findIndex((v) => v > 0)
@@ -428,6 +454,7 @@ function smartForecastFor(
     history_milli: series.slice(start),
     first_weekday: dayOfWeek(dates[start] ?? dates[dates.length - 1]!),
     lead_time_days: leadTime,
+    lead_time_sd_days: leadTimeSdDays,
   })
 }
 

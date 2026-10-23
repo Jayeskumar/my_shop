@@ -125,6 +125,9 @@ export const useReorderSuggestions = (query: ReorderSuggestionsQuery | null) =>
     { enabled: Boolean(query?.store_id), placeholderData: keepPreviousData },
   )
 
+/** Supplier Trust Score: learned delivery time, on-time rate, fill rate, price change. */
+export const useSupplierTrust = () => useRouteQuery(r.supplierTrust, {})
+
 /** Historical sales for StockSense. Does not change stock; refreshes the reorder list. */
 export const useImportSalesHistory = () =>
   useRouteMutation(r.importSalesHistory, {

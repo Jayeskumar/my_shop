@@ -483,7 +483,10 @@ export function ReorderPanel() {
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface-2/50 p-3">
                 <div className="min-w-0">
                   {g.supplier ? (
-                    <h3 className="truncate text-base font-semibold">{g.supplier.name}</h3>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="truncate text-base font-semibold">{g.supplier.name}</h3>
+                      <TrustBadge items={g.items} />
+                    </div>
                   ) : (
                     <div className="grid gap-1">
                       <h3 className="text-base font-semibold">{t('reorder.no_supplier')}</h3>
@@ -580,12 +583,31 @@ function viewedPlan(item: ReorderItem, onHand: number | null) {
     daily_milli: item.avg_daily_sales_milli,
     demand_milli: item.forecast_demand_milli,
     safety_stock_milli: item.safety_stock_milli,
+    fill_rate_bp: item.supplier_fill_rate_bp ?? 10_000,
     lead_time_days: item.lead_time_days,
     shelf_life_days: item.shelf_life_days,
     pack_size: item.pack_size,
     has_history: item.has_sales_history,
     use_forecast: true,
   })
+}
+
+/** The supplier's Trust Score on its StockSense group (shown once it has enough history). */
+function TrustBadge({ items }: { items: readonly ReorderItem[] }) {
+  const { t } = useTranslation('purchases')
+  const scored = items.find((i) => i.supplier_trust !== null)
+  if (!scored || scored.supplier_trust === null) return null
+  const trust = scored.supplier_trust
+  const tone = trust >= 80 ? 'success' : trust >= 60 ? 'warning' : 'danger'
+  return (
+    <Badge tone={tone} size="sm">
+      {t('reorder.trust_badge', {
+        trust,
+        days: scored.lead_time_days,
+        fill: Math.round((scored.supplier_fill_rate_bp ?? 10_000) / 100),
+      })}
+    </Badge>
+  )
 }
 
 function BudgetCard({
@@ -744,7 +766,10 @@ function ReorderRow({
           <span>
             {t('reorder.daily_sales')} {qty(item.avg_daily_sales_milli)}
           </span>
-          <span>{t('reorder.delivery_days', { count: item.lead_time_days })}</span>
+          <span>
+            {t('reorder.delivery_days', { count: item.lead_time_days })}
+            {item.lead_time_source === 'learned' ? ` · ${t('reorder.lead_learned')}` : ''}
+          </span>
           {item.days_of_cover !== null ? (
             <span className={item.days_of_cover <= 3 ? 'font-semibold text-danger' : undefined}>
               {t('reorder.days_cover', { count: item.days_of_cover })}

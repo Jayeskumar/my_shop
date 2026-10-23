@@ -5,7 +5,7 @@
  *  - Reorder: suggestions grouped by supplier → draft purchase orders in one go.
  */
 import type { PurchaseOrderListRow } from '@kadai/shared/api/purchases'
-import { ClipboardList, Plus, Sparkles } from 'lucide-react'
+import { ClipboardList, Plus, ShieldCheck, Sparkles } from 'lucide-react'
 import { useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router'
@@ -29,6 +29,7 @@ import { useHotkeyScope, useHotkeys } from '@/lib/hotkeys'
 import { useOrders } from '../api'
 import { ListFilters } from '../components/ListFilters'
 import { ReorderPanel } from '../components/ReorderPanel'
+import { SupplierTrustPanel } from '../components/SupplierTrustPanel'
 import { OrderStatusBadge } from '../components/StatusBadges'
 import { PURCHASES_HOTKEY_SCOPE } from '../lib/labels'
 import { ORDER_FILTERS, type OrderFilter, orderFilterQuery } from '../lib/list-filters'
@@ -36,7 +37,7 @@ import { LIST_PAGE_SIZES, useListState } from '../lib/url-state'
 
 const FILTERS = ORDER_FILTERS
 const SORTS = ['order_date', 'number', 'total_paise', 'expected_date', 'created_at'] as const
-type Tab = 'orders' | 'reorder'
+type Tab = 'orders' | 'reorder' | 'trust'
 
 export default function OrdersPage() {
   const { t } = useTranslation(['purchases', 'common'])
@@ -44,7 +45,8 @@ export default function OrdersPage() {
   const canWrite = useCan('purchases.write')
   const searchRef = useRef<HTMLInputElement>(null)
   const [params, setParams] = useSearchParams()
-  const tab: Tab = params.get('tab') === 'reorder' ? 'reorder' : 'orders'
+  const tabParam = params.get('tab')
+  const tab: Tab = tabParam === 'reorder' || tabParam === 'trust' ? tabParam : 'orders'
   const [state, setState] = useListState<OrderFilter>({
     filter: 'all',
     filters: FILTERS,
@@ -180,7 +182,10 @@ export default function OrdersPage() {
           ) : null
         }
       />
-      <Tabs value={tab} onValueChange={(v) => setTab(v === 'reorder' ? 'reorder' : 'orders')}>
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setTab(v === 'reorder' || v === 'trust' ? v : 'orders')}
+      >
         <TabsList aria-label={t('orders.tabs_label')}>
           <TabsTrigger value="orders">
             <ClipboardList />
@@ -189,6 +194,10 @@ export default function OrdersPage() {
           <TabsTrigger value="reorder">
             <Sparkles />
             {t('orders.tab_reorder')}
+          </TabsTrigger>
+          <TabsTrigger value="trust">
+            <ShieldCheck />
+            {t('orders.tab_trust')}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="orders">
@@ -276,6 +285,9 @@ export default function OrdersPage() {
         </TabsContent>
         <TabsContent value="reorder">
           <ReorderPanel />
+        </TabsContent>
+        <TabsContent value="trust">
+          <SupplierTrustPanel />
         </TabsContent>
       </Tabs>
     </div>

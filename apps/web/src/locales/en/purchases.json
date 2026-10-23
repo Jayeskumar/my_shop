@@ -319,7 +319,8 @@
     "terms": "Terms",
     "terms_hint": "Delivery / payment terms",
     "terms_placeholder": "e.g. Deliver by Saturday; payment in 30 days",
-    "title": "Purchase orders"
+    "title": "Purchase orders",
+    "tab_trust": "Supplier trust"
   },
   "pay": {
     "advance_note": "{{amount}} more than the due is kept as an advance with the supplier.",
@@ -485,7 +486,7 @@
     "explain_cover": "Order covers {{lead}} days at about {{daily}} a day, after stock on hand and open orders.",
     "explain_shelf_life": "Capped so it can sell within {{shelf}} days of shelf life (about {{daily}} a day).",
     "explain_covered": "Stock on hand and open orders cover the {{lead}} days until delivery.",
-    "assumptions_lead": "Lead time {{lead}} days (entered here; not saved on the supplier).",
+    "assumptions_lead": "Lead time: learned from each supplier’s past deliveries (Supplier trust); {{lead}} days for suppliers with too little history.",
     "assumptions_window": "{{days}}-day average{{weekday}}.",
     "assumptions_weekday": ", weekday-adjusted",
     "assumptions_shelf": "Shelf life {{days}} days when the product has none.",
@@ -514,7 +515,9 @@
     "budget_status_full": "Fits budget",
     "budget_status_must_have": "Must-have only",
     "budget_status_partial": "Cut to fit",
-    "budget_status_left_out": "Left out"
+    "budget_status_left_out": "Left out",
+    "lead_learned": "learned",
+    "trust_badge": "Trust {{trust}} · {{days}}-day delivery · sends {{fill}}%"
   },
   "returns": {
     "adjusted_all": "{{adjusted}} reduced from the bill's due.",
@@ -743,5 +746,34 @@
     "received_more_than_ordered": "More received than ordered",
     "sale_price_above_mrp": "Selling price is above MRP ({{amount}})",
     "sale_price_below_cost": "Selling price is below cost"
+  },
+  "trust": {
+    "title": "Supplier Trust Score",
+    "intro": "Learned automatically from your purchase orders and the bills that received them (last {{days}} days). StockSense plans with each supplier’s real delivery time, adds safety stock for late suppliers and orders more from suppliers who send less.",
+    "empty": "No suppliers yet.",
+    "orders_measured_one": "{{count}} delivered order · last {{date}}",
+    "orders_measured_other": "{{count}} delivered orders · last {{date}}",
+    "no_deliveries": "No deliveries against purchase orders yet",
+    "level_good": "Good",
+    "level_watch": "Watch",
+    "level_poor": "Poor",
+    "level_learning": "Learning",
+    "learning_one": "Learning: needs {{count}} more delivered order to score. StockSense uses the lead time you enter until then.",
+    "learning_other": "Learning: needs {{count}} more delivered orders to score. StockSense uses the lead time you enter until then.",
+    "delivers_in": "Delivers in",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "promised_one": "(promised {{count}})",
+    "promised_other": "(promised {{count}})",
+    "on_time": "On time",
+    "fill_rate": "Sends of your order",
+    "price_change": "Price change (90 days)",
+    "stocksense_uses_one": "StockSense plans {{count}} day for this supplier (± {{sd}} days).",
+    "stocksense_uses_other": "StockSense plans {{count}} days for this supplier (± {{sd}} days).",
+    "alert_order_earlier_one": "Often late: order {{count}} day earlier than you used to.",
+    "alert_order_earlier_other": "Often late: order {{count}} days earlier than you used to.",
+    "alert_short_supply": "Sends only {{pct}}% of what you order: StockSense orders more to make up for it.",
+    "alert_price_up": "Rates up {{pct}}% in 90 days: compare with another supplier.",
+    "alert_reliable": "Reliable: on time and sends what you order."
   }
 }
