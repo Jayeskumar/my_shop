@@ -78,7 +78,12 @@ export function StockSenseDrawer({
 
   const qty = (milli: number) =>
     item ? (
-      <Qty milli={milli} unit={item.unit} packSize={item.pack_size} packUnit={packUnitFor(item.unit)} />
+      <Qty
+        milli={milli}
+        unit={item.unit}
+        packSize={item.pack_size}
+        packUnit={packUnitFor(item.unit)}
+      />
     ) : null
   const params = data?.params
   const weekdayName = (d: number): string =>
@@ -106,7 +111,9 @@ export function StockSenseDrawer({
       ) : (
         <div className="grid gap-5">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={PRIORITY_TONE[item.priority]}>{t(`stocksense.priority.${item.priority}`)}</Badge>
+            <Badge tone={PRIORITY_TONE[item.priority]}>
+              {t(`stocksense.priority.${item.priority}`)}
+            </Badge>
             <Badge tone="neutral">{t(`stocksense.trend.${item.trend}`)}</Badge>
             <span className="text-xs text-muted-foreground">
               {t(`stocksense.confidence.${item.confidence}`)} ·{' '}
@@ -196,7 +203,9 @@ export function StockSenseDrawer({
             )}
             <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
               {item.margin_bp != null ? (
-                <span>{t('stocksense.drawer.margin', { pct: (item.margin_bp / 100).toFixed(1) })}</span>
+                <span>
+                  {t('stocksense.drawer.margin', { pct: (item.margin_bp / 100).toFixed(1) })}
+                </span>
               ) : null}
               {item.profit_per_day_paise != null ? (
                 <span>
@@ -263,7 +272,10 @@ export function StockSenseDrawer({
             ) : (
               <ul className="divide-y divide-border rounded-xl border border-border text-sm">
                 {data.batches.map((b) => (
-                  <li key={b.batch_id} className="flex flex-wrap items-center justify-between gap-2 p-2">
+                  <li
+                    key={b.batch_id}
+                    className="flex flex-wrap items-center justify-between gap-2 p-2"
+                  >
                     <span className="min-w-0">
                       <span className="font-medium">{b.batch_no}</span>
                       {b.expiry_date ? (
@@ -294,7 +306,10 @@ export function StockSenseDrawer({
               <ul className="divide-y divide-border rounded-xl border border-border text-sm">
                 {data.open_orders.map((o) => (
                   <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 p-2">
-                    <Link className="font-medium text-primary hover:underline" to={`/purchases/orders/${o.id}`}>
+                    <Link
+                      className="font-medium text-primary hover:underline"
+                      to={`/purchases/orders/${o.id}`}
+                    >
                       {o.number}
                     </Link>
                     <span className="text-xs text-muted-foreground">

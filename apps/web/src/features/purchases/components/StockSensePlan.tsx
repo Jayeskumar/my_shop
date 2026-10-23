@@ -22,7 +22,17 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { SupplierPicker } from '@/components/pickers'
-import { Badge, Button, Card, Checkbox, EmptyState, Money, NumberInput, Qty, notify } from '@/components/ui'
+import {
+  Badge,
+  Button,
+  Card,
+  Checkbox,
+  EmptyState,
+  Money,
+  NumberInput,
+  Qty,
+  notify,
+} from '@/components/ui'
 import { useCan } from '@/lib/auth'
 import { cn } from '@/lib/cn'
 import { formatDate, formatMoney } from '@/lib/format'
@@ -178,7 +188,10 @@ export function StockSensePlan({
   return (
     <div className="grid gap-3 pb-20">
       {created.length > 1 ? (
-        <div role="status" className="rounded-xl border border-success/40 bg-success-soft/40 p-3 text-sm">
+        <div
+          role="status"
+          className="rounded-xl border border-success/40 bg-success-soft/40 p-3 text-sm"
+        >
           <div className="mb-1 flex items-center gap-2 font-semibold">
             <CheckCircle2 className="size-4 text-success" aria-hidden />
             {t('stocksense.plan.created_many', { count: created.length })}
@@ -186,7 +199,11 @@ export function StockSensePlan({
           <ul className="flex flex-wrap gap-2">
             {created.map((c) => (
               <li key={c.id}>
-                <Button variant="link" size="sm" onClick={() => navigate(`/purchases/orders/${c.id}`)}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => navigate(`/purchases/orders/${c.id}`)}
+                >
                   {c.number} · {c.supplier}
                 </Button>
               </li>
@@ -220,7 +237,10 @@ export function StockSensePlan({
                         showBalance={false}
                         value={assigned[g.key] ?? null}
                         onChange={(s) =>
-                          setAssigned((a) => ({ ...a, [g.key]: s ? { id: s.id, name: s.name } : null }))
+                          setAssigned((a) => ({
+                            ...a,
+                            [g.key]: s ? { id: s.id, name: s.name } : null,
+                          }))
                         }
                       />
                     ) : null}
@@ -317,7 +337,11 @@ export function TrendIcon({ trend }: { trend: StockSenseItem['trend'] }) {
     <Icon
       className={cn(
         'inline size-3.5',
-        trend === 'up' ? 'text-success' : trend === 'down' ? 'text-warning' : 'text-muted-foreground',
+        trend === 'up'
+          ? 'text-success'
+          : trend === 'down'
+            ? 'text-warning'
+            : 'text-muted-foreground',
       )}
       aria-label={t(`stocksense.trend.${trend}`)}
     />
@@ -328,7 +352,12 @@ export function TrendIcon({ trend }: { trend: StockSenseItem['trend'] }) {
 export function ItemFacts({ item }: { item: StockSenseItem }) {
   const { t } = useTranslation('purchases')
   const qty = (milli: number) => (
-    <Qty milli={milli} unit={item.unit} packSize={item.pack_size} packUnit={packUnitFor(item.unit)} />
+    <Qty
+      milli={milli}
+      unit={item.unit}
+      packSize={item.pack_size}
+      packUnit={packUnitFor(item.unit)}
+    />
   )
   return (
     <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
@@ -345,9 +374,7 @@ export function ItemFacts({ item }: { item: StockSenseItem }) {
         {!item.supplier?.lead_time_days ? ` (${t('stocksense.plan.lead_default')})` : ''}
       </span>
       {item.cover_days != null ? (
-        <span
-          className={cn(item.cover_days < item.lead_time_days && 'font-semibold text-danger')}
-        >
+        <span className={cn(item.cover_days < item.lead_time_days && 'font-semibold text-danger')}>
           {t('stocksense.plan.cover_days', { count: item.cover_days })}
           {item.stockout_date
             ? ` · ${t('stocksense.plan.runs_out', { date: formatDate(item.stockout_date) })}`
@@ -384,7 +411,12 @@ function PlanRow({
   const name = localizedName(item.name, item.name_ta)
   const packed = item.pack_size > 1
   const qty = (milli: number) => (
-    <Qty milli={milli} unit={item.unit} packSize={item.pack_size} packUnit={packUnitFor(item.unit)} />
+    <Qty
+      milli={milli}
+      unit={item.unit}
+      packSize={item.pack_size}
+      packUnit={packUnitFor(item.unit)}
+    />
   )
   return (
     <li
@@ -402,7 +434,9 @@ function PlanRow({
       />
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-muted-foreground tabular-nums">#{item.rank}</span>
+          <span className="text-xs font-semibold text-muted-foreground tabular-nums">
+            #{item.rank}
+          </span>
           <button
             type="button"
             className="text-start font-medium hover:underline [overflow-wrap:anywhere]"
@@ -443,7 +477,9 @@ function PlanRow({
         </div>
         <Money
           paise={
-            pick.qty_milli ? mulDiv(item.unit_cost_paise, pick.qty_milli, item.pack_size * 1000) : null
+            pick.qty_milli
+              ? mulDiv(item.unit_cost_paise, pick.qty_milli, item.pack_size * 1000)
+              : null
           }
           empty="—"
           className="w-24 text-end font-medium"

@@ -83,21 +83,14 @@ export const PRIORITY_TONE: Record<StockSensePriority, 'danger' | 'warning' | 'i
   }
 
 /** "12 pcs" / "2 strips + 3 tabs" in the UI language. */
-export function qtyText(
-  milli: number,
-  item: Pick<StockSenseItem, 'unit' | 'pack_size'>,
-): string {
+export function qtyText(milli: number, item: Pick<StockSenseItem, 'unit' | 'pack_size'>): string {
   return item.pack_size > 1 && Math.abs(milli) >= item.pack_size * 1000
     ? formatPackQty(milli, item.pack_size, item.unit, packUnitFor(item.unit))
     : formatQty(milli, item.unit)
 }
 
 /** One translated line: why this quantity (or why nothing) is recommended. */
-export function explainItem(
-  item: StockSenseItem,
-  cycleDays: number,
-  safetyDays: number,
-): string {
+export function explainItem(item: StockSenseItem, cycleDays: number, safetyDays: number): string {
   const vars = {
     daily: qtyText(item.daily_milli, item),
     stock: qtyText(item.usable_milli, item),

@@ -2,7 +2,11 @@
  * StockSense charts (recharts): days-of-stock distribution, top profit at risk, and the
  * per-item history + forecast + projected stock chart of the details drawer.
  */
-import type { StockSenseItem, StockSenseProduct, StockSenseReport } from '@kadai/shared/api/purchases'
+import type {
+  StockSenseItem,
+  StockSenseProduct,
+  StockSenseReport,
+} from '@kadai/shared/api/purchases'
 import { formatINRCompact } from '@kadai/shared/money'
 import { useTranslation } from 'react-i18next'
 import {
@@ -70,14 +74,19 @@ export function CoverChart({ buckets }: { buckets: StockSenseReport['summary']['
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
           <CartesianGrid vertical={false} stroke={C.border} strokeDasharray="3 3" />
-          <XAxis dataKey="label" tick={axisTick} interval={0} tickFormatter={(v: string) => short(v, 10)} />
+          <XAxis
+            dataKey="label"
+            tick={axisTick}
+            interval={0}
+            tickFormatter={(v: string) => short(v, 10)}
+          />
           <YAxis allowDecimals={false} tick={axisTick} width={40} />
           <Tooltip
             contentStyle={tooltipStyle}
             cursor={{ fill: 'var(--color-surface-2)' }}
             formatter={(v: number) => [formatNumber(v), t('stocksense.charts.items')]}
           />
-          <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+          <Bar isAnimationActive={false} dataKey="count" radius={[4, 4, 0, 0]}>
             {data.map((d) => (
               <Cell key={d.key} fill={BUCKET_COLOR[d.key]} />
             ))}
@@ -131,8 +140,8 @@ export function ProfitRiskChart({ items }: { items: readonly StockSenseItem[] })
               key === 'lost' ? t('stocksense.charts.lost') : t('stocksense.charts.per_day')
             }
           />
-          <Bar dataKey="lost" fill={C.danger} radius={[0, 4, 4, 0]} />
-          <Bar dataKey="perDay" fill={C.primary} radius={[0, 4, 4, 0]} />
+          <Bar isAnimationActive={false} dataKey="lost" fill={C.danger} radius={[0, 4, 4, 0]} />
+          <Bar isAnimationActive={false} dataKey="perDay" fill={C.primary} radius={[0, 4, 4, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -185,9 +194,9 @@ export function ProductForecastChart({ detail }: { detail: StockSenseProduct }) 
             ]}
           />
           <Legend wrapperStyle={{ fontSize: 11 }} formatter={(key: string) => label(key)} />
-          <Bar yAxisId="qty" dataKey="recorded" stackId="h" fill={C.primary} />
-          <Bar yAxisId="qty" dataKey="imported" stackId="h" fill={C.accent} />
-          <Bar yAxisId="qty" dataKey="forecast" fill={C.warning} opacity={0.8} />
+          <Bar isAnimationActive={false} yAxisId="qty" dataKey="recorded" stackId="h" fill={C.primary} />
+          <Bar isAnimationActive={false} yAxisId="qty" dataKey="imported" stackId="h" fill={C.accent} />
+          <Bar isAnimationActive={false} yAxisId="qty" dataKey="forecast" fill={C.warning} opacity={0.8} />
           <Line
             yAxisId="stock"
             dataKey="stock"

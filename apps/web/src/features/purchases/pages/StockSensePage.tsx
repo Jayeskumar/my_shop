@@ -99,9 +99,7 @@ export default function StockSensePage() {
   const canWrite = useCan('purchases.write')
   const canAdjust = useCan('inventory.adjust')
   const activeStores = (me?.stores ?? []).filter((s) => s.is_active)
-  const [storeId, setStoreId] = useState<string | null>(
-    current?.id ?? activeStores[0]?.id ?? null,
-  )
+  const [storeId, setStoreId] = useState<string | null>(current?.id ?? activeStores[0]?.id ?? null)
   const [settings, setSettingsState] = useState<PlanSettings>(loadPlanSettings)
   const [tab, setTab] = useState<Tab>('plan')
   const [q, setQ] = useState('')
@@ -204,7 +202,9 @@ export default function StockSensePage() {
             <Button
               variant="outline"
               leftIcon={<Download />}
-              onClick={() => downloadSalesTemplate(report?.today ?? new Date().toISOString().slice(0, 10))}
+              onClick={() =>
+                downloadSalesTemplate(report?.today ?? new Date().toISOString().slice(0, 10))
+              }
             >
               {t('stocksense.template')}
             </Button>
@@ -249,11 +249,7 @@ export default function StockSensePage() {
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           {activeStores.length > 1 ? (
             <FormField label={t('stocksense.settings.store')} className="col-span-2 md:col-span-1">
-              <StorePicker
-                value={storeId}
-                clearable={false}
-                onChange={(id) => setStoreId(id)}
-              />
+              <StorePicker value={storeId} clearable={false} onChange={(id) => setStoreId(id)} />
             </FormField>
           ) : null}
           <FormField
@@ -269,7 +265,10 @@ export default function StockSensePage() {
               }}
             />
           </FormField>
-          <FormField label={t('stocksense.settings.cycle')} hint={t('stocksense.settings.cycle_hint')}>
+          <FormField
+            label={t('stocksense.settings.cycle')}
+            hint={t('stocksense.settings.cycle_hint')}
+          >
             <NumberInput
               value={settings.cycle_days}
               min={1}
@@ -279,7 +278,10 @@ export default function StockSensePage() {
               }}
             />
           </FormField>
-          <FormField label={t('stocksense.settings.safety')} hint={t('stocksense.settings.safety_hint')}>
+          <FormField
+            label={t('stocksense.settings.safety')}
+            hint={t('stocksense.settings.safety_hint')}
+          >
             <NumberInput
               value={settings.safety_days}
               min={0}
@@ -416,7 +418,9 @@ export default function StockSensePage() {
                 ? ` · ${t('stocksense.imported_days', { count: report.imported_days })}`
                 : ''}
             </span>
-            {report.truncated ? <span className="text-warning">{t('stocksense.truncated')}</span> : null}
+            {report.truncated ? (
+              <span className="text-warning">{t('stocksense.truncated')}</span>
+            ) : null}
           </div>
 
           <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
@@ -435,7 +439,11 @@ export default function StockSensePage() {
               </TabsTrigger>
               <TabsTrigger value="expiring">
                 {t('stocksense.tabs.expiring')}
-                <Badge size="sm" tone={report.expiry_batches.length > 0 ? 'warning' : 'neutral'} className="ms-1">
+                <Badge
+                  size="sm"
+                  tone={report.expiry_batches.length > 0 ? 'warning' : 'neutral'}
+                  className="ms-1"
+                >
                   {report.expiry_batches.length}
                 </Badge>
               </TabsTrigger>
@@ -451,7 +459,11 @@ export default function StockSensePage() {
                 wrapperClassName="sm:max-w-xs sm:flex-1"
               />
               {tab === 'all' ? (
-                <div className="flex flex-wrap gap-1" role="group" aria-label={t('stocksense.priority_all')}>
+                <div
+                  className="flex flex-wrap gap-1"
+                  role="group"
+                  aria-label={t('stocksense.priority_all')}
+                >
                   {(['all', ...STOCKSENSE_PRIORITIES] as const).map((p) => (
                     <Button
                       key={p}
@@ -498,7 +510,9 @@ export default function StockSensePage() {
 
             <TabsContent value="all" className="mt-3">
               <AllList
-                items={items.filter((i) => matches(i) && (priority === 'all' || i.priority === priority))}
+                items={items.filter(
+                  (i) => matches(i) && (priority === 'all' || i.priority === priority),
+                )}
                 cycleDays={params.cycle_days}
                 safetyDays={params.safety_days}
                 onDetails={setDetail}
@@ -506,19 +520,11 @@ export default function StockSensePage() {
             </TabsContent>
           </Tabs>
 
-          <Assumptions
-            params={params}
-            from={report.history_from}
-            to={report.history_to}
-          />
+          <Assumptions params={params} from={report.history_from} to={report.history_to} />
         </>
       )}
 
-      <StockSenseDrawer
-        productId={detail}
-        query={query}
-        onClose={() => setDetail(null)}
-      />
+      <StockSenseDrawer productId={detail} query={query} onClose={() => setDetail(null)} />
     </div>
   )
 }
@@ -651,8 +657,12 @@ function ExpiringList({
                 </button>
                 <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                   <span>{t('stocksense.expiring.batch', { batch: b.batch_no })}</span>
-                  <span>{t('stocksense.expiring.expires', { date: formatDate(b.expiry_date) })}</span>
-                  <span className={cn(b.days_left < 0 ? 'font-semibold text-danger' : 'text-warning')}>
+                  <span>
+                    {t('stocksense.expiring.expires', { date: formatDate(b.expiry_date) })}
+                  </span>
+                  <span
+                    className={cn(b.days_left < 0 ? 'font-semibold text-danger' : 'text-warning')}
+                  >
                     {b.days_left < 0
                       ? t('stocksense.expiring.expired')
                       : t('stocksense.expiring.days_left', { count: b.days_left })}
