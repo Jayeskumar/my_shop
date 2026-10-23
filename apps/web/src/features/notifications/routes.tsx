@@ -1,17 +1,20 @@
 /**
- * Routes of the notifications feature — Message log (SMS / WhatsApp outbox) and notification settings/templates.
- * Paths and handles are the contract (nav, guards, links from other modules); replace the
- * placeholder `Component` with real pages, e.g. `lazy: page(() => import('./pages/ListPage'))`.
+ * Routes of the notifications feature:
+ *  - /notifications — the message log (SMS / WhatsApp / email outbox) with delivery status,
+ *    filters in the URL, auto-refresh, retry and a detail drawer (?id=);
+ *  - /settings/notifications — sending services, automatic messages (settings.notifications via
+ *    PATCH /settings) and the message-text editor (linked from the settings sub-nav).
+ * The customer due-reminder dialog for the parties pages is exported from ./components.
+ * Paths and handles are the contract (nav, guards, links from other modules).
  */
-import ModulePlaceholder from '@/app/pages/ModulePlaceholder'
-import type { FeatureRoutes } from '@/app/route-types'
+import { page, type FeatureRoutes } from '@/app/route-types'
 
 export const routes: FeatureRoutes = {
   app: [
     {
       path: 'notifications',
       handle: { title: 'nav:titles.notifications', permission: 'settings.manage' },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/OutboxPage')),
     },
     {
       path: 'settings/notifications',
@@ -19,8 +22,9 @@ export const routes: FeatureRoutes = {
         title: 'nav:titles.settings_notifications',
         permission: 'settings.manage',
         feature: 'notifications',
+        parent: { title: 'nav:titles.settings', to: '/settings' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./settings/NotificationSettingsPage')),
     },
   ],
 }

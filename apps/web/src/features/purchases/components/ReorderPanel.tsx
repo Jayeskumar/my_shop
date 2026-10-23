@@ -4,14 +4,24 @@
  * days of cover, what is already on order and the suggested quantity. Tick items, adjust the
  * quantities and create one draft purchase order per supplier in one go; products never bought
  * before get a supplier chosen here. "Open in editor" moves a group into the full PO form.
+ * A callout links to StockSense (/purchases/stocksense) for full forecast-based planning.
  */
 import type { ReorderItem, ReorderSuggestions } from '@kadai/shared/api/purchases'
 import { planStockSense } from '@kadai/shared/api/purchases'
+import { type BudgetLine, type BudgetPlan, planWithinBudget } from '@kadai/shared/budget'
 import { reorderPrefillPath } from '@kadai/shared/api/inventory'
 import { newId } from '@kadai/shared/ids'
 import { mulDiv } from '@kadai/shared/math'
 import { milliToDecimalString } from '@kadai/shared/units'
-import { CheckCircle2, ClipboardPlus, PackageSearch, SquarePen, Upload } from 'lucide-react'
+import {
+  BrainCircuit,
+  CheckCircle2,
+  ClipboardPlus,
+  PackageSearch,
+  SquarePen,
+  Upload,
+  Wallet,
+} from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
@@ -23,6 +33,7 @@ import {
   Checkbox,
   EmptyState,
   Money,
+  MoneyInput,
   NumberInput,
   Qty,
   SearchInput,
@@ -50,6 +61,15 @@ interface Pick {
   /** What-if on-hand. Null uses the server's usable stock. Not written to stock. */
   on_hand_milli: number | null
 }
+
+const BUDGET_PRESETS_PAISE = [500_000, 1_000_000, 2_000_000] as const
+
+const budgetTone = {
+  full: 'success',
+  must_have: 'info',
+  partial: 'warning',
+  left_out: 'danger',
+} as const
 
 const priorityTone = {
   urgent: 'danger',
@@ -79,8 +99,11 @@ export function ReorderPanel() {
   const [created, setCreated] = useState<{ id: string; number: string; supplier: string }[]>([])
   const [leadTime, setLeadTime] = useState(7)
   const [windowDays, setWindowDays] = useState<7 | 30>(7)
+  const [smartModel, setSmartModel] = useState(true)
   const [weekdayAdjust, setWeekdayAdjust] = useState(true)
   const [shelfLife, setShelfLife] = useState<number | null>(null)
+  /** Cash budget for today's order (paise); null = no budget, the full suggestions. */
+  const [budget, setBudget] = useState<number | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const create = useCreateOrder()
   const importHistory = useImportSalesHistory()
@@ -91,6 +114,7 @@ export function ReorderPanel() {
       ? {
           store_id: storeId,
           lead_time_days: leadTime,
+          model: smartModel ? 'smart' : 'average',
           window_days: windowDays,
           weekday_adjust: weekdayAdjust,
           ...(shelfLife != null ? { shelf_life_days: shelfLife } : {}),
@@ -124,6 +148,69 @@ export function ReorderPanel() {
       return next
     })
   }, [groups])
+
+  const budgetPlan = useMemo<BudgetPlan | null>(() => {
+    if (budget === null || !forecast) return null
+    return planWithinBudget(
+      groups.flatMap((g) =>
+        g.items.map((item) => ({
+          product_id: item.product_id,
+          name: item.name,
+          priority: item.priority,
+          stockout_urgency_days: item.stockout_urgency_days,
+          margin_bp: item.margin_bp,
+          suggested_qty_milli: item.suggested_qty_milli,
+          forecast_demand_milli: item.forecast_demand_milli,
+          durable_stock_milli: item.durable_stock_milli,
+          open_po_qty_milli: item.open_po_qty_milli,
+          pack_size: item.pack_size,
+          unit_cost_paise: item.unit_cost_paise,
+          gst_rate_bp: item.gst_rate_bp,
+        })),
+      ),
+      budget,
+    )
+  }, [budget, forecast, groups])
+  const budgetLines = useMemo(
+    () => new Map((budgetPlan?.lines ?? []).map((l) => [l.product_id, l])),
+    [budgetPlan],
+  )
+  const hadBudget = useRef(false)
+
+  // A budget sets every pick to the budget plan; clearing it goes back to the suggestions.
+  useEffect(() => {
+    if (budgetPlan) {
+      hadBudget.current = true
+      setPicks((prev) => {
+        const next = { ...prev }
+        for (const line of budgetPlan.lines) {
+          next[line.product_id] = {
+            selected: line.qty_milli > 0,
+            edited: false,
+            on_hand_milli: null,
+            qty_milli: line.qty_milli > 0 ? line.qty_milli : null,
+          }
+        }
+        return next
+      })
+    } else if (hadBudget.current) {
+      hadBudget.current = false
+      setPicks(() => {
+        const next: Record<string, Pick> = {}
+        for (const g of groups) {
+          for (const item of g.items) {
+            next[item.product_id] = {
+              selected: item.suggested_qty_milli > 0,
+              edited: false,
+              on_hand_milli: null,
+              qty_milli: item.suggested_qty_milli > 0 ? item.suggested_qty_milli : null,
+            }
+          }
+        }
+        return next
+      })
+    }
+  }, [budgetPlan, groups])
 
   const chosen = (g: Group): { item: ReorderItem; qty_milli: number }[] =>
     g.items.flatMap((item) => {
@@ -205,6 +292,18 @@ export function ReorderPanel() {
 
   return (
     <div className="grid gap-4">
+      <div className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-primary-soft/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-2">
+          <BrainCircuit className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">{t('stocksense.callout_title')}</p>
+            <p className="text-xs text-muted-foreground">{t('stocksense.callout_desc')}</p>
+          </div>
+        </div>
+        <Button size="sm" className="shrink-0" onClick={() => navigate('/purchases/stocksense')}>
+          {t('stocksense.callout_action')}
+        </Button>
+      </div>
       <div className="grid gap-1">
         <h2 className="text-base font-semibold">{t('reorder.title')}</h2>
         <p className="text-sm text-muted-foreground">{t('reorder.intro')}</p>
@@ -222,27 +321,42 @@ export function ReorderPanel() {
             if (v != null && v >= 1) setLeadTime(v)
           }}
         />
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           <Button
             size="sm"
-            variant={windowDays === 7 ? 'primary' : 'outline'}
-            onClick={() => setWindowDays(7)}
+            variant={smartModel ? 'primary' : 'outline'}
+            onClick={() => setSmartModel(true)}
+          >
+            {t('reorder.model_smart')}
+          </Button>
+          <Button
+            size="sm"
+            variant={!smartModel && windowDays === 7 ? 'primary' : 'outline'}
+            onClick={() => {
+              setSmartModel(false)
+              setWindowDays(7)
+            }}
           >
             {t('reorder.window_7')}
           </Button>
           <Button
             size="sm"
-            variant={windowDays === 30 ? 'primary' : 'outline'}
-            onClick={() => setWindowDays(30)}
+            variant={!smartModel && windowDays === 30 ? 'primary' : 'outline'}
+            onClick={() => {
+              setSmartModel(false)
+              setWindowDays(30)
+            }}
           >
             {t('reorder.window_30')}
           </Button>
         </div>
-        <Switch
-          checked={weekdayAdjust}
-          label={t('reorder.weekday')}
-          onCheckedChange={setWeekdayAdjust}
-        />
+        {smartModel ? null : (
+          <Switch
+            checked={weekdayAdjust}
+            label={t('reorder.weekday')}
+            onCheckedChange={setWeekdayAdjust}
+          />
+        )}
         <NumberInput
           size="sm"
           className="w-28"
@@ -282,16 +396,19 @@ export function ReorderPanel() {
       </div>
       <p className="text-xs text-muted-foreground">
         {t('reorder.assumptions_lead', { lead: leadTime })}{' '}
-        {t('reorder.assumptions_window', {
-          days: windowDays,
-          weekday: weekdayAdjust ? t('reorder.assumptions_weekday') : '',
-        })}{' '}
+        {smartModel
+          ? t('reorder.assumptions_smart')
+          : t('reorder.assumptions_window', {
+              days: windowDays,
+              weekday: weekdayAdjust ? t('reorder.assumptions_weekday') : '',
+            })}{' '}
         {shelfLife != null
           ? t('reorder.assumptions_shelf', { days: shelfLife })
           : t('reorder.assumptions_shelf_product')}{' '}
         {t('reorder.assumptions_fallback')} {t('reorder.assumptions_import')}{' '}
         {t('reorder.upload_hint')} {t('reorder.shelf_life_hint')} {t('reorder.on_hand_hint')}
       </p>
+      {forecast ? <BudgetCard budget={budget} plan={budgetPlan} onChange={setBudget} /> : null}
       <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
         {multiStore ? (
           <StorePicker
@@ -448,7 +565,10 @@ export function ReorderPanel() {
                     key={item.product_id}
                     item={item}
                     forecast={forecast}
-                    windowDays={windowDays}
+                    budgetLine={budgetLines.get(item.product_id) ?? null}
+                    windowDays={
+                      smartModel ? (query.data?.data.window_days ?? windowDays) : windowDays
+                    }
                     pick={
                       picks[item.product_id] ?? {
                         selected: false,
@@ -480,6 +600,7 @@ function viewedPlan(item: ReorderItem, onHand: number | null) {
     incoming_milli: item.open_po_qty_milli,
     daily_milli: item.avg_daily_sales_milli,
     demand_milli: item.forecast_demand_milli,
+    safety_stock_milli: item.safety_stock_milli,
     lead_time_days: item.lead_time_days,
     shelf_life_days: item.shelf_life_days,
     pack_size: item.pack_size,
@@ -488,9 +609,100 @@ function viewedPlan(item: ReorderItem, onHand: number | null) {
   })
 }
 
+function BudgetCard({
+  budget,
+  plan,
+  onChange,
+}: {
+  budget: number | null
+  plan: BudgetPlan | null
+  onChange: (paise: number | null) => void
+}) {
+  const { t } = useTranslation('purchases')
+  const leftOut = plan?.lines.filter((l) => l.status === 'left_out').length ?? 0
+  const covered = plan ? Math.floor(plan.must_have_covered_bp / 100) : 0
+  return (
+    <section
+      aria-label={t('reorder.budget_title')}
+      className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4"
+    >
+      <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+        <div className="flex items-center gap-2 font-semibold">
+          <Wallet className="size-5 text-primary" aria-hidden />
+          {t('reorder.budget_title')}
+        </div>
+        <MoneyInput
+          size="sm"
+          className="w-40"
+          value={budget}
+          aria-label={t('reorder.budget_title')}
+          placeholder={t('reorder.budget_placeholder')}
+          onChange={(v) => onChange(v === null || v <= 0 ? null : v)}
+        />
+        <div className="flex flex-wrap gap-1">
+          {BUDGET_PRESETS_PAISE.map((p) => (
+            <Button
+              key={p}
+              size="sm"
+              variant={budget === p ? 'primary' : 'outline'}
+              onClick={() => onChange(p)}
+            >
+              {formatMoney(p)}
+            </Button>
+          ))}
+          {budget !== null ? (
+            <Button size="sm" variant="ghost" onClick={() => onChange(null)}>
+              {t('reorder.budget_clear')}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      {plan ? (
+        <div className="grid gap-2">
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <span className="text-lg font-semibold">
+              {t('reorder.budget_spend', {
+                spent: formatMoney(plan.spent_paise),
+                budget: formatMoney(plan.budget_paise),
+              })}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              {t('reorder.budget_left', { amount: formatMoney(plan.left_paise) })}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              {t('reorder.budget_full', { amount: formatMoney(plan.full_cash_paise) })}
+            </span>
+          </div>
+          <div
+            className="h-2.5 w-full overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={covered}
+            aria-label={t('reorder.budget_covers', { pct: covered })}
+          >
+            <div
+              className={cn('h-full rounded-full', covered >= 100 ? 'bg-success' : 'bg-warning')}
+              style={{ width: `${String(Math.min(100, covered))}%` }}
+            />
+          </div>
+          <p className={cn('text-sm', covered >= 100 ? 'text-success' : 'font-medium text-warning')}>
+            {t('reorder.budget_covers', { pct: covered })}
+            {leftOut > 0 ? ` · ${t('reorder.budget_left_out', { count: leftOut })}` : ''}
+          </p>
+          <p className="text-xs text-muted-foreground">{t('reorder.budget_note')}</p>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">{t('reorder.budget_hint')}</p>
+      )}
+    </section>
+  )
+}
+
 function ReorderRow({
   item,
   forecast,
+  budgetLine,
   windowDays,
   pick,
   disabled,
@@ -498,6 +710,7 @@ function ReorderRow({
 }: {
   item: ReorderItem
   forecast: boolean
+  budgetLine: BudgetLine | null
   windowDays: number
   pick: Pick
   disabled: boolean
@@ -538,11 +751,19 @@ function ReorderRow({
           <Badge tone={priorityTone[priority]} size="sm">
             {t(`reorder.priority_${priority}`)}
           </Badge>
+          {budgetLine ? (
+            <Badge tone={budgetTone[budgetLine.status]} size="sm">
+              {t(`reorder.budget_status_${budgetLine.status}`)}
+            </Badge>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
           <span className={low ? 'font-semibold text-danger' : undefined}>
             {t('reorder.stock')}{' '}
             {qty(forecast ? item.usable_stock_milli : item.current_stock_milli)}
+          </span>
+          <span>
+            {t('reorder.level')} {qty(item.reorder_level_milli)}
           </span>
           <span>
             {t('reorder.daily_sales')} {qty(item.avg_daily_sales_milli)}
@@ -568,6 +789,27 @@ function ReorderRow({
         {urgency > 0 ? (
           <p className="mt-1 text-xs font-semibold text-danger">
             {t('reorder.urgency', { count: urgency })}
+          </p>
+        ) : null}
+        {item.forecast_method ? (
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs font-medium text-primary">
+            <span>
+              {item.forecast_accuracy_bp != null && item.forecast_holdout_days > 0
+                ? t('reorder.forecast_line', {
+                    method: t(`reorder.method_${item.forecast_method}`),
+                    accuracy: Math.round(item.forecast_accuracy_bp / 100),
+                    days: item.forecast_holdout_days,
+                  })
+                : t('reorder.forecast_line_untested', {
+                    method: t(`reorder.method_${item.forecast_method}`),
+                  })}
+            </span>
+            {item.safety_stock_milli > 0 ? (
+              <span className="text-muted-foreground">
+                · {t('reorder.safety_stock', { qty: '' })}{' '}
+                {qty(Math.ceil(item.safety_stock_milli / 1000) * 1000)}
+              </span>
+            ) : null}
           </p>
         ) : null}
         {item.margin_bp != null ? (

@@ -136,8 +136,9 @@ export function DataTable<T>({
     return out
   }, [selection?.selected])
 
+  const selectionEnabled = Boolean(selection)
   const allColumns = useMemo<DataTableColumn<T>[]>(() => {
-    if (!selection) return columns
+    if (!selectionEnabled) return columns
     const select: DataTableColumn<T> = {
       id: '__select',
       enableSorting: false,
@@ -165,7 +166,7 @@ export function DataTable<T>({
       ),
     }
     return [select, ...columns]
-  }, [columns, selection, t])
+  }, [columns, selectionEnabled, t])
 
   const table = useReactTable<T>({
     data: data as T[],
@@ -313,7 +314,7 @@ export function DataTable<T>({
     <ul
       aria-label={label}
       aria-busy={loading || undefined}
-      className={cn('grid gap-2 p-2', loading && !firstLoad && 'opacity-60')}
+      className={cn('grid grid-cols-1 gap-2 p-2', loading && !firstLoad && 'opacity-60')}
     >
       {firstLoad
         ? Array.from({ length: Math.min(skeletonCount, 5) }, (_, i) => (

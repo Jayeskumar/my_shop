@@ -1,1 +1,347 @@
-{}
+{
+  "index": {
+    "title": "Reports",
+    "description": "Sales, stock, dues and GST — pick a report, set the period and print or export it.",
+    "search_placeholder": "Find a report…",
+    "no_match_title": "No report matches your search",
+    "no_match_hint": "Try another word, for example “stock”, “GST” or “profit”.",
+    "upgrade": "Upgrade",
+    "advanced": "Advanced"
+  },
+  "groups": {
+    "sales": {
+      "title": "Sales",
+      "description": "What sold, when and how profitably"
+    },
+    "stock": {
+      "title": "Stock",
+      "description": "Stock value, ageing, expiry and dead stock"
+    },
+    "parties": {
+      "title": "Customers & suppliers",
+      "description": "Dues to collect and to pay, with ageing"
+    },
+    "gst": {
+      "title": "GST",
+      "description": "Returns, HSN summary and registers"
+    },
+    "pharmacy": {
+      "title": "Pharmacy",
+      "description": "Schedule H1 register and scheduled drug sales"
+    },
+    "controls": {
+      "title": "Shifts & controls",
+      "description": "Cash differences, cancellations and discounts"
+    }
+  },
+  "links": {
+    "gst_returns": {
+      "title": "GST returns (GSTR-1, 3B)",
+      "description": "Monthly returns with the JSON for the GST portal"
+    }
+  },
+  "titles": {
+    "sales_summary": "Sales summary",
+    "item_sales": "Item-wise sales",
+    "category_sales": "Category-wise sales",
+    "brand_sales": "Brand-wise sales",
+    "profit": "Profit & margin",
+    "discounts": "Discounts given",
+    "cancellations": "Cancellations",
+    "shifts": "Shift summary",
+    "stock_summary": "Stock valuation",
+    "stock_ageing": "Stock ageing",
+    "expiry": "Expiry report",
+    "dead_stock": "Dead stock",
+    "customer_outstanding": "Customer dues (ageing)",
+    "supplier_outstanding": "Supplier dues (ageing)",
+    "hsn_summary": "HSN summary",
+    "sales_register": "Sales register",
+    "purchase_register": "Purchase register",
+    "h1_register": "Schedule H1 register",
+    "schedule_sales": "Scheduled drug sales"
+  },
+  "descriptions": {
+    "sales_summary": "Sales, returns and profit by day, month, hour, counter or user",
+    "item_sales": "Quantity, net sales, cost and profit of each item",
+    "category_sales": "Which categories bring sales and profit",
+    "brand_sales": "Sales and margin of each brand",
+    "profit": "Gross profit by item, category or brand — find low margins",
+    "discounts": "Discounts by bill, item, offer or cashier",
+    "cancellations": "Cancelled bills and returns: who, when and why",
+    "shifts": "Sales, tenders and cash difference of every shift",
+    "stock_summary": "Stock value at cost, MRP and selling price",
+    "stock_ageing": "How long stock has been lying since it came in",
+    "expiry": "Expired and soon-expiring batches with their value",
+    "dead_stock": "Items in stock that have not sold for a while",
+    "customer_outstanding": "Who owes how much and for how long",
+    "supplier_outstanding": "What the shop owes suppliers, by due date",
+    "hsn_summary": "HSN-wise quantity, value and tax (GSTR-1 table 12)",
+    "sales_register": "Invoice-wise sales with the tax split",
+    "purchase_register": "Bill-wise purchases and expenses with tax and ITC",
+    "h1_register": "Register of Schedule H1 drugs dispensed (Drugs & Cosmetics Rules)",
+    "schedule_sales": "Schedule H / H1 / X sales and prescription capture"
+  },
+  "filters": {
+    "title": "Report filters",
+    "any": "All",
+    "search_placeholder": "Search…",
+    "show_results": "Show results"
+  },
+  "viewer": {
+    "totals": "Totals",
+    "total": "Total",
+    "columns": "Columns",
+    "columns_hint": "Show columns",
+    "columns_reset": "Reset columns",
+    "chart_label": "Chart of {{title}}",
+    "csv_ready": "CSV downloaded",
+    "as_of": "As on {{date}}",
+    "as_of_now": "As of now",
+    "rows_one": "{{count}} row",
+    "rows_other": "{{count}} rows",
+    "empty_title": "Nothing to show for these filters",
+    "empty_hint": "Try a longer period (for example “This month” or “This financial year”), another store, or clear the filters."
+  },
+  "cells": {
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days"
+  },
+  "notes": {
+    "truncated": "Only the first rows are included — narrow the filters to see everything.",
+    "cost_estimated": "Some costs are estimated (items sold without a purchase cost use the average cost).",
+    "store_filter_applied": "Only documents of the selected store are counted; balances are for the whole business.",
+    "includes_opening_balances": "Includes opening balances entered when the party was added."
+  },
+  "validation": {
+    "date_order": "The start date must not be after the end date",
+    "range_too_long": "Choose a period of at most {{days}} days",
+    "period_or_range_required": "Choose a month or a date range",
+    "section_csv_only": "A single section can only be downloaded as CSV"
+  },
+  "print": {
+    "generated": "Generated {{at}}",
+    "rows_one": "{{count}} row",
+    "rows_other": "{{count}} rows",
+    "footer": "Printed from Kadai"
+  },
+  "period": {
+    "previous": "Previous month",
+    "next": "Next month"
+  },
+  "gst_warnings": {
+    "invalid_customer_gstin": "{{label}}: the customer's GSTIN is not valid, so this bill is reported as B2C. Correct the GSTIN on the customer.",
+    "missing_hsn": "{{label}}: HSN code is missing. Add it on the product so it shows in the HSN summary.",
+    "invalid_hsn": "{{label}}: the HSN code is not valid (it must be 4, 6 or 8 digits).",
+    "hsn_too_short": "{{label}}: the HSN code needs more digits for your turnover.",
+    "missing_place_of_supply": "{{label}}: place of supply is missing.",
+    "invalid_place_of_supply": "{{label}}: place of supply is not a valid state code.",
+    "invalid_gst_rate": "{{label}}: the GST rate is not a valid GST slab.",
+    "credit_note_without_invoice": "{{label}}: credit note is not linked to an original bill.",
+    "business_gstin_missing": "Your business GSTIN is not set. Add it in business settings before filing.",
+    "missing_purchase_gstin": "{{label}}: input tax claimed but the supplier has no GSTIN."
+  },
+  "gst": {
+    "title": "GST returns",
+    "description": "GSTR-1 and GSTR-3B for the month, ready for the GST portal. Fix the warnings first, then download.",
+    "description_composition": "Composition scheme: quarterly turnover and tax for CMP-08.",
+    "returns": "Returns",
+    "period": "Tax period",
+    "gstin": "GSTIN",
+    "business": "Business",
+    "return_period": "Return period",
+    "generated": "Prepared",
+    "generated_at": "Prepared {{at}}",
+    "hsn_tab": "HSN summary",
+    "hsn_custom_range": "HSN summary for other dates",
+    "download_json": "Download JSON for GST portal",
+    "download_csv": "Download CSV",
+    "downloaded": "Downloaded {{name}}",
+    "download_with_errors_title": "Some details need fixing",
+    "download_with_errors_one": "{{count}} problem may make the portal reject this file. Download anyway?",
+    "download_with_errors_other": "{{count}} problems may make the portal reject this file. Download anyway?",
+    "download_anyway": "Download anyway",
+    "unregistered_title": "Your business is not registered under GST",
+    "unregistered_hint": "GST returns are needed only after GST registration. When you get a GSTIN, add it in business settings — your bills and returns will follow.",
+    "business_settings": "Business settings",
+    "all_stores_title": "GST returns need all stores",
+    "all_stores_hint": "A return covers every store under this GSTIN. Ask the owner to give you access to all stores, or let them prepare the return.",
+    "gstin_not_found": "That GSTIN is not one of your registrations — showing your main GSTIN.",
+    "no_warnings": "No problems found — this period is ready to file.",
+    "warnings_title": "Check before filing",
+    "warnings_hint": "These details would be reported wrongly. Fix them and the return updates automatically.",
+    "errors_count_one": "{{count}} error",
+    "errors_count_other": "{{count}} errors",
+    "warnings_count_one": "{{count}} warning",
+    "warnings_count_other": "{{count}} warnings",
+    "severity_error": "Error",
+    "severity_warning": "Warning",
+    "fix": "Fix",
+    "show_less": "Show fewer",
+    "show_all": "Show all {{count}}",
+    "sections_label": "GSTR-1 sections",
+    "sections": {
+      "b2b": "B2B invoices (4A)",
+      "b2cl": "B2C large (5)",
+      "b2cs": "B2C others (7)",
+      "cdnr": "Credit notes – registered (9B)",
+      "cdnur": "Credit notes – unregistered (9B)",
+      "nil": "Nil / exempt (8)",
+      "hsn_b2b": "HSN – B2B (12)",
+      "hsn_b2c": "HSN – B2C (12)",
+      "doc_issue": "Documents issued (13)"
+    },
+    "section_hints": {
+      "b2b": "Bills to GST-registered buyers",
+      "b2cl": "Inter-state bills above ₹1 lakh",
+      "b2cs": "All other retail bills",
+      "cdnr": "Returns from registered buyers",
+      "cdnur": "Returns against B2C large bills",
+      "nil": "0% and exempt sales",
+      "hsn_b2b": "HSN-wise, registered buyers",
+      "hsn_b2c": "HSN-wise, retail buyers",
+      "doc_issue": "Bill number ranges"
+    },
+    "rows_one": "row",
+    "rows_other": "rows",
+    "docs_one": "doc",
+    "docs_other": "docs",
+    "taxable_short": "Taxable",
+    "tax_short": "Tax",
+    "section_csv": "CSV of this section",
+    "section_empty_title": "No entries in {{section}}",
+    "section_empty_hint": "Nothing was billed in this section for the month — the portal accepts an empty section.",
+    "inter_state": "Inter-state",
+    "intra_state": "Within state",
+    "no_hsn": "No HSN",
+    "nil": {
+      "inter_b2b": "Inter-state supplies to registered persons",
+      "intra_b2b": "Intra-state supplies to registered persons",
+      "inter_b2c": "Inter-state supplies to unregistered persons",
+      "intra_b2c": "Intra-state supplies to unregistered persons"
+    },
+    "doc_types": {
+      "1": "Invoices for outward supply",
+      "5": "Credit notes",
+      "12": "Delivery challans"
+    },
+    "col": {
+      "taxable": "Taxable value",
+      "igst": "IGST",
+      "cgst": "CGST",
+      "sgst": "SGST",
+      "cess": "Cess",
+      "invoice": "Invoice no.",
+      "date": "Date",
+      "gstin": "GSTIN / buyer",
+      "pos": "Place of supply",
+      "rate": "Rate",
+      "invoice_value": "Invoice value",
+      "supply_type": "Supply type",
+      "note": "Note no.",
+      "customer": "Customer",
+      "original_invoice": "Original invoice",
+      "note_value": "Note value",
+      "description": "Description",
+      "nil_rated": "Nil rated",
+      "exempt": "Exempted",
+      "non_gst": "Non-GST",
+      "hsn": "HSN",
+      "uqc": "UQC",
+      "qty": "Quantity",
+      "total_value": "Total value",
+      "nature": "Nature of document",
+      "from": "Serial numbers",
+      "total_docs": "Total",
+      "cancelled": "Cancelled",
+      "net_issued": "Net issued"
+    }
+  },
+  "gstr3b": {
+    "cash_to_pay": "Tax to pay in cash",
+    "itc_carried": "Input tax credit left (carried forward)",
+    "none_32": "No inter-state sales to unregistered buyers this month.",
+    "sources": "Built from {{invoices}} bills, {{credit_notes}} credit notes, {{bills}} purchase bills, {{debit_notes}} debit notes and {{expenses}} expenses.",
+    "sections": {
+      "s31": "3.1 Outward supplies and inward supplies liable to reverse charge",
+      "s32": "3.2 Inter-state supplies to unregistered persons",
+      "s4": "4. Eligible input tax credit",
+      "s5": "5. Exempt, nil-rated and non-GST inward supplies",
+      "s61": "6.1 Payment of tax"
+    },
+    "col": {
+      "nature": "Nature of supplies",
+      "details": "Details",
+      "taxable": "Total taxable value",
+      "igst": "Integrated tax",
+      "cgst": "Central tax",
+      "sgst": "State/UT tax",
+      "cess": "Cess",
+      "inter": "Inter-state",
+      "intra": "Intra-state",
+      "pos": "Place of supply",
+      "description": "Description",
+      "payable": "Tax payable",
+      "paid_itc": "Paid by ITC – {{head}}",
+      "paid_cash": "Paid in cash",
+      "rcm": "Reverse charge (cash)"
+    },
+    "outward": {
+      "a": "Outward taxable supplies (other than zero rated, nil rated and exempted)",
+      "b": "Outward taxable supplies (zero rated)",
+      "c": "Other outward supplies (nil rated, exempted)",
+      "d": "Inward supplies (liable to reverse charge)",
+      "e": "Non-GST outward supplies"
+    },
+    "itc": {
+      "A": "(A) ITC available (whether in full or part)",
+      "A1": "(1) Import of goods",
+      "A2": "(2) Import of services",
+      "A3": "(3) Inward supplies liable to reverse charge (other than 1 & 2 above)",
+      "A4": "(4) Inward supplies from ISD",
+      "A5": "(5) All other ITC",
+      "B": "(B) ITC reversed",
+      "B1": "(1) As per rules 38, 42 & 43 of CGST Rules and section 17(5)",
+      "B2": "(2) Others",
+      "C": "(C) Net ITC available (A) – (B)",
+      "D": "(D) Other details",
+      "D1": "(1) Ineligible ITC as per section 16(4)",
+      "D2": "(2) ITC restricted due to place of supply provisions"
+    },
+    "exempt": {
+      "composition_exempt_nil": "From a supplier under composition scheme, exempt and nil rated supply",
+      "non_gst": "Non-GST supply"
+    },
+    "heads": {
+      "igst": "Integrated tax",
+      "cgst": "Central tax",
+      "sgst": "State/UT tax",
+      "cess": "Cess"
+    }
+  },
+  "composition": {
+    "title": "Composition summary {{fy}}",
+    "intro": "Composition dealers pay {{rate}}% of turnover (half CGST, half SGST) every quarter through CMP-08, and file GSTR-4 for {{fy}} once a year.",
+    "quarter_turnover": "{{quarter}} taxable turnover",
+    "tax_payable": "Tax to pay for the quarter",
+    "tax_split": "CGST {{cgst}} + SGST {{sgst}} (plus reverse charge)",
+    "bills": "Bills in the quarter",
+    "fy_total": "Financial year",
+    "quarters": {
+      "Q1": "Apr – Jun (Q1)",
+      "Q2": "Jul – Sep (Q2)",
+      "Q3": "Oct – Dec (Q3)",
+      "Q4": "Jan – Mar (Q4)"
+    },
+    "col": {
+      "quarter": "Quarter",
+      "bills": "Bills",
+      "outward": "Outward turnover",
+      "taxable": "Taxable turnover",
+      "cgst": "CGST",
+      "sgst": "SGST",
+      "rcm_taxable": "Reverse-charge purchases",
+      "rcm_tax": "Reverse-charge tax"
+    }
+  }
+}

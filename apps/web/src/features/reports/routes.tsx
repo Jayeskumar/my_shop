@@ -1,17 +1,19 @@
 /**
  * Routes of the reports feature — Business reports and GST returns.
- * Paths and handles are the contract (nav, guards, links from other modules); replace the
- * placeholder `Component` with real pages, e.g. `lazy: page(() => import('./pages/ListPage'))`.
+ * Paths and handles are the contract (nav, guards, links from other modules).
+ *
+ *  - /reports              grouped report cards (ReportsIndexPage)
+ *  - /reports/gst          GSTR-1 / GSTR-3B / HSN with the portal JSON download (GstReturnsPage)
+ *  - /reports/:reportKey   generic viewer of the REPORTS catalogue (ReportViewerPage)
  */
-import ModulePlaceholder from '@/app/pages/ModulePlaceholder'
-import type { FeatureRoutes } from '@/app/route-types'
+import { page, type FeatureRoutes } from '@/app/route-types'
 
 export const routes: FeatureRoutes = {
   app: [
     {
       path: 'reports',
       handle: { title: 'nav:titles.reports', permission: 'reports.read' },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/ReportsIndexPage')),
     },
     {
       path: 'reports/gst',
@@ -21,7 +23,7 @@ export const routes: FeatureRoutes = {
         feature: 'gst_reports',
         parent: { title: 'nav:titles.reports', to: '/reports' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/GstReturnsPage')),
     },
     {
       path: 'reports/:reportKey',
@@ -30,7 +32,7 @@ export const routes: FeatureRoutes = {
         permission: 'reports.read',
         parent: { title: 'nav:titles.reports', to: '/reports' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/ReportViewerPage')),
     },
   ],
 }

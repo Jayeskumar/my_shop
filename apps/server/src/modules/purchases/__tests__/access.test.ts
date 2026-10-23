@@ -100,16 +100,26 @@ describe('purchases: access control and isolation', () => {
         lines: [{ bill_line_id: id, qty_milli: 1_000 }],
       },
       cancelDebitNote: { reason: 'Not allowed' },
+      updateStockSenseSettings: {
+        suppliers: [{ supplier_id: supplier.id, lead_time_days: 3 }],
+      },
+      importSalesHistory: {
+        store_id: shop.store.id,
+        csv: 'product,date,qty\nSKU,2026-10-10,1',
+      },
     }
     const queries: Partial<Record<keyof typeof purchasesRoutes, string>> = {
       debitNotePrefill: `?batch_ids=${id}&store_id=${shop.store.id}`,
       reorderSuggestions: `?store_id=${shop.store.id}`,
+      stockSense: `?store_id=${shop.store.id}`,
+      stockSenseProduct: `?store_id=${shop.store.id}`,
     }
     const results: string[] = []
     for (const [key, def] of Object.entries(purchasesRoutes) as Array<
       [keyof typeof purchasesRoutes, (typeof purchasesRoutes)[keyof typeof purchasesRoutes]]
     >) {
-      const url = routeUrl(def, { id, orderId: id }).slice(API.length) + (queries[key] ?? '')
+      const url =
+        routeUrl(def, { id, orderId: id, productId: id }).slice(API.length) + (queries[key] ?? '')
       const body = def.method === 'GET' || def.method === 'DELETE' ? undefined : (bodies[key] ?? {})
       const res = await req(shop, def.method as 'GET' | 'POST' | 'PATCH' | 'DELETE', url, body, {
         as: cashier,

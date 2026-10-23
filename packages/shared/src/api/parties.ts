@@ -1,3 +1,15 @@
+// CONTRACT CHANGELOG (parties backend; one line per change, newest last)
+// - PATCH /customers/:id, /suppliers/:id: changing opening_balance_paise also needs OPENING_BALANCE_EDIT_PERMISSION ('accounting.write') → 403 FORBIDDEN {required, reason: 'opening_balance_permission'}; creating with an opening balance needs only customers.write / suppliers.write.
+// - PARTIES_VALIDATION_KEYS += 'opening_balance_permission' and the customer import codes (CUSTOMER_IMPORT_ERROR_CODES: file-level 400 issues on `file_id`, per-row ImportError.code).
+// - CustomerImportSchema: documented how a customer import is stored for GET /imports/:id (CUSTOMER_IMPORT_OPTION_KEYS in imports.options + the 0100/0200 result columns).
+// - LoyaltyEntrySchema.balance_after: running Σ points in posting order (ledger id order, UUID v7).
+// - PartyLedgerRowSchema.document_number: purchase bills show the supplier's invoice number (supplier_invoice_no, else the GRN number).
+// - overdue_paise (customer list/detail/summary, supplier list/detail) is capped at the current due (max(0, balance_paise)): an unallocated advance offsets invoice/bill dues; summary.overdue_invoice_count is 0 when nothing is overdue after the cap.
+// - Supplier overdue: a bill without due_date is due on supplier_invoice_date + the supplier's payment_terms_days (0 when unset).
+// - PATCH /suppliers/:id: a changed GSTIN without `pan` in the body also updates the stored PAN to the GSTIN's PAN.
+// - adjustLoyalty is `idempotent: true` (a retried adjustment is applied once; the web sends one key per adjustment).
+// - createDoctor is `idempotent: true` (Idempotency-Key replay; the web form sends one key per dialog session).
+
 /**
  * Contract for the parties module — docs/API.md "parties": customers & khata (credit book),
  * suppliers, prescribing doctors and loyalty points.
@@ -25,6 +37,7 @@ import {
 import { addDays, addPeriods, compareDates, periodOf } from '../fy'
 import { isValidVpa, normalizeVpa } from '../upi'
 import { panFromGstin } from '../gst'
+import type { Permission } from '../permissions'
 import type { TenantSettings } from '../settings'
 import {
   AddressSchema,
@@ -85,8 +98,29 @@ export const PARTIES_VALIDATION_KEYS = [
   'loyalty_insufficient',
   'loyalty_exceeds_bill',
   'empty_patch',
+  'opening_balance_permission',
+  // customer import (CUSTOMER_IMPORT_ERROR_CODES)
+  'import_file_type',
+  'import_file_purpose',
+  'import_empty',
+  'import_missing_column',
+  'import_too_many_rows',
+  'duplicate_in_file',
+  'phone_taken',
+  'code_ambiguous',
+  'invalid_amount',
+  'invalid_number',
+  'invalid_boolean',
+  'invalid_value',
 ] as const
 export type PartiesValidationKey = (typeof PARTIES_VALIDATION_KEYS)[number]
+
+/**
+ * Permission needed (on top of customers.write / suppliers.write) to CHANGE the opening balance
+ * of an existing party: the delta is posted as an adjusting journal, so it is an accounting
+ * correction (the web hides the field without it).
+ */
+export const OPENING_BALANCE_EDIT_PERMISSION: Permission = 'accounting.write'
 
 const notEmpty = (v: Record<string, unknown>) =>
   Object.entries(v).some(([k, x]) => x !== undefined && k !== 'if_updated_at')
@@ -178,7 +212,7 @@ export const CustomerListItemSchema = z.object({
   credit_limit_paise: zPaise.nullable(),
   /** null = settings.credit.default_credit_days. */
   credit_days: z.int().min(0).nullable(),
-  /** Σ due of invoices older than the effective credit days. */
+  /** Σ due of invoices older than the effective credit days, at most the current due. */
   overdue_paise: zPaise,
   loyalty_points: z.int().min(0),
   tags: z.array(z.string()),
@@ -357,7 +391,11 @@ export const PartyLedgerRowSchema = z.object({
   date: zDateStr,
   source_type: JournalSourceTypeSchema,
   source_id: zId.nullable(),
-  /** Number of the source document (invoice, credit note, receipt / voucher, bill, debit note). */
+  /**
+   * Number of the source document: invoice, credit note, receipt / voucher (else the payment
+   * reference), the supplier's invoice number of a purchase bill (else its GRN number), debit
+   * note, expense, manual journal number.
+   */
   document_number: z.string().nullable(),
   /** Narration / memo / payment reference. */
   description: z.string().nullable(),
@@ -678,11 +716,56 @@ export function customerImportTemplateCsv(): string {
   ])
 }
 
-/** POST /customers/import — inline, at most IMPORT_INLINE_MAX_ROWS rows (422 above). */
+/**
+ * POST /customers/import — inline, at most IMPORT_INLINE_MAX_ROWS rows (more → 400 with issue
+ * `import_too_many_rows`). CSV only (an .xlsx file → `import_file_type`; save it as CSV).
+ * Rows with errors are skipped and listed; valid rows are written unless `dry_run`.
+ * `create_only` skips rows matching an existing customer; `upsert` updates them (empty cells keep
+ * the stored value). A changed opening balance posts the delta journal and needs
+ * OPENING_BALANCE_EDIT_PERMISSION (else the row fails with `opening_balance_permission`).
+ */
 export const CustomerImportSchema = ImportRequestBaseSchema.extend({
   match_by: z.enum(['phone', 'code']).default('phone').describe('How rows find existing customers'),
 })
 export type CustomerImport = z.input<typeof CustomerImportSchema>
+
+/** ImportError.code values of the customer import (plus generic zod codes such as too_big). */
+export const CUSTOMER_IMPORT_ERROR_CODES = [
+  // whole file (400 VALIDATION_ERROR issue on `file_id`)
+  'import_file_type',
+  'import_file_purpose',
+  'import_empty',
+  'import_missing_column',
+  'import_too_many_rows',
+  // per row (ImportError.code); required / max_length / invalid / phone / email / gstin /
+  // gstin_state / pincode are the web's common errors:validation keys
+  'required',
+  'max_length',
+  'invalid',
+  'duplicate_in_file',
+  'phone_taken',
+  'code_ambiguous',
+  'invalid_amount',
+  'invalid_number',
+  'invalid_boolean',
+  'invalid_value',
+  'opening_balance_permission',
+  'phone',
+  'alt_phone',
+  'email',
+  'gstin',
+  'gstin_state',
+  'pincode',
+] as const
+export type CustomerImportErrorCode = (typeof CUSTOMER_IMPORT_ERROR_CODES)[number]
+
+/**
+ * Storage of a customer import (kind 'customers') for GET /imports/:id: `options` jsonb =
+ * {mode, dry_run, match_by}; the result columns summary / preview / errors_truncated /
+ * processed_rows (migrations 0100 / 0200, identical IF NOT EXISTS definitions); filename from the
+ * `files` row.
+ */
+export const CUSTOMER_IMPORT_OPTION_KEYS = ['mode', 'dry_run', 'match_by'] as const
 
 // =============================================================================================
 // Suppliers
@@ -747,9 +830,13 @@ export const SupplierListItemSchema = z.object({
   state_code: z.string().nullable(),
   drug_license_no: z.string().nullable(),
   payment_terms_days: z.int().min(0).nullable(),
+  lead_time_days: z.int().min(1).max(365).nullable().optional(),
   /** Payable: + = the shop owes the supplier, − = advance paid / debit balance. */
   balance_paise: zSignedPaise,
-  /** Σ due of posted bills past their due date. */
+  /**
+   * Σ due of posted bills past their due date (else supplier invoice date + payment terms), at
+   * most the current payable.
+   */
   overdue_paise: zPaise,
   upi_vpa: z.string().nullable(),
   is_active: z.boolean(),
@@ -797,6 +884,7 @@ export const SupplierCreateSchema = z
     address: AddressSchema.prefault({}),
     drug_license_no: zNullableText(100),
     payment_terms_days: z.int().min(0).max(365).nullable().default(null),
+    lead_time_days: z.int().min(1).max(365).nullable().optional(),
     opening_balance_paise: zOpeningBalance
       .default(0)
       .describe('+ = the shop owes the supplier, − = advance paid'),
@@ -822,6 +910,7 @@ export const SupplierUpdateSchema = z
     address: AddressSchema.optional(),
     drug_license_no: zNullableText(100),
     payment_terms_days: z.int().min(0).max(365).nullable().optional(),
+    lead_time_days: z.int().min(1).max(365).nullable().optional(),
     opening_balance_paise: zOpeningBalance.optional(),
     bank_details: BankDetailsInputSchema.optional(),
     upi_vpa: zNullableVpa,
@@ -986,6 +1075,7 @@ export const partiesRoutes = defineRoutes({
     path: '/customers/:id/loyalty/adjust',
     permission: 'customers.write',
     feature: 'loyalty',
+    idempotent: true,
     params: IdParams,
     body: LoyaltyAdjustSchema,
     response: dataOf(LoyaltyAdjustResultSchema),
@@ -1054,6 +1144,7 @@ export const partiesRoutes = defineRoutes({
     method: 'POST',
     path: '/doctors',
     permission: 'customers.write',
+    idempotent: true,
     body: DoctorCreateSchema,
     response: dataOf(DoctorSchema),
     status: 201,

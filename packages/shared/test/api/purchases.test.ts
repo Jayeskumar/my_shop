@@ -27,9 +27,9 @@ import {
   explainReorder,
   expiryFromMonthYear,
   forecastDemandMilli,
-  planStockSense,
   formatPurchaseOrderText,
   marginBp,
+  planStockSense,
   purchaseBillActions,
   purchaseBillTotals,
   purchaseLineWarnings,
@@ -172,7 +172,6 @@ describe('purchase maths', () => {
     expect(() => averageDailySalesMilli(1, 0)).toThrow(RangeError)
   })
   it('StockSense forecast, shelf-life cap and no-history fallback', () => {
-    // 70 units over 7 days → 10 a day, 70 over a 7-day lead time.
     const flat = Array.from({ length: 7 }, (_, i) => ({ weekday: i, sold_milli: 10_000 }))
     expect(
       forecastDemandMilli({
@@ -191,7 +190,6 @@ describe('purchase maths', () => {
       }),
     ).toEqual({ daily_milli: 0, demand_milli: 0, has_history: false })
 
-    // Weekdays: Sundays sell 20, other days 0. Tomorrow after a Saturday is Sunday.
     const weekly = [
       { weekday: 0, sold_milli: 20_000 },
       { weekday: 1, sold_milli: 0 },
@@ -237,7 +235,6 @@ describe('purchase maths', () => {
     expect(capped.reason).toBe('shelf_life')
     expect(capped.priority).toBe('high')
 
-    // A whole pack would not sell before expiry → order nothing.
     expect(
       planStockSense({
         ...base,
@@ -277,7 +274,19 @@ describe('purchase maths', () => {
       }),
     ).toContain('Order 50')
 
-    // Without the forecast flag the classic quantity is unchanged.
+    expect(
+      explainReorder({
+        reason: 'stockout',
+        window_days: 7,
+        lead_time_days: 7,
+        shelf_life_days: null,
+        daily_milli: 10_000,
+        usable_stock_milli: 60_000,
+        urgency_days: 1,
+        suggested_qty_milli: 10_000,
+      }),
+    ).toContain('1 day before')
+
     expect(
       planStockSense({
         ...base,

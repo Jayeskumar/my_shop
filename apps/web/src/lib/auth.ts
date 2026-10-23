@@ -209,7 +209,11 @@ function applyMe(me: MeResponse, options: { offline?: boolean } = {}): void {
     null,
     (v): v is StoreSelection | null => v === null || isSelection(v),
   )
-  const selection = resolveSelection(me, saved)
+  // Without a saved choice, a reload of the same business keeps the store/register in use, so
+  // adding a store (whose code may sort first) does not move the member to it.
+  const current =
+    state.me?.tenant.id === me.tenant.id && state.selection.storeId ? state.selection : null
+  const selection = resolveSelection(me, saved ?? current)
   const deployment: DeploymentInfo = { ...state.deployment, mode: me.mode }
   storage.set('deployment', deployment)
   setState({

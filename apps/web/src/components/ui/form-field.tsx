@@ -11,13 +11,24 @@
  * Combobox) pick up id / aria-describedby / aria-invalid from the field context automatically.
  */
 import { useId, type ReactNode } from 'react'
-import { get, useFormContext, type FieldError } from 'react-hook-form'
+import { get, useFormContext, useFormState, type FieldError } from 'react-hook-form'
 import { cn } from '@/lib/cn'
 import { useHeldWhilePointerDown } from '@/lib/use-pointer-hold'
 import { localizeValidationMessage } from '@/lib/validation'
 import { useTranslation } from 'react-i18next'
 import { FormFieldContext } from './form-field-context'
 import { Label } from './label'
+
+function SubscribedFormFieldInner({
+  name,
+  render,
+}: {
+  name: string
+  render: (fieldError: FieldError | undefined) => ReactNode
+}) {
+  const { errors } = useFormState({ name })
+  return <>{render(get(errors, name) as FieldError | undefined)}</>
+}
 
 export interface FormFieldProps {
   label?: ReactNode
@@ -58,8 +69,72 @@ export function FormField({
   const controlId = id ?? `f-${generated}`
   // useFormContext() is null outside a FormProvider (fields can be used standalone).
   const form = useFormContext() as ReturnType<typeof useFormContext> | null
-  const fieldError: FieldError | undefined =
-    name && form ? (get(form.formState.errors, name) as FieldError | undefined) : undefined
+  if (name && form) {
+    return (
+      <SubscribedFormFieldInner
+        name={name}
+        render={(fieldError) => (
+          <FormFieldBody
+            label={label}
+            error={error}
+            fieldError={fieldError}
+            hint={hint}
+            required={required}
+            optional={optional}
+            labelAction={labelAction}
+            controlId={controlId}
+            className={className}
+            hideLabel={hideLabel}
+          >
+            {children}
+          </FormFieldBody>
+        )}
+      />
+    )
+  }
+  return (
+    <FormFieldBody
+      label={label}
+      error={error}
+      fieldError={undefined}
+      hint={hint}
+      required={required}
+      optional={optional}
+      labelAction={labelAction}
+      controlId={controlId}
+      className={className}
+      hideLabel={hideLabel}
+    >
+      {children}
+    </FormFieldBody>
+  )
+}
+
+function FormFieldBody({
+  label,
+  error,
+  fieldError,
+  hint,
+  required,
+  optional,
+  labelAction,
+  controlId,
+  className,
+  hideLabel,
+  children,
+}: {
+  label?: ReactNode
+  error?: string | null
+  fieldError: FieldError | undefined
+  hint?: ReactNode
+  required: boolean
+  optional: boolean
+  labelAction?: ReactNode
+  controlId: string
+  className?: string
+  hideLabel?: boolean
+  children: ReactNode
+}) {
   const rawMessage = error ?? fieldError?.message ?? (fieldError ? 'Invalid' : undefined)
   // A blur-validation error must not shift the layout under a click in progress.
   const message = useHeldWhilePointerDown(localizeValidationMessage(rawMessage ?? undefined))

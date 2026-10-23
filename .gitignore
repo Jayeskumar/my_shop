@@ -4,7 +4,8 @@ coverage/
 .env
 .env.*
 !.env.example
-data/
+/data/
+apps/server/data/
 *.log
 playwright-report/
 test-results/

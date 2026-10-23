@@ -1,5 +1,5 @@
 /**
- * Routes of the purchases feature — Purchase orders (with reorder suggestions), purchase bills
+ * Routes of the purchases feature — Purchase orders (with reorder suggestions), StockSense (demand forecast and ranked reorder plan), purchase bills
  * (GRN) and purchase returns (debit notes). Paths and handles are the contract (nav, guards,
  * links from other modules such as inventory's purchaseReturnPrefillPath / reorderPrefillPath).
  */
@@ -35,6 +35,15 @@ export const routes: FeatureRoutes = {
         parent: { title: 'nav:titles.purchase_orders', to: '/purchases/orders' },
       },
       lazy: page(() => import('./pages/OrderPage')),
+    },
+    {
+      path: 'purchases/stocksense',
+      handle: {
+        title: 'nav:titles.stocksense',
+        permission: 'purchases.read',
+        feature: 'purchases',
+      },
+      lazy: page(() => import('./pages/StockSensePage')),
     },
     {
       path: 'purchases/bills',

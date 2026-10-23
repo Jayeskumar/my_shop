@@ -317,7 +317,7 @@ export function toOrderUpdateBody(
 export function reorderOrderBody(input: {
   store_id: string
   supplier_id: string
-  items: readonly { item: ReorderItem; qty_milli: number }[]
+  items: readonly { item: Pick<ReorderItem, 'product_id' | 'unit_cost_paise'>; qty_milli: number }[]
   client_ref: string
   order_date?: string
 }): PurchaseOrderCreate {

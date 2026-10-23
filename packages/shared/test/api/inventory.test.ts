@@ -26,11 +26,17 @@ import {
   adjustmentLineIssues,
   adjustmentPrefillPath,
   adjustmentValueSummary,
+  BATCH_EXPIRY_TABS,
+  batchExpiryTabDays,
+  batchExpiryTabFor,
+  batchesPagePath,
   expiryStatus,
   inventoryRoutes,
   parseInventoryPrefill,
   purchaseReturnPrefillPath,
+  qtyAllowed,
   reorderPrefillPath,
+  stockPagePath,
   stockStatus,
   stockTakeDelta,
   stockValuePaise,
@@ -634,6 +640,34 @@ describe('alerts & navigation', () => {
       kind: null,
       store_id: null,
     })
+  })
+  it('page links match the stock and batches pages URL state', () => {
+    const store = newId()
+    expect(stockPagePath()).toBe('/inventory/stock')
+    expect(stockPagePath({ store_id: store, filter: 'low' })).toBe(
+      `/inventory/stock?store=${store}&filter=low`,
+    )
+    expect(batchesPagePath({ store_id: store, tab: 'expired' })).toBe(
+      `/inventory/batches?store=${store}&tab=expired`,
+    )
+    expect(batchesPagePath({ tab: batchExpiryTabFor(45) })).toBe('/inventory/batches?tab=d60')
+    expect([7, 30, 31, 60, 90, 91, 365].map(batchExpiryTabFor)).toEqual([
+      'd30',
+      'd30',
+      'd60',
+      'd60',
+      'd90',
+      'all',
+      'all',
+    ])
+    expect(BATCH_EXPIRY_TABS.map(batchExpiryTabDays)).toEqual([null, 30, 60, 90, null])
+  })
+  it('quantities must be whole units unless the product is measured in decimals', () => {
+    expect(qtyAllowed({ unit: 'PCS' }, 3000)).toBe(true)
+    expect(qtyAllowed({ unit: 'PCS' }, 1500)).toBe(false)
+    expect(qtyAllowed({ unit: 'TAB', decimal_qty: false }, -2000)).toBe(true)
+    expect(qtyAllowed({ unit: 'KG' }, 1250)).toBe(true)
+    expect(qtyAllowed({ unit: 'PCS', decimal_qty: true }, 1250)).toBe(true)
   })
   it('route catalogue', () => {
     for (const [name, def] of Object.entries(inventoryRoutes)) {

@@ -1,3 +1,26 @@
+// CONTRACT CHANGELOG (catalog backend, one line per change — counterpart agents read this)
+// - ProductCreateSchema.track_inventory: no fixed default; omitted → `kind !== 'service'` (a
+//   service created without the field used to fail with service_tracks_stock).
+// - CATALOG_VALIDATION_KEYS += store_required, reference_not_found, kind_change,
+//   variant_axes_mismatch, barcode_qty_whole, attribute_invalid (used by the server in
+//   VALIDATION_ERROR issues; the web needs catalog:validation.<key> texts).
+// - PRODUCT_IMPORT_ERROR_CODES (new): `code` values of product import errors (imports.errors[]).
+// - CATALOG_ERROR_REASONS (new): details.reason values of catalog 409/422 errors
+//   (in_use_deactivate, unit_in_use, product_in_use, product_kind, …); delete of a used
+//   category / brand / tax rule answers 409 CONFLICT {reason: 'in_use_deactivate', hint: 'deactivate'}.
+// - Low-stock filter (GET /products?low_stock=…) without a resolvable store → 400 store_required.
+// - CATALOG_ERROR_REASONS += pack_size_in_use (409: pack size of a product with stock movements),
+//   stock_on_hand (409: track_inventory off / kind service / track_batches change while the
+//   product or its variants hold stock; details.field), all_stores_required (403: store-scoped
+//   members may only write promotions limited to their own stores).
+// - PRODUCT_IMPORT_ERROR_CODES += pack_size_in_use, stock_on_hand (same rules for import updates),
+//   parent_barcode (barcodes on a row that is / becomes a variant parent are not saved).
+// - Barcodes belong to sellable products: POST /products/:id/barcodes on a variant parent and
+//   POST /products {kind: 'variant_parent', barcodes: [..]} → 422 {reason: 'product_kind'};
+//   POST /products/:id/variants on a standard product removes its barcodes (audited).
+// - GET /products/export honours low_stock / store_id like the list.
+// - bulkUpdateProducts is `idempotent` (Idempotency-Key): a retried +10% price change must not
+//   apply twice.
 /**
  * Contract for the catalog module — docs/API.md "catalog": categories (tree), brands, tax slab
  * rules, products (vertical attributes, variants, barcodes, lookup, bulk update, CSV import /
@@ -84,8 +107,42 @@ export const CATALOG_VALIDATION_KEYS = [
   'store_price_conflict',
   'label_copies_limit',
   'empty_patch',
+  'store_required',
+  'reference_not_found',
+  'kind_change',
+  'variant_axes_mismatch',
+  'barcode_qty_whole',
+  'attribute_invalid',
 ] as const
 export type CatalogValidationKey = (typeof CATALOG_VALIDATION_KEYS)[number]
+
+/**
+ * `details.reason` of catalog 403 / 409 / 422 errors:
+ *  - in_use_deactivate: category / brand / tax rule is used — deactivate it instead (hint);
+ *  - unit_in_use: the unit of a product with stock movements cannot change;
+ *  - pack_size_in_use: nor its pack size (stock costs are per pack);
+ *  - stock_on_hand: stock tracking / batch tracking / service kind cannot change while the
+ *    product (or its variants) holds stock (details.field);
+ *  - all_stores_required: 403 — a promotion for all stores (or another store) needs access to
+ *    every store it applies to;
+ *  - product_in_use: a product with stock movements cannot become a variant parent;
+ *  - product_kind: the operation needs another product kind (e.g. variants of a variant);
+ *  - barcode_taken / sku_taken / scale_plu_taken: 409 DUPLICATE on another product.
+ */
+export const CATALOG_ERROR_REASONS = [
+  'in_use_deactivate',
+  'unit_in_use',
+  'pack_size_in_use',
+  'stock_on_hand',
+  'all_stores_required',
+  'product_in_use',
+  'product_kind',
+  'barcode_taken',
+  'sku_taken',
+  'scale_plu_taken',
+  'name_taken',
+] as const
+export type CatalogErrorReason = (typeof CATALOG_ERROR_REASONS)[number]
 
 const notEmpty = (v: Record<string, unknown>) =>
   Object.entries(v).some(([k, x]) => x !== undefined && k !== 'if_updated_at')
@@ -830,7 +887,8 @@ export const ProductCreateSchema = z
     purchase_price_paise: zPaise.default(0),
     min_sale_price_paise: zPaise.nullable().default(null),
     max_discount_bp: z.int().min(0).max(10_000).nullable().default(null),
-    track_inventory: z.boolean().default(true),
+    /** Omitted: true, except for services (false). */
+    track_inventory: z.boolean().optional(),
     track_batches: z.boolean().optional(),
     is_weighed: z.boolean().default(false),
     scale_plu: ProductWritableShape.scale_plu.optional(),
@@ -853,6 +911,7 @@ export const ProductCreateSchema = z
     allow_mrp_below_sale: z.boolean().default(false),
   })
   .superRefine((v, ctx) => addRuleIssues(productRuleIssues(v), ctx))
+  .transform((v) => ({ ...v, track_inventory: v.track_inventory ?? v.kind !== 'service' }))
 export type ProductCreate = z.input<typeof ProductCreateSchema>
 export type ProductCreateParsed = z.output<typeof ProductCreateSchema>
 
@@ -1542,6 +1601,57 @@ export function parseYesNo(text: string): boolean | null | undefined {
   if (['no', 'n', 'false', '0', 'இல்லை'].includes(t)) return false
   return undefined
 }
+
+/**
+ * `code` of product import errors (ImportJob.errors[]): row = file line (header = 1), row 0 =
+ * the whole file. The web shows catalog:import_errors.<code>.
+ */
+export const PRODUCT_IMPORT_ERROR_CODES = [
+  'file_empty',
+  'import_format',
+  'import_header_missing',
+  'import_too_many_rows',
+  'required',
+  'too_long',
+  'invalid_text',
+  'money_invalid',
+  'percent_invalid',
+  'gst_rate_invalid',
+  'int_invalid',
+  'qty_invalid',
+  'boolean_invalid',
+  'enum_invalid',
+  'unit_unknown',
+  'hsn',
+  'sku_format',
+  'sku_taken',
+  'barcode_format',
+  'barcode_checksum',
+  'barcode_taken',
+  'scale_plu_format',
+  'scale_plu_taken',
+  'duplicate_in_file',
+  'category_not_found',
+  'category_depth',
+  'brand_not_found',
+  'parent_not_found',
+  'parent_kind',
+  'variant_axis',
+  'variant_axes_mismatch',
+  'attribute_invalid',
+  'mrp_below_sale_price',
+  'min_price_above_sale_price',
+  'loose_requires_pack',
+  'decimal_qty_unit',
+  'service_tracks_stock',
+  'unit_in_use',
+  'pack_size_in_use',
+  'stock_on_hand',
+  'parent_barcode',
+  'plan_limit',
+  'write_failed',
+] as const
+export type ProductImportErrorCode = (typeof PRODUCT_IMPORT_ERROR_CODES)[number]
 
 /** POST /products/import — rows > IMPORT_INLINE_MAX_ROWS run as job catalog.import. */
 export const ProductImportSchema = ImportRequestBaseSchema.extend({
@@ -2256,6 +2366,7 @@ export const catalogRoutes = defineRoutes({
     method: 'POST',
     path: '/products/bulk-update',
     permission: 'catalog.write',
+    idempotent: true,
     body: ProductBulkUpdateSchema,
     response: dataOf(ProductBulkUpdateResultSchema),
     summary: 'Change GST, category, brand, status or price of up to 500 products (audited)',

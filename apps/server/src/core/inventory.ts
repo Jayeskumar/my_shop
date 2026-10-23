@@ -506,6 +506,104 @@ export async function postStock(
   return results
 }
 
+export interface StockLevelKey {
+  store_id: string
+  product_id: string
+  batch_id: string | null
+}
+
+export interface LockedStockLevel extends StockLevelKey {
+  qty_milli: number
+  avg_cost_paise: number
+  /** The row has moved before (its average is meaningful). */
+  has_history: boolean
+}
+
+/** Map key of a stock row in {@link lockStockLevels} results. */
+export const stockLevelKey = (k: StockLevelKey): string =>
+  levelKey(k.store_id.toLowerCase(), k.product_id.toLowerCase(), k.batch_id?.toLowerCase() ?? null)
+
+/**
+ * Locks the stock_levels rows of `keys` FOR UPDATE for the rest of the caller's transaction —
+ * creating missing zero rows first, in the same deterministic order as postStock — and returns
+ * their balances (keyed by {@link stockLevelKey}). For postings that must read a balance and post
+ * against it atomically (stock takes post counted − system quantity): a concurrent sale or
+ * purchase waits for the commit, and the postStock call that follows in the same transaction
+ * re-locks the rows without waiting.
+ */
+export async function lockStockLevels(
+  tx: Tx,
+  ctx: Pick<RequestContext, 'tenantId'>,
+  keys: readonly StockLevelKey[],
+): Promise<Map<string, LockedStockLevel>> {
+  const out = new Map<string, LockedStockLevel>()
+  if (keys.length === 0) return out
+  const normalized = [
+    ...new Map(
+      keys.map((k, i) => {
+        const n = {
+          store_id: normalizeId(k.store_id, `keys.${i}.store_id`),
+          product_id: normalizeId(k.product_id, `keys.${i}.product_id`),
+          batch_id: k.batch_id == null ? null : normalizeId(k.batch_id, `keys.${i}.batch_id`),
+        }
+        return [levelKey(n.store_id, n.product_id, n.batch_id), n] as const
+      }),
+    ).values(),
+  ].sort(compareKeys)
+  await tx
+    .insertInto('stock_levels')
+    .values(
+      normalized.map((k) => ({
+        id: newId(),
+        tenant_id: ctx.tenantId,
+        store_id: k.store_id,
+        product_id: k.product_id,
+        batch_id: k.batch_id,
+      })),
+    )
+    .onConflict((oc) => oc.doNothing())
+    .execute()
+  const rows = await tx
+    .selectFrom('stock_levels')
+    .select([
+      'store_id',
+      'product_id',
+      'batch_id',
+      'qty_milli',
+      'avg_cost_paise',
+      'last_movement_at',
+    ])
+    .where('tenant_id', '=', ctx.tenantId)
+    .where((eb) =>
+      eb.or(
+        normalized.map((k) =>
+          eb.and([
+            eb('store_id', '=', k.store_id),
+            eb('product_id', '=', k.product_id),
+            k.batch_id === null ? eb('batch_id', 'is', null) : eb('batch_id', '=', k.batch_id),
+          ]),
+        ),
+      ),
+    )
+    .orderBy('product_id')
+    .orderBy(sql`batch_id asc nulls first`)
+    .orderBy('store_id')
+    .forUpdate()
+    .execute()
+  for (const r of rows) {
+    out.set(levelKey(r.store_id, r.product_id, r.batch_id), {
+      store_id: r.store_id,
+      product_id: r.product_id,
+      batch_id: r.batch_id,
+      qty_milli: r.qty_milli,
+      avg_cost_paise: r.avg_cost_paise,
+      has_history: r.last_movement_at !== null,
+    })
+  }
+  if (out.size !== normalized.length) throw new Error('stock level rows missing after upsert')
+  return out
+}
+
 /**
  * On-hand quantity (milli). `batch_id` omitted = all batches (and the batch-less row) of the
  * product in the store; `null` = the batch-less row only; an id = that batch.

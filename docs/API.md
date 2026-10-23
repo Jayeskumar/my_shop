@@ -66,25 +66,30 @@ once in `@kadai/shared/api/common` and re-exported here).
 
 | Method & path | perm | Notes |
 |---|---|---|
-| `L/C /users` · `G/U /users/:id` · `POST /users/:id/disable` · `POST /users/:id/enable` · `POST /users/:id/reset-pin` · `POST /users/:id/reset-password` | `users.manage` | `:id` = user id. Create = invite by phone (`first_login`: `temporary_password` returned once / `password` / `otp`), role, `store_ids` (null = all), PIN; plan limit `users`; cannot disable yourself or the last owner; admin password reset needs no SMS (on-prem) |
-| `L/C /roles` · `G/U/D /roles/:id` | `users.manage` (+feat `custom_roles` to create; checked for custom roles on U/D) | system roles: rename only; delete → 409 when assigned |
+| `L/C /users` · `G/U /users/:id` · `POST /users/:id/disable` · `POST /users/:id/enable` · `POST /users/:id/reset-pin` · `POST /users/:id/reset-password` | `users.manage` | `:id` = user id. Create = invite by phone (`first_login`: `temporary_password` returned once / `password` / `otp`), role, `store_ids` (null = all), PIN (weak PINs → `pin_weak`); plan limit `users` (also on enable); cannot disable / re-role / admin-reset yourself or drop the last active owner; only owners grant the owner role or manage owners; nobody hands out a role with permissions they lack; store-scoped admins manage members inside their stores and see (list and `G /users/:id`, else 404) only members who can work in one of their stores; name / email / password of an identity that also belongs to another business stay theirs (409 `shared_identity`); an idempotent replay answers `temporary_password: null`; disable revokes the member's sessions for this business; admin password reset needs no SMS (on-prem). Error reasons: `IDENTITY_ERROR_REASONS` |
+| `L/C /roles` · `G/U/D /roles/:id` | `users.manage` (+feat `custom_roles` to create; checked for custom roles on U/D) | system roles: rename only; delete → 409 when assigned; U/D are business-wide (store-scoped members → 403 `all_stores_required`) |
 | `GET /users/directory?q=&store_id=&include_disabled=` | any member | member names for pickers / filters (id, name, role, status, store_ids; ≤ 500, no contact or security fields) |
 | `GET /permissions` | `users.manage` | permission catalogue grouped by area with ta/en labels and implications (`permissionCatalog()`) |
 | `L /stores` · `G /stores/:id` | any member | store pickers / transfer destinations |
-| `C /stores` · `U /stores/:id` | `settings.manage` | plan limit `stores` (+feat `multi_store` beyond one); code `A-Z0-9` ≤ 4 (changeable only before its first number series); GSTIN prefix = state; deactivating the last active store → 409 |
+| `C /stores` · `U /stores/:id` | `settings.manage` | plan limit `stores` (+feat `multi_store` beyond one); code `A-Z0-9` ≤ 4 (changeable only before its first number series); GSTIN prefix = state; deactivating the last active store → 409; C needs access to every store (403 `all_stores_required`) |
 | `L/C /registers` · `G/U /registers/:id` | `settings.manage` | plan limit `registers`; code ≤ 2 unique per store; settings PATCH is deep-partial |
 | `L/C /devices` · `POST /devices/:id/revoke` | `settings.manage` | create returns `device_secret` once; revoke kills the device's sessions |
-| `GET/PATCH /settings` | read: any member; write: `settings.manage` | `{tenant, settings}`; PATCH is a strict deep-partial (`SettingsPatchSchema`, unknown keys → 400), audited diff |
-| `GET/PATCH /settings/business` | `settings.manage` | name, legal name, GSTIN (+state), PAN, scheme (`confirm_gst_scheme_change` when invoices exist in the FY), address, logo |
+| `GET/PATCH /settings` | read: any member; write: `settings.manage` | `{tenant, settings}`; PATCH is a strict deep-partial (`SettingsPatchSchema`, unknown keys → 400), audited diff; PATCH is business-wide (store-scoped members → 403 `all_stores_required`) |
+| `GET/PATCH /settings/business` | `settings.manage` | name, legal name, GSTIN (+state), PAN, scheme (`confirm_gst_scheme_change` when invoices exist in the FY), address, logo; PATCH needs access to every store (403 `all_stores_required`) |
 | `L /number-series?fy=&store_id=` · `C /number-series` · `U /number-series/:id` | `settings.manage` | unused series listed with `id: null` (customise them with C before the first document); next_number only increases; prefix change after documents needs `force` (audited); 16-char GST limit (`seriesFormatIssues()`) |
 | `L /audit-logs` | `audit.read` (+feat `audit_log`) | filters: user_id, action prefix, entity_type, entity_id, from/to |
-| `POST /files?purpose=` (multipart, part `file`) · `GET /files/:id` · `GET /files/:id/content` | any member | `FILE_UPLOAD_RULES` per purpose (logo/product_image ≤ 2 MB images, prescription ≤ 5 MB images/PDF, import ≤ 10 MB CSV/XLSX); tenant-scoped; content needs the bearer token (fetch as blob) |
+| `POST /files?purpose=` (multipart, part `file`) · `GET /files/:id` · `GET /files/:id/content` | upload: per purpose (`FILE_UPLOAD_PERMISSIONS`: logo `settings.manage`, product_image `catalog.write`, prescription POS/sales, import the importing modules' write permissions, attachment any member); read: any member | `FILE_UPLOAD_RULES` per purpose (logo/product_image ≤ 2 MB images, prescription ≤ 5 MB images/PDF, import ≤ 10 MB CSV/XLSX); tenant-scoped; content needs the bearer token (fetch as blob), `Cache-Control: private, max-age=31536000, immutable` + ETag (`If-None-Match` → 304), `?download=true` → attachment |
 
 ## catalog
 
 Route catalogue: `catalogRoutes` in `@kadai/shared/api/catalog`. Taxonomy rows (categories,
 brands, tax slab rules) are deleted only when unused (409 `{hint: 'deactivate'}`); products and
-promotions answer DELETE with `{id, result: 'deleted' | 'deactivated'}`.
+promotions answer DELETE with `{id, result: 'deleted' | 'deactivated'}`. A product's unit and
+pack size are fixed once it has stock movements (409 `unit_in_use` / `pack_size_in_use`); stock
+tracking, batch tracking and the service kind cannot change while it (or its variants) holds stock
+(409 `stock_on_hand`, `details.field`). Variant parents carry no barcodes (422 `product_kind`).
+Store-scoped members write only promotions limited to their own stores (403
+`all_stores_required`). `POST /products/bulk-update` honours `Idempotency-Key`.
 
 | Method & path | perm |
 |---|---|
@@ -118,6 +123,25 @@ core ledger posting; loyalty points only through `core/loyalty.ts`.
 | `L/C /suppliers` · `G/U/D /suppliers/:id` · `GET /suppliers/:id/ledger` (bank details: last 4 digits + IFSC only) | `suppliers.read` / `suppliers.write` |
 | `L/C /doctors` · `G/U/D /doctors/:id` | `customers.read` / `customers.write` |
 
+Notes (CONTRACT CHANGELOG at the top of `api/parties.ts`):
+
+- Changing an existing party's `opening_balance_paise` also needs `OPENING_BALANCE_EDIT_PERMISSION`
+  (`accounting.write`; 403 `{reason: 'opening_balance_permission'}`); the delta is posted as an
+  adjusting `opening` journal and audited. Creating a party with an opening balance needs only the
+  module's write permission.
+- `overdue_paise` (lists, detail, summary) is capped at the current due: an unallocated advance
+  offsets invoice / bill dues. A supplier bill without `due_date` is due on its invoice date +
+  `payment_terms_days`. A PATCH that changes a supplier's GSTIN without `pan` takes the PAN from it.
+- `POST /customers`, `/suppliers`, `/doctors`, `/customers/import` and
+  `/customers/:id/loyalty/adjust` replay on the same `Idempotency-Key`.
+- Statements: all stores (they always match the balance); `?format=csv` uses the request locale
+  (`x-locale`) for headings. The summary's sales figures follow the member's store access.
+- Customer import: CSV only (`import_file_type` for .xlsx), ≤ 1000 rows (`import_too_many_rows`),
+  rows with errors are skipped and listed (`CUSTOMER_IMPORT_ERROR_CODES`), every run is stored in
+  `imports` (kind `customers`).
+- Jobs: `parties.loyalty-expiry` (02:40 IST) fans out `parties.loyalty-expiry-tenant` (FIFO
+  expiry of points older than `settings.loyalty.expiry_days`).
+
 ## inventory
 
 Route catalogue: `inventoryRoutes` in `@kadai/shared/api/inventory`. Prefilled cross-module forms:
@@ -145,11 +169,12 @@ one as `salesIssueErrorCode()` with `details.reason` (e.g. 422 `RX_REQUIRED`, `E
 `CREDIT_LIMIT_EXCEEDED`, `INSUFFICIENT_STOCK`; 403 for overrides). Tenders follow
 `allocateTenders()` (non-cash first, must fit; cash = money handed over, change returned; the rest is
 due/credit). Returns are pro-rata with `prorateReturnLine()` (the final return takes the exact
-remainder). Every list takes `?format=csv`.
+remainder). Every list takes `?format=csv` (needs `data.export` or `reports.read`; audited). Costs
+(`unit_cost_paise`, `cost_paise`) are 0 for users without `reports.read`.
 
 | Method & path | perm | Notes |
 |---|---|---|
-| `GET /pos/bootstrap?register_id=&store_id=&since=` | `pos.use` (+feat `pos`) | full catalogue / delta since the cursor (products, barcodes, store prices, FEFO batches with stock, promotions, slab rules, categories, quick keys, settings, register series state, open shift, public provider fields, 200 recent customers, removed ids) |
+| `GET /pos/bootstrap?register_id=&store_id=&since=` | `pos.use` (+feat `pos`) | full catalogue / delta since the cursor (products, barcodes, store prices, FEFO batches with stock, promotions, slab rules, categories, quick keys, settings, register series state, open shift, public provider fields, 200 recent customers, removed ids — deactivations and hard deletes via `pos_tombstones`, pruned by job `sales.prune-pos-tombstones`); an unknown, foreign or > 30-day-old cursor answers a full bootstrap |
 | `POST /pos/quote` | `pos.use` or `sales.create` | priced lines (FEFO splits `key#2`…), totals, tax breakup, promotions, credit & loyalty, `issues`, `can_complete`, `requires` |
 | `POST /sales/invoices` | `sales.create` | `status: completed \| held \| draft`; POS needs `client_ref` (idempotent, also `Idempotency-Key`); plan limit `invoices_per_month`; result `{invoice, tenders, change_paise, warnings}` |
 | `L /sales/invoices` (`q`, `status`, `doc_type`, `payment_status`, `channel`, `store_id`, `register_id`, `customer_id`, `created_by`, `shift_id`, `has_due`, `offline`, `from`, `to`, `sort`) · `G /sales/invoices/:id` | `sales.read` | default excludes estimates and held/draft; list carries `summary` totals; detail has lines, payments, credit notes, journal entry, shift, customer khata, rx, audit |
@@ -160,11 +185,11 @@ remainder). Every list takes `?format=csv`.
 | `GET /sales/invoices/:id/print?format=thermal_80\|thermal_58\|a4&locale=` · `GET /sales/credit-notes/:id/print` | `sales.read` (credit notes: or `sales.return`) | `SalesPrintModel`: everything for a GST bilingual A4 / thermal document (no internal ids or costs) |
 | `POST /sales/invoices/:id/share` `{channel: whatsapp\|sms, phone?}` | `sales.read` | share link `/i/<token>` + notification `invoice_share` (+ `wa_me_url`) |
 | `GET /sales/held?store_id=&register_id=` | `pos.use` or `sales.create` | held bills / drafts |
-| `POST /sales/estimates` · `POST /sales/estimates/:id/convert` | `sales.create` | estimates are invoices with `doc_type: estimate` (list: `L /sales/invoices?doc_type=estimate`; valid until = `due_date`) |
+| `POST /sales/estimates` · `POST /sales/estimates/:id/convert` | `sales.create` | estimates are invoices with `doc_type: estimate` (list: `L /sales/invoices?doc_type=estimate`; valid until = `due_date`); convert keeps the estimate's `rx` unless one is sent |
 | `GET /sales/invoices/:id/returnable` | `sales.return` | sold / returned / returnable qty + credited amounts, `refundable_paise` |
 | `L/C /sales/credit-notes` · `G /sales/credit-notes/:id` | `sales.return` (L/G: or `sales.read`) | settlement `cash \| upi \| bank_transfer` (refund, ≤ refundable), `adjust_due`, `store_credit`; free-form returns need `store_id` and prices |
 | `POST /sales/credit-notes/:id/cancel` `{reason}` | `sales.cancel` | reverses stock, journal, settlement, loyalty |
-| `POST /pos/sync` `{register_id, invoices, credit_notes}` | `pos.use` (+feat `pos`) | invoices then credit notes, in order, one transaction each; per item `created \| duplicate \| renumbered \| failed`; returns the register series state |
+| `POST /pos/sync` `{register_id, invoices, credit_notes}` | `pos.use` (+feat `pos`) | invoices then credit notes, in order, one transaction each; per item `created \| duplicate \| renumbered \| failed`; an invoice with `held_invoice_id` (a recalled held bill billed offline) retires that held bill in its transaction (audited; already completed elsewhere → flagged `sales_invoice.held_conflict`); returns the register series state |
 | `GET /public/v1/invoices/:shareToken` | public | `{document: SalesPrintModel, pay: {upi_uri, amount_paise, …} \| null}` |
 
 ## payments & UPI
@@ -222,18 +247,21 @@ Every list, book and statement takes `?format=csv`; errors carry `details.reason
 | Method & path | perm | Notes |
 |---|---|---|
 | `GET /accounts?as_of=&store_id=&type=&money=cash\|bank&q=&include_inactive=&balances=` | `accounting.read`, `expenses.write`, `shifts.operate` or `payments.configure` | whole chart, not paginated; balances need `accounting.read` |
-| `C /accounts` · `G/U/D /accounts/:id` | `accounting.write` (C: also `expenses.write` for expense heads) | code 3–6 digits starting with the type digit (`suggestAccountCode()`), unique; parent of the same type; system accounts: name / name_ta / bank details only (422 `system_account_locked`); D = delete without journal lines, else deactivate (balance-sheet accounts need a zero balance: 409 `account_has_balance`) |
+| `C /accounts` · `G/U/D /accounts/:id` | `accounting.write` (C: also `expenses.write` for expense heads) | code 3–6 digits starting with the type digit (`suggestAccountCode()`), unique; parent of the same type; system accounts: name / name_ta / bank details only (422 `system_account_locked`); D = delete without journal lines, else deactivate (balance-sheet accounts need a zero balance: 409 `account_has_balance`; never a payment provider's settlement account: 409 `account_in_use`) |
 | `L /journal-entries` (`from`, `to`, `source_type`, `source_id`, `account_id`, `party_type`+`party_id`, `store_id`, `reversals`, `q`, `sort`) · `G /journal-entries/:id` | `accounting.read` (+feat `accounting`) | detail: lines with account / party names and the source document link (`journalSourcePath()`) |
 | `C /journal-entries` · `POST /journal-entries/:id/reverse` `{reason, entry_date?}` | `accounting.write` (+feat `accounting`) | manual JV: balanced, ≥ 2 lines, receivable / payable lines need a party, JV number, audited; reverse manual entries only (409 `not_manual`), once (409 `already_reversed`) |
 | `L/C /expenses` · `G /expenses/:id` · `POST /expenses/:id/cancel` `{reason}` | `expenses.write` (L/G: or `accounting.read`) | amount as `total_paise` (incl. GST) or `taxable_paise`; ITC; cash / bank / credit (`supplier_id` → payable); EXP number; cash paid from a counter joins its open shift; list `summary` by category and method; cancel = reversal (409 `expense_has_payments`) |
-| `POST /shifts/open` `{register_id, opening_cash_paise, denominations?}` · `GET /shifts/current?register_id=` · `L /shifts` · `G /shifts/:id` | `shifts.operate` (+feat `shifts`; current: or `pos.use`) | one open shift per register (409 `shift_already_open`); detail = live X report while open, stored Z report once closed; operate-only members see their own shifts |
+| `POST /shifts/open` `{register_id, opening_cash_paise, denominations?}` · `GET /shifts/current?register_id=` · `L /shifts` · `G /shifts/:id` | `shifts.operate` (+feat `shifts`; current: or `pos.use`) | one open shift per register (409 `shift_already_open`); a shift belongs to a user (API keys: 422 `shift_user_required`); detail = live X report while open, stored Z report once closed; operate-only members see their own shifts |
 | `POST /shifts/:id/cash-entries` `{kind, amount_paise, reason, account_id? \| counter?}` · `POST /shifts/:id/close` `{counted_cash_paise, denominations?, notes?}` | `shifts.operate` (another member's shift: `shifts.manage`) | pay-in / pay-out journal vs drawings / capital / bank / other income or an account; close: expected = opening + cash receipts − cash payments + pay-ins − pay-outs − cash expenses, the difference posts to `cash_short_excess`; no reopen (corrections by journal) |
 | `GET /books/day-book?date=&store_id=` · `GET /books/cash-book?from=&to=&account_id=` · `GET /books/ledger/:accountId?from=&to=&party_type=&party_id=` | `accounting.read` (+feat `accounting`) | paginated rows with the running balance over the whole range; opening / closing |
 | `GET /statements/trial-balance?as_of=` · `/statements/profit-loss?from=&to=&store_id=&compare_from=&compare_to=` · `/statements/balance-sheet?as_of=` | `accounting.read` (+feat `accounting`) | TB / BS tenant-wide (store-scoped members: 403 `all_stores_required`); BS equity includes this FY's profit and earlier years' profit; `balanced` checks |
 
-Cross-module: the accounting module adds the system subtype `cash_short_excess` (5250 "Cash short /
-excess", `CASH_SHORT_EXCESS_ACCOUNT`) to the shared DEFAULT_CHART and backfills existing tenants
-with a 07xx migration.
+Cross-module: the system subtype `cash_short_excess` (5250 "Cash short / excess",
+`CASH_SHORT_EXCESS_ACCOUNT`) is part of the shared DEFAULT_CHART (seeded by onboarding); migration
+`0700_accounting_cash_short_excess.sql` backfilled older tenants (first free code when 5250 was
+taken). Manual journals carry `source_type: 'manual'` with a voucher id as `source_id`; their
+source link (and their reversal's) is `/accounting/journal?id=<original JV entry id>`. Shift cash
+entries and the close difference post with `source_type: 'shift'`, `source_id` = the shift id.
 
 ## reports & GST
 
@@ -278,6 +306,18 @@ channels × ta/en) + tenant overrides; providers implement `NotificationProvider
 
 Jobs: `notifications.send`, `notifications.sweep` (every minute), `notifications.due-reminders`
 (10:00 IST, `shouldSendDueReminder()`), `notifications.daily-summary` (21:30 IST).
+
+Errors and outcomes: remind 422 `details.reason` `no_due` / `no_phone` / `whatsapp_opt_out` /
+`channel_not_configured` / `amount_exceeds_due`; webhooks 401 `invalid_signature`. Cancelled /
+failed messages carry `error = '<NotificationErrorCode>: <detail>'` (`NOTIFICATION_ERROR_CODES`,
+labels `NOTIFICATION_ERROR_LABELS`, parse with `notificationErrorCode()`), e.g.
+`tenant_inactive`, `feature_not_in_plan`, `disabled_in_settings`, `whatsapp_opt_out`,
+`invalid_recipient`, `stuck`. Due reminders and the daily summary track themselves through
+`ref_type` / `ref_id` (`customer` / `tenant`). Providers per channel come from `SMS_PROVIDER`,
+`WHATSAPP_PROVIDER`, `EMAIL_PROVIDER` (DEPLOYMENT.md §12). The `email_webhook` provider POSTs
+`EmailWebhookPayloadSchema` JSON to `EMAIL_WEBHOOK_URL` with `Idempotency-Key` and
+`X-Kadai-Signature: sha256=<HMAC-SHA256(raw body, EMAIL_WEBHOOK_SECRET)>`; any 2xx is success,
+408/425/429/5xx are retried.
 
 ## platform, billing & system (cloud billing, api-keys, system info)
 

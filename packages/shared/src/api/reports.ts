@@ -1,3 +1,15 @@
+// CONTRACT CHANGELOG (reports backend; one line per change, newest last)
+// - REPORTS_ERROR_REASONS: + 'all_stores_required' (403) — GST returns / GSTR-1 export cover
+//   every store of the registration, so a store-restricted member is refused instead of being
+//   shown partial filing figures.
+// - REPORTS_ERROR_REASON_STATUS: added (reason → HTTP status) for the web's error messages.
+// - (reports frontend) REPORTS labels of `max_margin_bp` / `min_discount_bp` say "(%)" instead
+//   of "(bp)": the viewer takes these number filters as percentages (12.5 → 1250); the query
+//   value is still basis points (no schema change).
+// - (reports backend) GST_WARNING_CODES comment: 'invalid_customer_gstin' also covers a
+//   registered customer billed without the GSTIN (details { gstin: null, customer_gstin }).
+//   Comment only, no schema change.
+
 /**
  * Contract for the reports module — docs/API.md "reports & GST": owner dashboard, sales / stock /
  * party reports, GST returns (GSTR-1 with the GST offline-tool JSON, GSTR-3B, HSN summary,
@@ -79,8 +91,25 @@ export const REPORTS_VALIDATION_KEYS = [
 ] as const
 export type ReportsValidationKey = (typeof REPORTS_VALIDATION_KEYS)[number]
 
-/** `details.reason` of 4xx errors: gst_not_registered (422), gstin_not_found (404). */
-export const REPORTS_ERROR_REASONS = ['gst_not_registered', 'gstin_not_found'] as const
+/**
+ * `details.reason` of 4xx errors: gst_not_registered (422: GSTR-1 export for a composition /
+ * unregistered business or without a GSTIN), gstin_not_found (404: `gstin=` is not one of the
+ * business's registrations), all_stores_required (403: GST returns of a registration need access
+ * to all of its stores).
+ */
+export const REPORTS_ERROR_REASONS = [
+  'gst_not_registered',
+  'gstin_not_found',
+  'all_stores_required',
+] as const
+export type ReportsErrorReason = (typeof REPORTS_ERROR_REASONS)[number]
+
+/** HTTP status of each reason. */
+export const REPORTS_ERROR_REASON_STATUS: Readonly<Record<ReportsErrorReason, 403 | 404 | 422>> = {
+  gst_not_registered: 422,
+  gstin_not_found: 404,
+  all_stores_required: 403,
+}
 
 /** Longest from–to range of detailed reports (a leap year). */
 export const REPORT_MAX_RANGE_DAYS = 366
@@ -1320,7 +1349,9 @@ export const GSTR1_SECTION_LABELS: Readonly<Record<Gstr1Section, BilingualLabel>
 }
 
 export const GST_WARNING_CODES = [
-  'invalid_customer_gstin', // B2B invoice / note whose GSTIN fails validation → reported as B2C
+  // B2B invoice / note whose GSTIN fails validation, or a registered customer (GSTIN on file)
+  // billed without one (details.gstin null, details.customer_gstin) → reported as B2C
+  'invalid_customer_gstin',
   'missing_hsn',
   'invalid_hsn',
   'hsn_too_short', // fewer digits than required for the turnover (min 4)
@@ -3272,7 +3303,7 @@ export const REPORTS: readonly ReportDef[] = [
       {
         key: 'max_margin_bp',
         kind: 'number',
-        label: L('Margin at most (bp)', 'அதிகபட்ச இலாப விகிதம் (bp)'),
+        label: L('Margin at most (%)', 'அதிகபட்ச இலாப விகிதம் (%)'),
         min: -1_000_000,
         max: 10_000,
       },
@@ -3981,7 +4012,7 @@ export const REPORTS: readonly ReportDef[] = [
       {
         key: 'min_discount_bp',
         kind: 'number',
-        label: L('Discount at least (bp)', 'குறைந்தபட்ச தள்ளுபடி (bp)'),
+        label: L('Discount at least (%)', 'குறைந்தபட்ச தள்ளுபடி (%)'),
         min: 0,
         max: 10_000,
       },

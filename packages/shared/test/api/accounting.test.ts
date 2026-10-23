@@ -6,6 +6,7 @@ import {
   AccountCreateSchema,
   AccountDetailSchema,
   AccountLedgerResponseSchema,
+  AccountSubtypeSchema,
   AccountUpdateSchema,
   BalanceSheetQuerySchema,
   BalanceSheetSchema,
@@ -92,9 +93,10 @@ describe('chart of accounts helpers', () => {
     expect(ACCOUNT_CODE_PREFIX.liability).toBe('2')
   })
 
-  it('the cash short / excess preset fits the expense range and is unused', () => {
+  it('the cash short / excess account is a system account of the default chart', () => {
     expect(accountCodeMatchesType(CASH_SHORT_EXCESS_ACCOUNT.code, 'expense')).toBe(true)
-    expect(DEFAULT_CHART.some((a) => a.code === CASH_SHORT_EXCESS_ACCOUNT.code)).toBe(false)
+    expect(DEFAULT_CHART).toContainEqual(CASH_SHORT_EXCESS_ACCOUNT)
+    expect(AccountSubtypeSchema.parse('cash_short_excess')).toBe('cash_short_excess')
   })
 
   it('suggests the next free code under a parent or in the type range', () => {

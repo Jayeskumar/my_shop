@@ -43,6 +43,14 @@ export interface Accounts {
   updated_at: Generated<Timestamp>;
 }
 
+export interface AnnouncementDismissals {
+  banner_id: string;
+  dismissed_at: Generated<Timestamp>;
+  dismissed_by: string | null;
+  source: string;
+  tenant_id: string;
+}
+
 export interface Announcements {
   audience: Generated<Json>;
   body_en: string;
@@ -150,6 +158,13 @@ export interface Brands {
   updated_at: Generated<Timestamp>;
 }
 
+export interface CatalogSequences {
+  last_value: Generated<Int8>;
+  name: string;
+  tenant_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface Categories {
   created_at: Generated<Timestamp>;
   gst_rate_bp: number | null;
@@ -189,7 +204,9 @@ export interface CreditNoteLines {
   igst_paise: Generated<Int8>;
   invoice_line_id: string | null;
   line_no: number;
+  meta: Generated<Json>;
   name: string;
+  name_ta: string | null;
   pack_size: Generated<number>;
   product_id: string | null;
   qty_milli: Int8;
@@ -223,9 +240,13 @@ export interface CreditNotes {
   igst_paise: Generated<Int8>;
   invoice_id: string | null;
   is_interstate: Generated<boolean>;
+  loyalty_points_restored: Generated<Int8>;
+  loyalty_points_reversed: Generated<Int8>;
+  meta: Generated<Json>;
   note_date: string;
   notes: string | null;
   number: string;
+  offline_created_at: Timestamp | null;
   place_of_supply: string;
   reason: string;
   register_id: string | null;
@@ -430,14 +451,18 @@ export interface Imports {
   created_by: string | null;
   error_rows: Generated<number>;
   errors: Generated<Json>;
+  errors_truncated: Generated<boolean>;
   file_id: string | null;
   finished_at: Timestamp | null;
   id: Generated<string>;
   kind: string;
   options: Generated<Json>;
+  preview: Generated<Json>;
+  processed_rows: Generated<number>;
   status: Generated<string>;
   store_id: string | null;
   success_rows: Generated<number>;
+  summary: Generated<Json>;
   tenant_id: string;
   total_rows: Generated<number>;
   updated_at: Generated<Timestamp>;
@@ -501,6 +526,7 @@ export interface LicenseActivations {
   machine_name: string | null;
   method: Generated<string>;
   os: string | null;
+  stale_flagged_at: Timestamp | null;
   status: Generated<string>;
   updated_at: Generated<Timestamp>;
 }
@@ -539,8 +565,20 @@ export interface LicenseProducts {
   updated_at: Generated<Timestamp>;
 }
 
+export interface LicenseReminders {
+  channels: Generated<string[]>;
+  due_on: string;
+  kind: string;
+  license_id: string;
+  offset_days: number;
+  order_id: string | null;
+  partner_notified: Generated<boolean>;
+  sent_at: Generated<Timestamp>;
+}
+
 export interface Licenses {
   addons: Generated<Json>;
+  check_in_days: Generated<number>;
   created_at: Generated<Timestamp>;
   customer_id: string;
   features: string[] | null;
@@ -563,6 +601,12 @@ export interface Licenses {
   updates_until: string | null;
   valid_from: string;
   valid_until: string | null;
+}
+
+export interface LicensingRequestNonces {
+  created_at: Generated<Timestamp>;
+  installation_id: string;
+  signature_sha256: string;
 }
 
 export interface LoyaltyLedger {
@@ -739,6 +783,7 @@ export interface PaymentAllocations {
 
 export interface PaymentIntents {
   amount_paise: Int8;
+  close_attempts: Generated<number>;
   confirmation: string | null;
   confirmed_by: string | null;
   created_at: Generated<Timestamp>;
@@ -750,6 +795,7 @@ export interface PaymentIntents {
   fee_paise: Int8 | null;
   id: Generated<string>;
   idempotency_key: string | null;
+  image_url: string | null;
   kind: Generated<string>;
   last_polled_at: Timestamp | null;
   metadata: Generated<Json>;
@@ -761,6 +807,7 @@ export interface PaymentIntents {
   poll_count: Generated<number>;
   provider: string;
   provider_account_id: string;
+  provider_closed_at: Timestamp | null;
   provider_payment_id: string | null;
   provider_ref: string | null;
   purpose: string;
@@ -778,6 +825,7 @@ export interface PaymentIntents {
 }
 
 export interface PaymentProviderAccounts {
+  config: Generated<Json>;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   credentials_encrypted: string | null;
@@ -869,6 +917,30 @@ export interface PlatformAuditLogs {
   tenant_id: string | null;
 }
 
+export interface PlatformCheckouts {
+  auto_renew: Generated<boolean>;
+  billing_cycle: string;
+  completed_at: Timestamp | null;
+  coupon_code: string | null;
+  covers_months: number | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  expires_at: Timestamp | null;
+  first_charge_on: string | null;
+  id: Generated<string>;
+  mode: string;
+  order_id: string | null;
+  plan_code: string;
+  provider_ref: string;
+  redemptions: Generated<Json>;
+  short_url: string;
+  start_at: Timestamp | null;
+  status: Generated<string>;
+  tenant_id: string;
+  total_paise: Int8;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface PlatformInvoices {
   cgst_paise: Generated<Int8>;
   created_at: Generated<Timestamp>;
@@ -890,6 +962,26 @@ export interface PlatformInvoices {
   updated_at: Generated<Timestamp>;
 }
 
+export interface PlatformPlanPeriods {
+  billing_cycle: string;
+  created_at: Generated<Timestamp>;
+  order_id: string;
+  period_end: Timestamp;
+  period_start: Timestamp;
+  plan_code: string;
+  subscription_id: string | null;
+  tenant_id: string;
+}
+
+export interface PlatformRenewalReminders {
+  days_before: number;
+  notifications: Generated<number>;
+  period_end: Timestamp;
+  sent_at: Generated<Timestamp>;
+  subscription_id: string;
+  tenant_id: string;
+}
+
 export interface PlatformStaff {
   created_at: Generated<Timestamp>;
   created_by: string | null;
@@ -898,6 +990,14 @@ export interface PlatformStaff {
   role: string;
   updated_at: Generated<Timestamp>;
   user_id: string;
+}
+
+export interface PosTombstones {
+  deleted_at: Generated<Timestamp>;
+  id: Generated<Int8>;
+  kind: string;
+  ref: string;
+  tenant_id: string;
 }
 
 export interface ProductBarcodes {
@@ -941,6 +1041,7 @@ export interface Products {
   sale_price_paise: Generated<Int8>;
   scale_plu: string | null;
   search_text: Generated<string>;
+  shelf_life_days: number | null;
   sku: string | null;
   tax_slab_rule_id: string | null;
   tenant_id: string;
@@ -1122,6 +1223,28 @@ export interface RegisterShifts {
   updated_at: Generated<Timestamp>;
 }
 
+export interface RelayMessages {
+  activation_id: string;
+  attempts: Generated<number>;
+  channel: string;
+  client_ref: string;
+  created_at: Generated<Timestamp>;
+  error: string | null;
+  error_kind: string | null;
+  id: Generated<string>;
+  license_id: string;
+  locale: string;
+  metered: Generated<boolean>;
+  period: string;
+  provider: string | null;
+  provider_message_id: string | null;
+  recipient: string;
+  sent_at: Timestamp | null;
+  status: Generated<string>;
+  template_code: string;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface Releases {
   artifacts: Generated<Json>;
   channel: Generated<string>;
@@ -1221,6 +1344,7 @@ export interface SalesInvoices {
   loyalty_points_earned: Generated<Int8>;
   loyalty_points_redeemed: Generated<Int8>;
   loyalty_redeem_paise: Generated<Int8>;
+  meta: Generated<Json>;
   notes: string | null;
   number: string | null;
   offline_created_at: Timestamp | null;
@@ -1274,11 +1398,15 @@ export interface StockAdjustmentLines {
   reason: string | null;
   system_qty_milli: Int8 | null;
   tenant_id: string;
+  unit_cost_given: Generated<boolean>;
   unit_cost_paise: Generated<Int8>;
 }
 
 export interface StockAdjustments {
   adjustment_date: string;
+  cancel_reason: string | null;
+  cancelled_at: Timestamp | null;
+  cancelled_by: string | null;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   fy: string | null;
@@ -1332,12 +1460,16 @@ export interface StockTransferLines {
   product_id: string;
   qty_milli: Int8;
   received_qty_milli: Int8 | null;
+  shortfall_value_paise: Generated<Int8>;
   tenant_id: string;
   transfer_id: string;
   unit_cost_paise: Generated<Int8>;
 }
 
 export interface StockTransfers {
+  cancel_reason: string | null;
+  cancelled_at: Timestamp | null;
+  cancelled_by: string | null;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   dispatched_at: Timestamp | null;
@@ -1349,6 +1481,8 @@ export interface StockTransfers {
   number: string | null;
   received_at: Timestamp | null;
   received_by: string | null;
+  received_date: string | null;
+  shortfall_reason: string | null;
   status: Generated<string>;
   tenant_id: string;
   to_store_id: string;
@@ -1387,11 +1521,16 @@ export interface Stores {
 export interface Subscriptions {
   billing_cycle: Generated<string>;
   cancel_at_period_end: Generated<boolean>;
+  cancel_feedback: string | null;
+  cancel_reason: string | null;
+  cancel_requested_at: Timestamp | null;
   created_at: Generated<Timestamp>;
   current_period_end: Timestamp;
   current_period_start: Timestamp;
+  ended_at: Timestamp | null;
   id: Generated<string>;
   limit_overrides: Generated<Json>;
+  past_due_since: Timestamp | null;
   plan_code: string;
   provider: string | null;
   provider_customer_id: string | null;
@@ -1415,6 +1554,7 @@ export interface Suppliers {
   gstin: string | null;
   id: Generated<string>;
   is_active: Generated<boolean>;
+  lead_time_days: number | null;
   name: string;
   notes: string | null;
   opening_balance_paise: Generated<Int8>;
@@ -1518,8 +1658,23 @@ export interface VendorCustomers {
   updated_at: Generated<Timestamp>;
 }
 
+export interface VendorIdempotencyKeys {
+  created_at: Generated<Timestamp>;
+  expires_at: Generated<Timestamp>;
+  key: string;
+  method: string;
+  path: string;
+  request_hash: string;
+  response_body: Json | null;
+  response_status: number | null;
+  status: Generated<string>;
+  user_id: string;
+}
+
 export interface VendorOrders {
   buyer_gstin: string | null;
+  cancel_reason: string | null;
+  cancelled_at: Timestamp | null;
   cgst_paise: Generated<Int8>;
   coupon_code: string | null;
   created_at: Generated<Timestamp>;
@@ -1527,19 +1682,27 @@ export interface VendorOrders {
   customer_id: string | null;
   discount_paise: Generated<Int8>;
   fulfilled_at: Timestamp | null;
+  fulfilment: Json | null;
   id: Generated<string>;
   igst_paise: Generated<Int8>;
+  invoice_date: string | null;
   kind: string;
   license_id: string | null;
   lines: Json;
   notes: string | null;
   number: string | null;
   offer_ids: Generated<string[]>;
+  paid_amount_paise: Int8 | null;
   paid_at: Timestamp | null;
   partner_id: string | null;
+  payment_link_expires_at: Timestamp | null;
   payment_provider: string | null;
   payment_ref: string | null;
   place_of_supply: string;
+  quote: Json | null;
+  refund_reason: string | null;
+  refund_ref: string | null;
+  refunded_at: Timestamp | null;
   sgst_paise: Generated<Int8>;
   short_url: string | null;
   status: Generated<string>;
@@ -1552,6 +1715,7 @@ export interface VendorOrders {
 
 export interface DB {
   accounts: Accounts;
+  announcement_dismissals: AnnouncementDismissals;
   announcements: Announcements;
   api_keys: ApiKeys;
   audit_logs: AuditLogs;
@@ -1559,6 +1723,7 @@ export interface DB {
   backups: Backups;
   batches: Batches;
   brands: Brands;
+  catalog_sequences: CatalogSequences;
   categories: Categories;
   cloud_backups: CloudBackups;
   credit_note_lines: CreditNoteLines;
@@ -1579,7 +1744,9 @@ export interface DB {
   license_activations: LicenseActivations;
   license_events: LicenseEvents;
   license_products: LicenseProducts;
+  license_reminders: LicenseReminders;
   licenses: Licenses;
+  licensing_request_nonces: LicensingRequestNonces;
   loyalty_ledger: LoyaltyLedger;
   memberships: Memberships;
   notification_templates: NotificationTemplates;
@@ -1597,8 +1764,12 @@ export interface DB {
   payments: Payments;
   plans: Plans;
   platform_audit_logs: PlatformAuditLogs;
+  platform_checkouts: PlatformCheckouts;
   platform_invoices: PlatformInvoices;
+  platform_plan_periods: PlatformPlanPeriods;
+  platform_renewal_reminders: PlatformRenewalReminders;
   platform_staff: PlatformStaff;
+  pos_tombstones: PosTombstones;
   product_barcodes: ProductBarcodes;
   products: Products;
   promotions: Promotions;
@@ -1608,6 +1779,7 @@ export interface DB {
   purchase_orders: PurchaseOrders;
   register_shifts: RegisterShifts;
   registers: Registers;
+  relay_messages: RelayMessages;
   releases: Releases;
   roles: Roles;
   sales_invoice_lines: SalesInvoiceLines;
@@ -1630,5 +1802,6 @@ export interface DB {
   usage_counters: UsageCounters;
   users: Users;
   vendor_customers: VendorCustomers;
+  vendor_idempotency_keys: VendorIdempotencyKeys;
   vendor_orders: VendorOrders;
 }

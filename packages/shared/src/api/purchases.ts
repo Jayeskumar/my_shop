@@ -14,7 +14,7 @@
 // - (review) PurchaseBillListResponse.summary total / paid leave cancelled bills out unless status=cancelled is filtered.
 // - (review) DebitNoteDetailSchema += supplier_amount_paise (total, or total − tax against a reverse-charge bill): the amount adjusted / refunded; the web shows the advance from it.
 // - (review) Posting with update_prices: false no longer sets the selling price of a NEW batch (its printed MRP is still recorded).
-// - StockSense: reorder suggestions gain a forecast (7- or 30-day average, optional weekday adjustment), lead time, shelf-life cap, priority and explanation. Pass lead_time_days to turn the forecast on; without it the previous reorder quantity is unchanged. POST /purchases/sales-history imports product,date,qty and does not post stock.
+// - StockSense: GET /purchases/stocksense (forecast + ranked reorder plan + slow / expiring stock), GET /purchases/stocksense/products/:productId (daily history, forecast, batches), PUT /purchases/stocksense/settings (supplier lead time, product shelf life; migration 0602), POST /purchases/sales-history (CSV of past sales; does not post stock). Maths in ../stocksense.ts.
 /**
  * Contract for the purchases module — docs/API.md "purchases"; ARCHITECTURE.md §9 (purchase
  * maths in pricing.ts), §10 (posting rules).
@@ -52,6 +52,14 @@ import {
 } from '../enums'
 import { mulDiv, roundDiv } from '../math'
 import { milliToDecimalString } from '../units'
+import { FORECAST_METHODS } from '../forecast'
+import {
+  STOCKSENSE_CONFIDENCE,
+  STOCKSENSE_PRIORITIES,
+  STOCKSENSE_REASONS,
+  STOCKSENSE_TRENDS,
+  STOCKSENSE_WINDOWS,
+} from '../stocksense'
 import {
   type PurchaseDocumentResult,
   type PurchaseLineBase,
@@ -1193,10 +1201,10 @@ export const DebitNotePrefillSchema = z.object({
 export type DebitNotePrefill = z.output<typeof DebitNotePrefillSchema>
 
 // =============================================================================================
-// Reorder suggestions (StockSense)
+// Reorder suggestions
 // =============================================================================================
 
-/** Days of supplier lead time used when the plan does not say. Suppliers have no lead-time column. */
+/** Days of supplier lead time used when the plan does not say. */
 export const STOCKSENSE_DEFAULT_LEAD_TIME_DAYS = 7
 
 export const REORDER_PRIORITIES = ['urgent', 'high', 'normal', 'low'] as const
@@ -1302,6 +1310,8 @@ export interface StockSensePlanInput {
   daily_milli: number
   /** Demand over the lead time (forecastDemandMilli). Ignored without history. */
   demand_milli: number
+  /** Buffer for forecast error (smart forecast), added to the need. Default 0. */
+  safety_stock_milli?: number
   lead_time_days: number
   /** Null: do not cap the order by shelf life. */
   shelf_life_days: number | null
@@ -1372,7 +1382,8 @@ export function planStockSense(input: StockSensePlanInput): StockSensePlan {
     suggested = roundUpToPack(Math.max(0, classic - incoming), input.pack_size)
     reason = 'no_history'
   } else {
-    let need = Math.max(0, input.demand_milli - durable - incoming)
+    const safety = Math.max(0, input.safety_stock_milli ?? 0)
+    let need = Math.max(0, input.demand_milli + safety - durable - incoming)
     if (input.shelf_life_days != null) {
       const cap = input.shelf_life_days <= 0 ? 0 : daily * input.shelf_life_days
       if (need > cap) {
@@ -1390,7 +1401,7 @@ export function planStockSense(input: StockSensePlanInput): StockSensePlan {
     const shortAtDelivery = input.demand_milli > durable + incoming
     reason = capped
       ? 'shelf_life'
-      : !shortAtDelivery || suggested === 0
+      : suggested === 0 || (!shortAtDelivery && safety === 0)
         ? 'covered'
         : days != null && days < lead
           ? 'stockout'
@@ -1420,6 +1431,10 @@ export function planStockSense(input: StockSensePlanInput): StockSensePlan {
   }
 }
 
+function daysLabel(n: number): string {
+  return n === 1 ? '1 day' : `${String(n)} days`
+}
+
 /** Short English explanation. The web translates `reason` instead of this string. */
 export function explainReorder(input: {
   reason: ReorderReason
@@ -1438,15 +1453,15 @@ export function explainReorder(input: {
     case 'classic':
       return 'Quantity from the reorder level and reorder quantity.'
     case 'no_history':
-      return `No sales in the last ${input.window_days} days. Using the reorder level and reorder quantity, minus open orders. Order ${qty}.`
+      return `No sales in the last ${daysLabel(input.window_days)}. Using the reorder level and reorder quantity, minus open orders. Order ${qty}.`
     case 'stockout':
-      return `Likely to run out ${input.urgency_days} days before the ${input.lead_time_days}-day delivery. About ${daily} a day, ${stock} on hand. Order ${qty}.`
+      return `Likely to run out ${daysLabel(input.urgency_days)} before the ${input.lead_time_days}-day delivery. About ${daily} a day, ${stock} on hand. Order ${qty}.`
     case 'shelf_life':
-      return `Capped at ${qty} so it can sell within ${input.shelf_life_days ?? 0} days of shelf life (about ${daily} a day).`
+      return `Capped at ${qty} so it can sell within ${daysLabel(input.shelf_life_days ?? 0)} of shelf life (about ${daily} a day).`
     case 'covered':
-      return `About ${daily} a day is covered by ${stock} on hand and open orders for the ${input.lead_time_days} days until delivery.`
+      return `About ${daily} a day is covered by ${stock} on hand and open orders for the ${daysLabel(input.lead_time_days)} until delivery.`
     case 'cover':
-      return `Order ${qty} to cover ${input.lead_time_days} days at about ${daily} a day, after stock on hand and open orders.`
+      return `Order ${qty} to cover ${daysLabel(input.lead_time_days)} at about ${daily} a day, after stock on hand and open orders.`
   }
 }
 
@@ -1498,6 +1513,12 @@ export const ReorderSuggestionsQuerySchema = z.object({
   weekday_adjust: zBooleanQuery.optional(),
   /** Shelf life used when the product has no shelf_life_days attribute. */
   shelf_life_days: z.coerce.number().int().min(0).max(3650).optional(),
+  /**
+   * StockSense demand model: 'smart' (default) backtests Holt-Winters, Croston-SBA and the
+   * weekday average per product over 90 days and adds safety stock; 'average' is the
+   * window_days moving average.
+   */
+  model: z.enum(['smart', 'average']).optional(),
 })
 export type ReorderSuggestionsQuery = z.input<typeof ReorderSuggestionsQuerySchema>
 
@@ -1512,16 +1533,13 @@ export const ReorderItemSchema = z.object({
   current_stock_milli: z.int(),
   reorder_level_milli: zMilli0,
   reorder_qty_milli: zMilli0.nullable(),
-  /** Moving average (weekday-adjusted when the plan asked for it). */
+  /** Over the last REORDER_SALES_WINDOW_DAYS days (averageDailySalesMilli). */
   avg_daily_sales_milli: zMilli0,
   /** Demand over the lead time. 0 when StockSense is off or there is no history. */
   forecast_demand_milli: zMilli0.default(0),
-  /** current usable stock ÷ average daily sales (null when nothing sold). */
+  /** current stock ÷ average daily sales (null when nothing sold). */
   days_of_cover: z.int().nullable(),
-  /**
-   * StockSense quantity when lead_time_days was set (planStockSense); otherwise
-   * suggestedReorderQtyMilli.
-   */
+  /** suggestedReorderQtyMilli. */
   suggested_qty_milli: zMilli0,
   /** On-hand that is not already expired. Equals current stock when StockSense is off. */
   usable_stock_milli: z.int().min(0).default(0),
@@ -1540,6 +1558,14 @@ export const ReorderItemSchema = z.object({
   reason: ReorderReasonSchema.default('classic'),
   /** English explanation. The web translates `reason`. */
   explanation: z.string().default(''),
+  /** Smart forecast: model chosen by backtest (null for the moving average). */
+  forecast_method: z.enum(FORECAST_METHODS).nullable().default(null),
+  /** Smart forecast: 1 − WAPE of the chosen model on the holdout, basis points. */
+  forecast_accuracy_bp: z.int().min(0).max(10_000).nullable().default(null),
+  /** Days of the backtest holdout (0 = not enough history to score). */
+  forecast_holdout_days: z.int().min(0).default(0),
+  /** Smart forecast: safety stock added to the order (z × σ × √lead time). */
+  safety_stock_milli: zMilli0.default(0),
   /** Still pending on sent / partially received purchase orders (informational). */
   open_po_qty_milli: zMilli0,
   last_cost_paise: zPaise.nullable(),
@@ -1565,6 +1591,8 @@ export const ReorderSuggestionsSchema = z.object({
   forecast: z.boolean().default(false),
   lead_time_days: z.int().min(1).max(365).default(STOCKSENSE_DEFAULT_LEAD_TIME_DAYS),
   weekday_adjusted: z.boolean().default(false),
+  /** Demand model of a StockSense plan. */
+  model: z.enum(['smart', 'average']).default('average'),
   /** Planning assumptions (lead time is not stored on the supplier, and so on). */
   assumptions: z.array(z.string()).default([]),
   /** Grouped by the supplier of the latest posted bill line (null = never purchased). */
@@ -1577,6 +1605,264 @@ export const ReorderSuggestionsSchema = z.object({
   ),
 })
 export type ReorderSuggestions = z.output<typeof ReorderSuggestionsSchema>
+
+// =============================================================================================
+// StockSense — demand forecast, ranked reorder plan, slow and expiring stock (../stocksense.ts)
+// =============================================================================================
+
+export const StockSensePrioritySchema = z.enum(STOCKSENSE_PRIORITIES)
+export const StockSenseReasonSchema = z.enum(STOCKSENSE_REASONS)
+
+const zWindowDays = z.coerce
+  .number()
+  .int()
+  .refine((v) => (STOCKSENSE_WINDOWS as readonly number[]).includes(v), {
+    message: 'Expected 7, 14, 30, 60 or 90',
+  })
+
+export const StockSenseQuerySchema = z.object({
+  store_id: zId,
+  /** Lead time for suppliers without their own (and products never bought). Default 3. */
+  lead_time_days: z.coerce.number().int().min(1).max(180).optional(),
+  /** Days between two orders (the order has to last until the next one). Default 7. */
+  cycle_days: z.coerce.number().int().min(1).max(90).optional(),
+  /** Extra days of demand kept as a buffer. Default 2. */
+  safety_days: z.coerce.number().int().min(0).max(60).optional(),
+  /** Moving-average window: 7, 14, 30, 60 or 90 days. Default 30. */
+  window_days: zWindowDays.optional(),
+  /** Weekday pattern (needs ≥ 14 days of data). Default true. */
+  weekday_adjust: zBooleanQuery.optional(),
+  supplier_id: zId.optional(),
+  category_id: zId.optional(),
+  q: zSearchQuery.optional(),
+})
+export type StockSenseQuery = z.input<typeof StockSenseQuerySchema>
+
+export const StockSenseParamsSchema = z.object({
+  lead_time_days: z.int().min(1),
+  cycle_days: z.int().min(1),
+  safety_days: z.int().min(0),
+  window_days: z.int().min(1),
+  weekday_adjust: z.boolean(),
+  slow_cover_days: z.int().min(1),
+})
+export type StockSenseParams = z.output<typeof StockSenseParamsSchema>
+
+export const StockSenseItemSchema = z.object({
+  product_id: zId,
+  name: z.string(),
+  name_ta: z.string().nullable(),
+  sku: z.string().nullable(),
+  unit: z.string(),
+  pack_size: z.int().min(1),
+  category_id: zId.nullable(),
+  /** Supplier of the latest posted bill (null = never bought). */
+  supplier: z
+    .object({
+      id: zId,
+      name: z.string(),
+      phone: z.string().nullable(),
+      /** The supplier's own lead time; null = the plan default is used. */
+      lead_time_days: z.int().nullable(),
+    })
+    .nullable(),
+  /** Lead time used for this item. */
+  lead_time_days: z.int().min(1),
+  /** Product shelf life in days (null = order not capped by shelf life). */
+  shelf_life_days: z.int().min(0).nullable(),
+  /** On hand, all batches. */
+  stock_milli: z.int(),
+  /** Not expired today. */
+  usable_milli: z.int().min(0),
+  /** Usable and still in date on delivery. */
+  durable_milli: z.int().min(0),
+  expired_milli: z.int().min(0),
+  /** Pending on sent / partially received purchase orders. */
+  incoming_milli: zMilli0,
+  daily_milli: zMilli0,
+  /** Last 7 days' average. */
+  recent_daily_milli: zMilli0,
+  trend: z.enum(STOCKSENSE_TRENDS),
+  confidence: z.enum(STOCKSENSE_CONFIDENCE),
+  has_history: z.boolean(),
+  observed_days: z.int().min(0),
+  weekday_adjusted: z.boolean(),
+  /** Forecast demand until the delivery. */
+  lead_demand_milli: zMilli0,
+  /** Forecast demand until the following delivery (lead time + order cycle). */
+  horizon_demand_milli: zMilli0,
+  safety_milli: zMilli0,
+  /** Days the stock on hand lasts (null = nothing sells). */
+  cover_days: z.int().min(0).nullable(),
+  /** Date the stock on hand is expected to run out (null = not within 999 days / no sales). */
+  stockout_date: zDateStr.nullable(),
+  short_before_delivery_milli: zMilli0,
+  /** Recommended purchase quantity (whole packs). */
+  order_qty_milli: zMilli0,
+  uncapped_qty_milli: zMilli0,
+  capped_by_shelf_life: z.boolean(),
+  priority: StockSensePrioritySchema,
+  reason: StockSenseReasonSchema,
+  /** 1 = most important. */
+  rank: z.int().min(1),
+  /** Per pack excl. tax: last bill rate, else the product purchase price. */
+  unit_cost_paise: zPaise,
+  /** Net selling price − cost per pack (null without a selling price). */
+  unit_margin_paise: z.int().nullable(),
+  /** Margin over the net selling price, basis points. */
+  margin_bp: z.int().nullable(),
+  order_cost_paise: zPaise,
+  profit_per_day_paise: z.int().nullable(),
+  lost_profit_paise: zPaise,
+  /** Stock beyond slow_cover_days of sales. */
+  excess_milli: zMilli0,
+  excess_value_paise: zPaise,
+  /** Stock expected to expire before it sells (FEFO at the forecast), and its cost value. */
+  expiry_risk_milli: zMilli0,
+  expiry_risk_value_paise: zPaise,
+  stock_value_paise: zPaise,
+  reorder_level_milli: zMilli0.nullable(),
+  reorder_qty_milli: zMilli0.nullable(),
+  gst_rate_bp: z.int().min(0),
+  last_bill_date: zDateStr.nullable(),
+})
+export type StockSenseItem = z.output<typeof StockSenseItemSchema>
+
+export const StockSenseExpiryBatchSchema = z.object({
+  product_id: zId,
+  batch_id: zId,
+  batch_no: z.string(),
+  expiry_date: zDateStr,
+  /** Negative = already expired. */
+  days_left: z.int(),
+  qty_milli: zMilli0,
+  at_risk_milli: zMilli0,
+  at_risk_value_paise: zPaise,
+  supplier_id: zId.nullable(),
+})
+export type StockSenseExpiryBatch = z.output<typeof StockSenseExpiryBatchSchema>
+
+export const StockSenseReportSchema = z.object({
+  store_id: zId,
+  generated_at: zTimestamp,
+  today: zDateStr,
+  params: StockSenseParamsSchema,
+  /** Complete days the forecast reads (inclusive). */
+  history_from: zDateStr,
+  history_to: zDateStr,
+  /** Days in the window with imported (CSV) sales for this store. */
+  imported_days: z.int().min(0),
+  summary: z.object({
+    products: z.int().min(0),
+    urgent: z.int().min(0),
+    high: z.int().min(0),
+    normal: z.int().min(0),
+    order_lines: z.int().min(0),
+    order_cost_paise: zPaise,
+    lost_profit_paise: zPaise,
+    stock_value_paise: zPaise,
+    excess_value_paise: zPaise,
+    slow_items: z.int().min(0),
+    expiry_risk_value_paise: zPaise,
+    expiry_items: z.int().min(0),
+    no_history: z.int().min(0),
+    /** Products by days of stock left: 0, 1–3, 4–7, 8–30, 31–90, 90+, no sales. */
+    cover_buckets: z.array(z.object({ bucket: z.string(), count: z.int().min(0) })),
+  }),
+  /** Every analysed product, most important first. */
+  items: z.array(StockSenseItemSchema),
+  /** Batches with stock expected to expire unsold, largest value first (max 200). */
+  expiry_batches: z.array(StockSenseExpiryBatchSchema),
+  /** More products than one report holds (filter by supplier / category / search). */
+  truncated: z.boolean(),
+})
+export type StockSenseReport = z.output<typeof StockSenseReportSchema>
+
+export const StockSenseProductQuerySchema = StockSenseQuerySchema.pick({
+  store_id: true,
+  lead_time_days: true,
+  cycle_days: true,
+  safety_days: true,
+  window_days: true,
+  weekday_adjust: true,
+})
+export type StockSenseProductQuery = z.input<typeof StockSenseProductQuerySchema>
+
+export const StockSenseProductSchema = z.object({
+  item: StockSenseItemSchema,
+  params: StockSenseParamsSchema,
+  /** Per weekday (0 = Sunday); 1000 = an average day. */
+  weekday_factors: z.array(z.int()).length(7),
+  /** Window days, oldest first. sold = recorded, else imported. */
+  history: z.array(
+    z.object({
+      date: zDateStr,
+      recorded_milli: z.int(),
+      imported_milli: zMilli0,
+      sold_milli: zMilli0,
+    }),
+  ),
+  /** Today through the following delivery (+ safety days). */
+  forecast: z.array(
+    z.object({
+      date: zDateStr,
+      demand_milli: zMilli0,
+      /** Usable stock left at the end of the day, before any new order arrives. */
+      projected_stock_milli: z.int(),
+    }),
+  ),
+  batches: z.array(
+    z.object({
+      batch_id: zId,
+      batch_no: z.string(),
+      expiry_date: zDateStr.nullable(),
+      qty_milli: z.int(),
+      at_risk_milli: zMilli0,
+    }),
+  ),
+  open_orders: z.array(
+    z.object({
+      id: zId,
+      number: z.string(),
+      expected_date: zDateStr.nullable(),
+      pending_milli: zMilli0,
+    }),
+  ),
+})
+export type StockSenseProduct = z.output<typeof StockSenseProductSchema>
+
+export const StockSenseSettingsSchema = z
+  .object({
+    suppliers: z
+      .array(
+        z.object({
+          supplier_id: zId,
+          /** Null clears it (the plan default applies). */
+          lead_time_days: z.int().min(1).max(180).nullable(),
+        }),
+      )
+      .max(500)
+      .optional(),
+    products: z
+      .array(
+        z.object({
+          product_id: zId,
+          /** Null clears it (no shelf-life cap). */
+          shelf_life_days: z.int().min(0).max(3650).nullable(),
+        }),
+      )
+      .max(2000)
+      .optional(),
+  })
+  .refine((v) => (v.suppliers?.length ?? 0) + (v.products?.length ?? 0) > 0, {
+    message: 'nothing_to_update',
+  })
+export type StockSenseSettings = z.input<typeof StockSenseSettingsSchema>
+
+export const StockSenseSettingsResultSchema = z.object({
+  suppliers: z.int().min(0),
+  products: z.int().min(0),
+})
 
 export const SalesHistoryImportSchema = z.object({
   store_id: zId,
@@ -1829,8 +2115,37 @@ export const purchasesRoutes = defineRoutes({
     feature: 'purchases',
     query: ReorderSuggestionsQuerySchema,
     response: dataOf(ReorderSuggestionsSchema),
-    summary:
-      'Reorder list. With lead_time_days, StockSense forecasts demand and ranks suggested quantities.',
+    summary: 'Products at / below reorder level with suggested quantities, grouped by supplier',
+  },
+
+  // ---- StockSense ----
+  stockSense: {
+    method: 'GET',
+    path: '/purchases/stocksense',
+    permission: READ,
+    feature: 'purchases',
+    query: StockSenseQuerySchema,
+    response: dataOf(StockSenseReportSchema),
+    summary: 'Demand forecast, ranked reorder plan, slow and expiring stock of a store',
+  },
+  stockSenseProduct: {
+    method: 'GET',
+    path: '/purchases/stocksense/products/:productId',
+    permission: READ,
+    feature: 'purchases',
+    params: z.object({ productId: zId }),
+    query: StockSenseProductQuerySchema,
+    response: dataOf(StockSenseProductSchema),
+    summary: 'Daily sales history, forecast, batches and open orders of one product',
+  },
+  updateStockSenseSettings: {
+    method: 'PUT',
+    path: '/purchases/stocksense/settings',
+    permission: WRITE,
+    feature: 'purchases',
+    body: StockSenseSettingsSchema,
+    response: dataOf(StockSenseSettingsResultSchema),
+    summary: 'Set supplier lead times and product shelf lives used by StockSense',
   },
   importSalesHistory: {
     method: 'POST',
@@ -1840,7 +2155,6 @@ export const purchasesRoutes = defineRoutes({
     idempotent: true,
     body: SalesHistoryImportSchema,
     response: dataOf(SalesHistoryImportResultSchema),
-    summary:
-      'Import historical sales (product, date, quantity) for StockSense. Does not change stock.',
+    summary: 'Import past sales (product, date, quantity) for StockSense. Does not change stock.',
   },
 })

@@ -1,27 +1,25 @@
 /**
  * Routes of the inventory feature — Stock levels, movements, adjustments, transfers, batches & expiry.
- * Paths and handles are the contract (nav, guards, links from other modules); replace the
- * placeholder `Component` with real pages, e.g. `lazy: page(() => import('./pages/ListPage'))`.
+ * Paths and handles are the contract (nav, guards, links from other modules).
  */
-import ModulePlaceholder from '@/app/pages/ModulePlaceholder'
-import type { FeatureRoutes } from '@/app/route-types'
+import { page, type FeatureRoutes } from '@/app/route-types'
 
 export const routes: FeatureRoutes = {
   app: [
     {
       path: 'inventory/stock',
       handle: { title: 'nav:titles.stock', permission: 'inventory.read' },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/StockPage')),
     },
     {
       path: 'inventory/movements',
       handle: { title: 'nav:titles.movements', permission: 'inventory.read' },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/MovementsPage')),
     },
     {
       path: 'inventory/adjustments',
       handle: { title: 'nav:titles.adjustments', permission: 'inventory.adjust' },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/AdjustmentsPage')),
     },
     {
       path: 'inventory/adjustments/new',
@@ -30,7 +28,7 @@ export const routes: FeatureRoutes = {
         permission: 'inventory.adjust',
         parent: { title: 'nav:titles.adjustments', to: '/inventory/adjustments' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/AdjustmentNewPage')),
     },
     {
       path: 'inventory/adjustments/:id',
@@ -39,7 +37,7 @@ export const routes: FeatureRoutes = {
         permission: 'inventory.adjust',
         parent: { title: 'nav:titles.adjustments', to: '/inventory/adjustments' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/AdjustmentPage')),
     },
     {
       path: 'inventory/transfers',
@@ -48,7 +46,7 @@ export const routes: FeatureRoutes = {
         permission: 'inventory.transfer',
         feature: 'stock_transfers',
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/TransfersPage')),
     },
     {
       path: 'inventory/transfers/new',
@@ -58,7 +56,7 @@ export const routes: FeatureRoutes = {
         feature: 'stock_transfers',
         parent: { title: 'nav:titles.transfers', to: '/inventory/transfers' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/TransferNewPage')),
     },
     {
       path: 'inventory/transfers/:id',
@@ -68,7 +66,7 @@ export const routes: FeatureRoutes = {
         feature: 'stock_transfers',
         parent: { title: 'nav:titles.transfers', to: '/inventory/transfers' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/TransferPage')),
     },
     {
       path: 'inventory/batches',
@@ -77,7 +75,7 @@ export const routes: FeatureRoutes = {
         permission: 'inventory.read',
         feature: 'batches_expiry',
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/BatchesPage')),
     },
   ],
 }

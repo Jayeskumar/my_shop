@@ -1,17 +1,16 @@
 /**
  * Routes of the system feature — System info, licence & backups (on-prem) and API keys.
- * Paths and handles are the contract (nav, guards, links from other modules); replace the
- * placeholder `Component` with real pages, e.g. `lazy: page(() => import('./pages/ListPage'))`.
  */
-import ModulePlaceholder from '@/app/pages/ModulePlaceholder'
-import type { FeatureRoutes } from '@/app/route-types'
+import { page, type FeatureRoutes } from '@/app/route-types'
+
+const parent = { title: 'nav:titles.settings', to: '/settings' } as const
 
 export const routes: FeatureRoutes = {
   app: [
     {
       path: 'settings/system',
-      handle: { title: 'nav:titles.settings_system', permission: 'settings.manage' },
-      Component: ModulePlaceholder,
+      handle: { title: 'nav:titles.settings_system', permission: 'settings.manage', parent },
+      lazy: page(() => import('./pages/SystemPage')),
     },
     {
       path: 'settings/api-keys',
@@ -19,8 +18,9 @@ export const routes: FeatureRoutes = {
         title: 'nav:titles.settings_api_keys',
         permission: 'settings.manage',
         feature: 'api_access',
+        parent,
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/ApiKeysPage')),
     },
   ],
 }

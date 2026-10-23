@@ -31,6 +31,28 @@ export const defaultHandlers = [
   // Signed out: no refresh cookie.
   http.post(apiPath('/auth/refresh'), () => errorResponse(401, 'UNAUTHENTICATED')),
   http.post(apiPath('/auth/logout'), () => new HttpResponse(null, { status: 204 })),
+  // Fallback handlers when a navigation test lands on / or /platform without page-specific MSW setup.
+  http.get(apiPath('/purchases/reorder-suggestions'), ({ request }) => {
+    const storeId =
+      new URL(request.url).searchParams.get('store_id') ??
+      '0192f0a0-0000-7000-8000-000000000301'
+    return HttpResponse.json({
+      data: {
+        store_id: storeId,
+        generated_at: '2026-10-20T10:00:00.000Z',
+        window_days: 90,
+        forecast: true,
+        lead_time_days: 7,
+        weekday_adjusted: true,
+        model: 'smart',
+        assumptions: [],
+        groups: [],
+      },
+    })
+  }),
+  http.get(apiPath('/platform/audit-logs'), () =>
+    HttpResponse.json({ data: [], page: { limit: 10, offset: 0, total: 0 } }),
+  ),
 ]
 
 export const server = setupServer(...defaultHandlers)

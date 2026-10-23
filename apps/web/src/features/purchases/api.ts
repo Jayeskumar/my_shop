@@ -21,6 +21,8 @@ import {
   type PurchaseBillListQuery,
   type PurchaseOrderListQuery,
   type ReorderSuggestionsQuery,
+  type StockSenseProductQuery,
+  type StockSenseQuery,
   purchasesRoutes as r,
 } from '@kadai/shared/api/purchases'
 import { request } from '@/lib/api'
@@ -36,8 +38,15 @@ const STOCK_AND_PARTIES: readonly RouteDef[] = [
 ]
 
 const BILLS: readonly RouteDef[] = [r.listBills, r.getBill, r.billReturnable]
-const ORDERS: readonly RouteDef[] = [r.listOrders, r.getOrder, r.reorderSuggestions]
+const ORDERS: readonly RouteDef[] = [
+  r.listOrders,
+  r.getOrder,
+  r.reorderSuggestions,
+  r.stockSense,
+  r.stockSenseProduct,
+]
 const NOTES: readonly RouteDef[] = [r.listDebitNotes, r.getDebitNote]
+const STOCKSENSE: readonly RouteDef[] = [r.stockSense, r.stockSenseProduct, r.reorderSuggestions]
 
 // ---------------------------------------------------------------------------------------------
 // Purchase bills
@@ -125,10 +134,38 @@ export const useReorderSuggestions = (query: ReorderSuggestionsQuery | null) =>
     { enabled: Boolean(query?.store_id), placeholderData: keepPreviousData },
   )
 
-/** Historical sales for StockSense. Does not change stock; refreshes the reorder list. */
+// ---------------------------------------------------------------------------------------------
+// StockSense (forecast, ranked reorder plan, slow and expiring stock)
+// ---------------------------------------------------------------------------------------------
+
+export const useStockSense = (query: StockSenseQuery | null) =>
+  useRouteQuery(
+    r.stockSense,
+    { query: query ?? { store_id: '' } },
+    { enabled: Boolean(query?.store_id), placeholderData: keepPreviousData },
+  )
+
+export const useStockSenseProduct = (
+  productId: string | null | undefined,
+  query: StockSenseProductQuery | null,
+) =>
+  useRouteQuery(
+    r.stockSenseProduct,
+    { params: { productId: productId ?? '' }, query: query ?? { store_id: '' } },
+    { enabled: Boolean(productId && query?.store_id), placeholderData: keepPreviousData },
+  )
+
+/** Supplier lead times / product shelf lives; refreshes the plan and the reorder list. */
+export const useUpdateStockSenseSettings = () =>
+  useRouteMutation(r.updateStockSenseSettings, {
+    invalidates: STOCKSENSE,
+    meta: { errorToast: false },
+  })
+
+/** Historical sales for StockSense. Does not change stock; refreshes the plan. */
 export const useImportSalesHistory = () =>
   useRouteMutation(r.importSalesHistory, {
-    invalidates: ORDERS,
+    invalidates: STOCKSENSE,
     meta: { errorToast: false },
   })
 

@@ -1,3 +1,9 @@
+// CONTRACT CHANGELOG (platform backend; newest last — one line per change)
+// - PLATFORM_RAZORPAY_EVENTS + RAZORPAY_SUBSCRIPTION_EVENT_STATUS: added 'subscription.authenticated' (→ 'active'; a mandate whose first charge is later: free months / prepaid first cycle).
+// - Added CheckoutModeSchema (CheckoutResponse.mode uses it, same values) and CheckoutStatusSchema (platform_checkouts.status, migration 1000).
+// - Added PLATFORM_ERROR_REASONS (+ PlatformErrorReason / PlatformErrorReasonSchema): `details.reason` of platform errors with their code and ta/en text.
+// - Added PAYMENT_LINK_TTL_HOURS (checkout links expire after 72 h) and AUTO_RENEW_GRACE_DAYS (a missing auto-renew charge turns past_due after 3 days).
+// - Added PlatformRazorpayEventSchema (z.enum of PLATFORM_RAZORPAY_EVENTS).
 /**
  * Contract for the platform module — docs/API.md "platform, billing & system": cloud SaaS
  * billing for tenants (plans, subscription & usage, quotes with offers & coupons, checkout via
@@ -60,6 +66,7 @@ import {
   LIMIT_METRICS,
   PlanLimitsSchema,
 } from '../features'
+import type { ErrorCode } from '../errors'
 import { mulDiv } from '../math'
 import { type Permission, PermissionSchema, expandPermissions } from '../permissions'
 
@@ -83,6 +90,13 @@ export const RAZORPAY_SUBSCRIPTION_TOTAL_COUNT = 120
 export const PLATFORM_WEBHOOK_PROVIDER = 'razorpay_platform'
 /** Usage meters turn amber at this share of the limit. */
 export const USAGE_WARNING_BP = 8000
+/** Checkout payment links (and subscription authorisation links) expire after this many hours. */
+export const PAYMENT_LINK_TTL_HOURS = 72
+/**
+ * Monthly auto-renew: when no `subscription.charged` arrives this many days after the period end
+ * the subscription turns past_due (then PAST_DUE_GRACE_DAYS until the downgrade).
+ */
+export const AUTO_RENEW_GRACE_DAYS = 3
 
 export const PLATFORM_JOBS = {
   /** Hourly (cloud): trial end → free, past_due > 7 days → downgrade, prepaid renewal reminders. */
@@ -134,6 +148,7 @@ export const PLATFORM_RAZORPAY_EVENTS = [
   'payment_link.paid',
   'payment_link.expired',
   'payment_link.cancelled',
+  'subscription.authenticated',
   'subscription.activated',
   'subscription.charged',
   'subscription.pending',
@@ -142,10 +157,18 @@ export const PLATFORM_RAZORPAY_EVENTS = [
   'subscription.completed',
 ] as const
 export type PlatformRazorpayEvent = (typeof PLATFORM_RAZORPAY_EVENTS)[number]
+export const PlatformRazorpayEventSchema = z.enum(PLATFORM_RAZORPAY_EVENTS)
 
+/**
+ * Status each subscription.* event moves the tenant's subscription to. `authenticated` only
+ * activates a mandate whose first Razorpay charge is later (free months or a prepaid, discounted
+ * first cycle charged as the upfront amount); an immediately charged mandate waits for
+ * `activated` / `charged`.
+ */
 export const RAZORPAY_SUBSCRIPTION_EVENT_STATUS: Readonly<
   Record<Extract<PlatformRazorpayEvent, `subscription.${string}`>, SubscriptionStatus>
 > = {
+  'subscription.authenticated': 'active',
   'subscription.activated': 'active',
   'subscription.charged': 'active',
   'subscription.pending': 'past_due',
@@ -164,6 +187,79 @@ export const PLATFORM_VALIDATION_KEYS = [
   'empty_patch',
 ] as const
 export type PlatformValidationKey = (typeof PLATFORM_VALIDATION_KEYS)[number]
+
+/**
+ * `details.reason` of platform errors with the error code it travels with (the web shows the
+ * localized text for the reason; English `message` stays developer-facing).
+ */
+export const PLATFORM_ERROR_REASONS = {
+  billing_not_configured: {
+    code: 'PROVIDER_ERROR',
+    en: 'Online payment is not set up yet. Please contact Kadai support.',
+    ta: 'ஆன்லைன் கட்டண வசதி இன்னும் அமைக்கப்படவில்லை. கடை ஆதரவைத் தொடர்பு கொள்ளவும்.',
+  },
+  provider_unavailable: {
+    code: 'PROVIDER_ERROR',
+    en: 'Could not reach the payment gateway. Please try again in a few minutes.',
+    ta: 'கட்டண நுழைவாயிலை அடைய முடியவில்லை. சில நிமிடங்கள் கழித்து மீண்டும் முயற்சிக்கவும்.',
+  },
+  plan_not_purchasable: {
+    code: 'UNPROCESSABLE',
+    en: 'This plan cannot be bought online. Please contact us for a quote.',
+    ta: 'இந்தத் திட்டத்தை ஆன்லைனில் வாங்க முடியாது. விலை விவரத்துக்கு எங்களைத் தொடர்பு கொள்ளவும்.',
+  },
+  auto_renew_unavailable: {
+    code: 'UNPROCESSABLE',
+    en: 'Automatic monthly renewal is not available right now. Please choose prepaid payment.',
+    ta: 'தானியங்கி மாதாந்திரப் புதுப்பிப்பு இப்போது கிடைக்கவில்லை. முன்கட்டணமாகச் செலுத்தவும்.',
+  },
+  auto_renew_active: {
+    code: 'CONFLICT',
+    en: 'Your plan already renews automatically every month. Cancel the automatic renewal first.',
+    ta: 'உங்கள் திட்டம் ஏற்கனவே ஒவ்வொரு மாதமும் தானாகப் புதுப்பிக்கப்படுகிறது. முதலில் தானியங்கிப் புதுப்பிப்பை ரத்து செய்யவும்.',
+  },
+  amount_too_small: {
+    code: 'UNPROCESSABLE',
+    en: 'The amount is too small for an online payment.',
+    ta: 'ஆன்லைன் கட்டணத்துக்கு இந்தத் தொகை மிகக் குறைவு.',
+  },
+  not_cancellable: {
+    code: 'CONFLICT',
+    en: 'There is no paid plan to cancel.',
+    ta: 'ரத்து செய்ய கட்டணத் திட்டம் எதுவும் இல்லை.',
+  },
+  already_cancelled: {
+    code: 'CONFLICT',
+    en: 'Your plan is already set to stop at the end of this period.',
+    ta: 'இந்தக் காலம் முடிந்ததும் உங்கள் திட்டம் நிற்கும்படி ஏற்கனவே அமைக்கப்பட்டுள்ளது.',
+  },
+  not_dismissible: {
+    code: 'CONFLICT',
+    en: 'Important announcements cannot be hidden.',
+    ta: 'முக்கிய அறிவிப்புகளை மறைக்க முடியாது.',
+  },
+  api_key_actor: {
+    code: 'FORBIDDEN',
+    en: 'API keys cannot create or revoke API keys. Please sign in as a user.',
+    ta: 'API விசையைக் கொண்டு API விசைகளை உருவாக்கவோ ரத்து செய்யவோ முடியாது. பயனராக உள்நுழையவும்.',
+  },
+  permission_not_held: {
+    code: 'FORBIDDEN',
+    en: 'You cannot give a key permissions that you do not have yourself.',
+    ta: 'உங்களிடம் இல்லாத அனுமதிகளை ஒரு விசைக்குக் கொடுக்க முடியாது.',
+  },
+  store_not_allowed: {
+    code: 'FORBIDDEN',
+    en: 'You cannot give a key access to stores you cannot access yourself.',
+    ta: 'உங்களுக்கு அணுகல் இல்லாத கடைகளுக்கு ஒரு விசைக்கு அணுகல் கொடுக்க முடியாது.',
+  },
+} as const satisfies Record<string, { code: ErrorCode } & BilingualLabel>
+export type PlatformErrorReason = keyof typeof PLATFORM_ERROR_REASONS
+export const PLATFORM_ERROR_REASON_LIST = Object.keys(PLATFORM_ERROR_REASONS) as [
+  PlatformErrorReason,
+  ...PlatformErrorReason[],
+]
+export const PlatformErrorReasonSchema = z.enum(PLATFORM_ERROR_REASON_LIST)
 
 // =============================================================================================
 // Plans, subscription & usage
@@ -315,8 +411,15 @@ export const CheckoutRequestSchema = z
   })
 export type CheckoutRequest = z.input<typeof CheckoutRequestSchema>
 
+/** How a checkout is paid: prepaid payment link or Razorpay subscription (monthly auto-renew). */
+export const CheckoutModeSchema = z.enum(['payment_link', 'subscription'])
+export type CheckoutMode = z.infer<typeof CheckoutModeSchema>
+/** platform_checkouts.status (migration 1000). */
+export const CheckoutStatusSchema = z.enum(['pending', 'completed', 'expired', 'cancelled'])
+export type CheckoutStatus = z.infer<typeof CheckoutStatusSchema>
+
 export const CheckoutResponseSchema = z.object({
-  mode: z.enum(['payment_link', 'subscription']),
+  mode: CheckoutModeSchema,
   /** Open in a new tab; then poll GET /billing/subscription. */
   short_url: z.string(),
   order_id: zId.nullable(),

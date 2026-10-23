@@ -166,6 +166,29 @@ the ownership map in [ARCHITECTURE.md §3.1](docs/ARCHITECTURE.md#31-module-owne
 | `pnpm --filter @kadai/web e2e`                       | Playwright smoke tests (set `PLAYWRIGHT_BROWSERS_PATH` if browsers are preinstalled)                                 |
 | `make help`                                          | deployment shortcuts: image build, kit validation, compose end-to-end tests, bundles                                 |
 
+## StockSense — reorder planner
+
+**Purchases → StockSense** (`/purchases/stocksense`) forecasts demand per product and ranks what
+to buy, with exact quantities that respect supplier lead time and shelf life.
+
+- **Inputs** — recorded POS sales, past sales uploaded as CSV (`product,date,qty`; product = SKU,
+  barcode or id), stock on hand and batch expiry (Inventory), open purchase orders, last supplier
+  and cost (purchase bills). Supplier lead times and product shelf lives are edited on the page.
+- **Forecast** — moving average of the last 7–90 complete days over the days the item had data,
+  with a weekday pattern once there are two weeks of data. Items with no sales fall back to their
+  reorder level / reorder quantity.
+- **Order quantity** — demand for lead time + order cycle + safety days, minus stock still in
+  date on delivery and open orders. It is capped to what can sell within the shelf life and
+  rounded to whole packs.
+- **Ranking** — out of stock / runs out before delivery → runs out before the next delivery →
+  top-up, then fewest days of stock, then profit lost to the stockout and profit per day. The
+  page also shows cash locked in slow stock and batches that will expire unsold. Selected lines
+  become draft purchase orders, one per supplier.
+- **Code** — maths in `packages/shared/src/stocksense.ts`, API in
+  `apps/server/src/modules/purchases/stocksense.ts`, page in `apps/web/src/features/purchases`.
+- **Demo** — `pnpm --filter @kadai/server seed:stocksense` creates "Sri Murugan Stores" (sign in
+  with `9876500001` / `Kadai@Demo2026`) with suppliers, stock and 35 days of sales.
+
 ## Documentation
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — engineering contract: conventions, database,

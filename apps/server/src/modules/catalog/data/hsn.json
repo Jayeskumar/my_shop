@@ -1,0 +1,3975 @@
+{
+ "_note": "Curated HSN / SAC codes common in Indian (Tamil Nadu) retail with SUGGESTED GST rates as per the GST 2.0 rate structure effective 22 Sep 2025. Rates change by notification and depend on the exact goods (pre-packaged & labelled vs loose, composition, value per piece for garments / footwear): every business must verify the code and rate against the current CBIC rate notifications with its tax advisor before use. gst_rate_bp null = rate depends on value (see slab_rule_hint). Tobacco and pan masala also attract compensation cess until it ends.",
+ "source": "Customs Tariff / GST rate schedules; GST Council 56th meeting decisions (Sep 2025)",
+ "entries": [
+  {
+   "code": "0701",
+   "description": "Potatoes, fresh or chilled",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0702",
+   "description": "Tomatoes, fresh or chilled",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0703",
+   "description": "Onions, shallots, garlic, leeks, fresh",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0704",
+   "description": "Cabbage, cauliflower, kohlrabi, fresh",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0705",
+   "description": "Lettuce and chicory, fresh",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0706",
+   "description": "Carrots, turnips, beetroot, radish, fresh",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0707",
+   "description": "Cucumbers and gherkins, fresh",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0708",
+   "description": "Peas, beans and other fresh leguminous vegetables",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0709",
+   "description": "Other fresh vegetables (brinjal, okra, drumstick, greens, chillies)",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0710",
+   "description": "Frozen vegetables (uncooked or steamed)",
+   "gst_rate_bp": 500,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0712",
+   "description": "Dried vegetables (whole, cut, sliced, powdered)",
+   "gst_rate_bp": 500,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0713",
+   "description": "Dried pulses — dal, gram, rajma, peas (pre-packaged & labelled; loose: nil)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "071331",
+   "description": "Urad dal / black gram (pre-packaged & labelled; loose: nil)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "071320",
+   "description": "Chickpeas / channa (pre-packaged & labelled; loose: nil)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "071360",
+   "description": "Pigeon peas / toor dal (pre-packaged & labelled; loose: nil)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "071340",
+   "description": "Lentils / masoor dal (pre-packaged & labelled; loose: nil)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "071331",
+   "description": "Moong / green gram (pre-packaged & labelled; loose: nil)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0714",
+   "description": "Tapioca, sweet potato and similar roots, fresh",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0801",
+   "description": "Coconuts, fresh (tender / mature)",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "080119",
+   "description": "Copra / dried coconut",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "080132",
+   "description": "Cashew nuts, shelled",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0802",
+   "description": "Almonds, walnuts, pistachios and other nuts",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0803",
+   "description": "Bananas including plantains, fresh",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "080410",
+   "description": "Dates, dried",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0804",
+   "description": "Figs, pineapples, avocados, guavas, mangoes, fresh",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0805",
+   "description": "Citrus fruit (oranges, lemons, mosambi), fresh",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0806",
+   "description": "Grapes, fresh",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "080620",
+   "description": "Raisins / dried grapes",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0807",
+   "description": "Melons and papayas, fresh",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0808",
+   "description": "Apples, pears, fresh",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0809",
+   "description": "Cherries, peaches, plums, fresh",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0810",
+   "description": "Other fresh fruit (pomegranate, jackfruit, strawberry)",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0811",
+   "description": "Frozen fruit and nuts",
+   "gst_rate_bp": 500,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0813",
+   "description": "Dried fruit (apricots, prunes, mixed)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0901",
+   "description": "Coffee beans and roasted coffee",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "090240",
+   "description": "Tea (black tea, leaf / dust)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "090210",
+   "description": "Green tea",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0904",
+   "description": "Pepper and dried chillies, whole or crushed",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "090421",
+   "description": "Dried chillies, whole",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "090422",
+   "description": "Chilli powder",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0905",
+   "description": "Vanilla",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0906",
+   "description": "Cinnamon",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0907",
+   "description": "Cloves",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0908",
+   "description": "Nutmeg, mace and cardamom",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0909",
+   "description": "Seeds of anise, coriander, cumin, fennel",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "091030",
+   "description": "Turmeric (whole or powder)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "091011",
+   "description": "Ginger, dried",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0910",
+   "description": "Other spices (fenugreek, bay leaf, curry powder)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "210390",
+   "description": "Masala mixes, mixed condiments and seasonings",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1001",
+   "description": "Wheat (pre-packaged & labelled; loose: nil)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1005",
+   "description": "Maize / corn (pre-packaged & labelled)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1006",
+   "description": "Rice (pre-packaged & labelled; loose & unbranded: nil)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "10063010",
+   "description": "Parboiled rice (pre-packaged & labelled)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "10063020",
+   "description": "Basmati rice (pre-packaged & labelled)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1007",
+   "description": "Grain sorghum / jowar (pre-packaged & labelled)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1008",
+   "description": "Millets — ragi, bajra, samai, varagu (pre-packaged & labelled)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1101",
+   "description": "Wheat flour / atta, maida (pre-packaged & labelled)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1102",
+   "description": "Rice flour, corn flour, ragi flour (pre-packaged & labelled)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1103",
+   "description": "Rava / suji / semolina, broken wheat",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1104",
+   "description": "Rolled oats, flattened rice (aval / poha)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1106",
+   "description": "Besan / gram flour and flours of pulses",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1108",
+   "description": "Starches (corn starch, tapioca sago)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "190300",
+   "description": "Sago / javvarisi",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1507",
+   "description": "Soyabean oil",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1508",
+   "description": "Groundnut oil",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1509",
+   "description": "Olive oil",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1511",
+   "description": "Palm oil / palmolein",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1512",
+   "description": "Sunflower oil",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1513",
+   "description": "Coconut oil (edible)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1514",
+   "description": "Mustard / rapeseed oil",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1515",
+   "description": "Sesame / gingelly oil, rice bran oil",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1516",
+   "description": "Hydrogenated vegetable oil (vanaspati)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1517",
+   "description": "Margarine and edible fat spreads",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1701",
+   "description": "Sugar (cane / beet)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "170113",
+   "description": "Jaggery / vellam (pre-packaged & labelled)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "170490",
+   "description": "Sugar candy, mishri",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2501",
+   "description": "Salt (common / iodised)",
+   "gst_rate_bp": 0,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0409",
+   "description": "Natural honey",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0401",
+   "description": "Fresh milk, pasteurised, including UHT milk",
+   "gst_rate_bp": 0,
+   "group": "Dairy & eggs",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0402",
+   "description": "Milk powder, condensed milk",
+   "gst_rate_bp": 500,
+   "group": "Dairy & eggs",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0403",
+   "description": "Curd, yoghurt, buttermilk, lassi (pre-packaged)",
+   "gst_rate_bp": 500,
+   "group": "Dairy & eggs",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0404",
+   "description": "Whey, milk-based products",
+   "gst_rate_bp": 500,
+   "group": "Dairy & eggs",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0405",
+   "description": "Butter and ghee",
+   "gst_rate_bp": 500,
+   "group": "Dairy & eggs",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "040690",
+   "description": "Cheese",
+   "gst_rate_bp": 500,
+   "group": "Dairy & eggs",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "040610",
+   "description": "Paneer / chena (pre-packaged & labelled)",
+   "gst_rate_bp": 0,
+   "group": "Dairy & eggs",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0407",
+   "description": "Eggs in shell, fresh",
+   "gst_rate_bp": 0,
+   "group": "Dairy & eggs",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1901",
+   "description": "Malt-based food drinks and malt extract",
+   "gst_rate_bp": 500,
+   "group": "Beverages",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "190110",
+   "description": "Infant food (cereal-based, milk-based)",
+   "gst_rate_bp": 500,
+   "group": "Dairy & eggs",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "190590",
+   "description": "Bread (plain), pizza bread, chapati, roti, paratha, khakhra",
+   "gst_rate_bp": 0,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "190540",
+   "description": "Rusk, toasted bread",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "190531",
+   "description": "Biscuits and cookies",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "190590",
+   "description": "Cakes, pastries, puffs",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "190532",
+   "description": "Wafers",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1902",
+   "description": "Pasta, noodles, vermicelli (semiya)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1904",
+   "description": "Cornflakes, muesli, puffed rice (pori)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1704",
+   "description": "Sugar confectionery — toffees, candy, chewing gum",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1806",
+   "description": "Chocolates and cocoa products",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "180500",
+   "description": "Cocoa powder",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "210690",
+   "description": "Namkeen, bhujia, mixture, murukku (pre-packaged)",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "21069099",
+   "description": "Indian sweets / mithai (pre-packaged)",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2105",
+   "description": "Ice cream and frozen desserts",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2007",
+   "description": "Jams, jellies, marmalades",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2001",
+   "description": "Pickles (oorugai) and vegetables in vinegar",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2103",
+   "description": "Sauces, ketchup, mayonnaise",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2104",
+   "description": "Soups and soup mixes",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2106",
+   "description": "Food preparations n.e.s. (ready mixes, instant food)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "210610",
+   "description": "Protein concentrates, soya chunks",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2008",
+   "description": "Peanut butter, roasted nuts and seeds",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2009",
+   "description": "Fruit and vegetable juices (no added sugar)",
+   "gst_rate_bp": 500,
+   "group": "Beverages",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1601",
+   "description": "Sausages and similar meat products",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1604",
+   "description": "Prepared or preserved fish (tinned)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0302",
+   "description": "Fresh fish",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0207",
+   "description": "Fresh chicken / poultry meat",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2102",
+   "description": "Yeast, baking powder",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3502",
+   "description": "Egg albumin / custard powder base",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1302",
+   "description": "Agar-agar, pectin",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0902",
+   "description": "Tea (all forms, pre-packaged)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "210111",
+   "description": "Instant coffee and coffee extracts",
+   "gst_rate_bp": 500,
+   "group": "Beverages",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "210120",
+   "description": "Tea extracts and instant tea",
+   "gst_rate_bp": 500,
+   "group": "Beverages",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2201",
+   "description": "Packaged drinking water, mineral water (no added sugar)",
+   "gst_rate_bp": 500,
+   "group": "Beverages",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "22021010",
+   "description": "Aerated soft drinks with added sugar",
+   "gst_rate_bp": 4000,
+   "group": "Beverages",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "22021020",
+   "description": "Lemonade and flavoured aerated drinks",
+   "gst_rate_bp": 4000,
+   "group": "Beverages",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "22029920",
+   "description": "Fruit pulp / fruit juice based drinks",
+   "gst_rate_bp": 500,
+   "group": "Beverages",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "22029990",
+   "description": "Caffeinated / energy drinks",
+   "gst_rate_bp": 4000,
+   "group": "Beverages",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "220299",
+   "description": "Soya milk and plant-based milk drinks",
+   "gst_rate_bp": 500,
+   "group": "Beverages",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "22029930",
+   "description": "Milk-based flavoured drinks",
+   "gst_rate_bp": 500,
+   "group": "Beverages",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0904",
+   "description": "Black pepper, whole (milagu)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3305",
+   "description": "Hair oil, shampoo, hair conditioner",
+   "gst_rate_bp": 500,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "330590",
+   "description": "Hair dye and hair colour",
+   "gst_rate_bp": 1800,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3306",
+   "description": "Toothpaste and tooth powder",
+   "gst_rate_bp": 500,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "330620",
+   "description": "Dental floss",
+   "gst_rate_bp": 500,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9603",
+   "description": "Toothbrushes",
+   "gst_rate_bp": 500,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3401",
+   "description": "Toilet soap bars",
+   "gst_rate_bp": 500,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "340130",
+   "description": "Liquid hand wash and body wash",
+   "gst_rate_bp": 1800,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "330710",
+   "description": "Shaving cream, after-shave",
+   "gst_rate_bp": 500,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "821210",
+   "description": "Razors and razor blades",
+   "gst_rate_bp": 1800,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "330491",
+   "description": "Talcum powder, face powder",
+   "gst_rate_bp": 500,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "330499",
+   "description": "Creams, lotions, sunscreen, makeup",
+   "gst_rate_bp": 1800,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "330410",
+   "description": "Lipstick and lip preparations",
+   "gst_rate_bp": 1800,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "330420",
+   "description": "Eye make-up (kajal, eyeliner)",
+   "gst_rate_bp": 1800,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "330430",
+   "description": "Manicure / pedicure preparations, nail polish",
+   "gst_rate_bp": 1800,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3303",
+   "description": "Perfumes, attar, deodorants",
+   "gst_rate_bp": 1800,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "330741",
+   "description": "Agarbatti / incense sticks, dhoop",
+   "gst_rate_bp": 500,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "330749",
+   "description": "Room fresheners",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9619",
+   "description": "Sanitary napkins, tampons",
+   "gst_rate_bp": 0,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "961900",
+   "description": "Baby and adult diapers",
+   "gst_rate_bp": 500,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9615",
+   "description": "Combs, hair clips, hair pins",
+   "gst_rate_bp": 500,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9616",
+   "description": "Scent sprayers, powder puffs",
+   "gst_rate_bp": 1800,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4818",
+   "description": "Toilet paper, tissues, paper napkins",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "481840",
+   "description": "Wet wipes",
+   "gst_rate_bp": 1800,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3304",
+   "description": "Kumkum, bindi, sindoor, alta",
+   "gst_rate_bp": 0,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9605",
+   "description": "Travel sets for personal toilet",
+   "gst_rate_bp": 1800,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9613",
+   "description": "Cigarette lighters",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3402",
+   "description": "Detergent powder, washing liquid, dishwash, floor cleaner",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "340119",
+   "description": "Laundry soap bars",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3808",
+   "description": "Mosquito repellents, insecticides, disinfectants",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "380894",
+   "description": "Hand sanitizer, disinfectants",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3406",
+   "description": "Candles",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3605",
+   "description": "Safety matches",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2905",
+   "description": "Camphor (karpooram)",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7323",
+   "description": "Kitchen utensils of iron / steel (vessels, plates, tiffin boxes)",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7418",
+   "description": "Utensils of copper / brass",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7615",
+   "description": "Utensils of aluminium",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6911",
+   "description": "Tableware and kitchenware of porcelain / ceramic",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7013",
+   "description": "Glassware (tumblers, bowls)",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3924",
+   "description": "Household articles of plastic (buckets, containers, mugs)",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3923",
+   "description": "Plastic bags, bottles, containers",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9617",
+   "description": "Vacuum flasks",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6601",
+   "description": "Umbrellas",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4602",
+   "description": "Baskets of bamboo / cane",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9603",
+   "description": "Brooms, brushes, mops",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9603",
+   "description": "Broomsticks (vilakkumaaru) of coconut stick / grass",
+   "gst_rate_bp": 0,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4823",
+   "description": "Paper plates, cups and bowls",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6307",
+   "description": "Floor mats, dusters (textile made-ups)",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "9404",
+   "description": "Mattresses, pillows, cushions",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "940490",
+   "description": "Cotton quilts (value ≤ ₹2,500: 5%)",
+   "gst_rate_bp": null,
+   "group": "Household",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "9403",
+   "description": "Furniture of wood / metal / plastic",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9401",
+   "description": "Chairs and seats",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8516",
+   "description": "Electric water heaters, irons, toasters, induction cooktops",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7321",
+   "description": "Gas stoves, kerosene stoves",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8481",
+   "description": "Taps, cocks and valves",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7615",
+   "description": "Pressure cookers of aluminium",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7323",
+   "description": "Pressure cookers of steel",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3926",
+   "description": "Other plastic articles (hangers, clips)",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5607",
+   "description": "Ropes and twine (coir / jute)",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6306",
+   "description": "Tarpaulins, tents",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "8205",
+   "description": "Kitchen knives, scissors, peelers",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8211",
+   "description": "Knives with cutting blades",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6914",
+   "description": "Earthen pots, clay lamps (agal vilakku)",
+   "gst_rate_bp": 0,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9405",
+   "description": "Lamps and lighting fittings",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3604",
+   "description": "Fireworks / crackers",
+   "gst_rate_bp": 1800,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4421",
+   "description": "Wooden articles (pooja items, spoons)",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7419",
+   "description": "Brass lamps (kuthu vilakku) and brass handicrafts",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5007",
+   "description": "Silk fabrics, silk sarees",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5208",
+   "description": "Cotton fabrics (≥ 85% cotton), cotton sarees, veshti",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5209",
+   "description": "Cotton fabrics, heavy (dhoti material, drill)",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5211",
+   "description": "Cotton blended fabrics",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5407",
+   "description": "Synthetic filament fabrics (polyester sarees)",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5408",
+   "description": "Artificial filament fabrics (viscose, rayon)",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5512",
+   "description": "Synthetic staple fibre fabrics",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5513",
+   "description": "Polyester-cotton blended fabrics",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5309",
+   "description": "Linen fabrics",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5111",
+   "description": "Woollen fabrics",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5801",
+   "description": "Velvet and pile fabrics",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5804",
+   "description": "Lace, net fabrics",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5806",
+   "description": "Ribbons, narrow woven fabrics, saree borders",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5810",
+   "description": "Embroidery in the piece",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6001",
+   "description": "Knitted pile fabrics",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6006",
+   "description": "Other knitted fabrics",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5205",
+   "description": "Cotton yarn",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5402",
+   "description": "Synthetic filament yarn",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5204",
+   "description": "Cotton sewing thread",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5401",
+   "description": "Synthetic sewing thread",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5601",
+   "description": "Cotton wool / absorbent cotton",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6101",
+   "description": "Men's overcoats and jackets, knitted",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6103",
+   "description": "Men's suits, trousers, shorts, knitted",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6104",
+   "description": "Women's suits, dresses, skirts, knitted",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6105",
+   "description": "Men's shirts, knitted",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6106",
+   "description": "Women's blouses and shirts, knitted",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6107",
+   "description": "Men's underwear, briefs, nightwear, knitted",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6108",
+   "description": "Women's innerwear, nightwear, knitted",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6109",
+   "description": "T-shirts, banians, vests",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6110",
+   "description": "Sweaters, pullovers, sweatshirts",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6111",
+   "description": "Babies' garments, knitted",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6112",
+   "description": "Track suits, swimwear",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6114",
+   "description": "Other knitted garments",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6115",
+   "description": "Socks, stockings, hosiery",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6116",
+   "description": "Gloves, knitted",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6117",
+   "description": "Knitted accessories (shawls, scarves)",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6201",
+   "description": "Men's overcoats, jackets, woven",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6203",
+   "description": "Men's trousers, jeans, shorts, suits",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6204",
+   "description": "Women's suits, salwar kameez, dresses, skirts",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6205",
+   "description": "Men's shirts, woven",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6206",
+   "description": "Women's blouses, tops, kurtis",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6207",
+   "description": "Men's nightwear, lungis",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6208",
+   "description": "Women's nightwear, nighties, petticoats",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6209",
+   "description": "Babies' garments, woven",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6211",
+   "description": "Track suits; dhotis and veshtis made-up; other garments",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6212",
+   "description": "Brassieres, girdles",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6213",
+   "description": "Handkerchiefs",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6214",
+   "description": "Shawls, dupattas, stoles, scarves",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6215",
+   "description": "Ties",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6217",
+   "description": "Clothing accessories",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6301",
+   "description": "Blankets and travelling rugs",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6302",
+   "description": "Bed linen, bed sheets, towels, table linen",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6303",
+   "description": "Curtains and blinds",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6304",
+   "description": "Bedspreads, cushion covers",
+   "gst_rate_bp": null,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": "apparel_2500"
+  },
+  {
+   "code": "6305",
+   "description": "Sacks and bags for packing",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6309",
+   "description": "Worn clothing",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6505",
+   "description": "Caps and hats",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9606",
+   "description": "Buttons, press studs",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9607",
+   "description": "Zip fasteners",
+   "gst_rate_bp": 1800,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "5808",
+   "description": "Braids, tassels, decorative trims",
+   "gst_rate_bp": 500,
+   "group": "Apparel & textiles",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6401",
+   "description": "Waterproof footwear (rubber / plastic)",
+   "gst_rate_bp": null,
+   "group": "Footwear",
+   "slab_rule_hint": "footwear_2500"
+  },
+  {
+   "code": "6402",
+   "description": "Footwear with rubber / plastic soles and uppers (slippers, sandals)",
+   "gst_rate_bp": null,
+   "group": "Footwear",
+   "slab_rule_hint": "footwear_2500"
+  },
+  {
+   "code": "6403",
+   "description": "Footwear with leather uppers (shoes, chappals)",
+   "gst_rate_bp": null,
+   "group": "Footwear",
+   "slab_rule_hint": "footwear_2500"
+  },
+  {
+   "code": "6404",
+   "description": "Footwear with textile uppers (sports shoes, canvas)",
+   "gst_rate_bp": null,
+   "group": "Footwear",
+   "slab_rule_hint": "footwear_2500"
+  },
+  {
+   "code": "6405",
+   "description": "Other footwear",
+   "gst_rate_bp": null,
+   "group": "Footwear",
+   "slab_rule_hint": "footwear_2500"
+  },
+  {
+   "code": "6406",
+   "description": "Parts of footwear, insoles",
+   "gst_rate_bp": 500,
+   "group": "Footwear",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3405",
+   "description": "Shoe polish and creams",
+   "gst_rate_bp": 1800,
+   "group": "Footwear",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4202",
+   "description": "Bags, wallets, handbags, school bags",
+   "gst_rate_bp": 1800,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "420222",
+   "description": "Jute and cotton handbags",
+   "gst_rate_bp": 500,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3004",
+   "description": "Medicines (formulations) — tablets, capsules, syrups, injections",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "30049011",
+   "description": "Ayurvedic medicines",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "30049014",
+   "description": "Siddha medicines",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "30049012",
+   "description": "Unani medicines",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "30049013",
+   "description": "Homoeopathic medicines",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "300431",
+   "description": "Insulin",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3002",
+   "description": "Vaccines, blood products, antisera",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3003",
+   "description": "Medicaments in bulk (not in dosage form)",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3005",
+   "description": "Bandages, cotton wool, gauze, dressings",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3006",
+   "description": "Sterile surgical sutures, first-aid kits",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "300660",
+   "description": "Contraceptives",
+   "gst_rate_bp": 0,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3822",
+   "description": "Diagnostic kits and reagents, glucose test strips",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2106",
+   "description": "Health supplements, protein powders, nutraceuticals",
+   "gst_rate_bp": 1800,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2936",
+   "description": "Vitamins (bulk)",
+   "gst_rate_bp": 1800,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3401",
+   "description": "Medicated soap",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3304",
+   "description": "Medicated creams (cosmetic)",
+   "gst_rate_bp": 1800,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4014",
+   "description": "Condoms",
+   "gst_rate_bp": 0,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4015",
+   "description": "Surgical gloves",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6307",
+   "description": "Face masks (textile)",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2847",
+   "description": "Hydrogen peroxide",
+   "gst_rate_bp": 1800,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3808",
+   "description": "Antiseptic liquids (Dettol type)",
+   "gst_rate_bp": 1800,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1302",
+   "description": "Herbal extracts (isabgol, plant extracts)",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1211",
+   "description": "Medicinal herbs, dried",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3507",
+   "description": "Enzymes (digestive)",
+   "gst_rate_bp": 1800,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "300410",
+   "description": "Antibiotics (penicillin-based formulations)",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "300490",
+   "description": "Other medicines (paracetamol, cough syrup, ointments)",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "30039011",
+   "description": "Ayurvedic medicines in bulk",
+   "gst_rate_bp": 500,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3004",
+   "description": "Life-saving drugs and rare-disease medicines notified for nil rate",
+   "gst_rate_bp": 0,
+   "group": "Medicines & pharma",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9018",
+   "description": "Medical instruments — BP monitors, syringes, needles, catheters",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "901831",
+   "description": "Syringes",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "901832",
+   "description": "Needles, sutures needles",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9019",
+   "description": "Nebulisers, massage apparatus, oxygen therapy",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9020",
+   "description": "Breathing appliances and masks",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9021",
+   "description": "Orthopaedic appliances, splints, crutches",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "902140",
+   "description": "Hearing aids",
+   "gst_rate_bp": 0,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9025",
+   "description": "Clinical thermometers",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9027",
+   "description": "Glucometers and analysers",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8713",
+   "description": "Wheelchairs",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9004",
+   "description": "Spectacles (corrective)",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9001",
+   "description": "Contact lenses, spectacle lenses",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9003",
+   "description": "Spectacle frames",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "900410",
+   "description": "Sunglasses",
+   "gst_rate_bp": 1800,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9402",
+   "description": "Hospital beds, medical furniture",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6115",
+   "description": "Compression stockings",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4016",
+   "description": "Hot water bags (rubber)",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3926",
+   "description": "Urine bags, plastic medical items",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8421",
+   "description": "Water purifiers",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9022",
+   "description": "X-ray apparatus",
+   "gst_rate_bp": 500,
+   "group": "Medical devices",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "851713",
+   "description": "Mobile phones and smartphones",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "851762",
+   "description": "Routers, modems, Bluetooth devices",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8504",
+   "description": "Mobile chargers, adapters, inverters, UPS",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "850760",
+   "description": "Power banks and lithium-ion batteries",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8506",
+   "description": "Primary cells and batteries (AA, AAA, button cells)",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8507",
+   "description": "Lead-acid batteries (inverter / vehicle)",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8518",
+   "description": "Earphones, headphones, speakers, microphones",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8519",
+   "description": "Sound recording / reproducing apparatus",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8521",
+   "description": "Video recording apparatus, set-top boxes",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8523",
+   "description": "Memory cards, pen drives",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8525",
+   "description": "Cameras, CCTV cameras, webcams",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8528",
+   "description": "Televisions and monitors",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "852862",
+   "description": "Projectors",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8471",
+   "description": "Laptops, computers, keyboards, mouse",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "844332",
+   "description": "Printers and scanners",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8473",
+   "description": "Computer parts and accessories",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8443",
+   "description": "Printer cartridges and toners",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8415",
+   "description": "Air conditioners",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8418",
+   "description": "Refrigerators and freezers",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8450",
+   "description": "Washing machines",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8422",
+   "description": "Dishwashers",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8414",
+   "description": "Fans, exhaust fans, air coolers",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8509",
+   "description": "Mixer grinders, wet grinders, juicers",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8510",
+   "description": "Electric shavers, hair trimmers",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "851631",
+   "description": "Hair dryers",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "851660",
+   "description": "Microwave ovens, rice cookers",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8516",
+   "description": "Electric kettles and room heaters",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8508",
+   "description": "Vacuum cleaners",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8517",
+   "description": "Landline and cordless phones",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8536",
+   "description": "Switches, sockets, plugs, MCBs, extension boards",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8544",
+   "description": "Wires and cables",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8539",
+   "description": "LED lamps, bulbs and tubes",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8541",
+   "description": "Solar panels / photovoltaic cells",
+   "gst_rate_bp": 500,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "841919",
+   "description": "Solar water heaters",
+   "gst_rate_bp": 500,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9102",
+   "description": "Wrist watches",
+   "gst_rate_bp": 1800,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "910211",
+   "description": "Smart watches",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9105",
+   "description": "Clocks, wall clocks",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8513",
+   "description": "Torches and portable lamps",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8531",
+   "description": "Calling bells, alarms",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8504",
+   "description": "Voltage stabilisers",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8501",
+   "description": "Electric motors",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9504",
+   "description": "Video game consoles",
+   "gst_rate_bp": 1800,
+   "group": "Toys & sports",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8527",
+   "description": "Radio receivers",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8529",
+   "description": "TV and mobile spare parts",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8548",
+   "description": "Electronic components",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9032",
+   "description": "Thermostats and automatic regulators",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8528",
+   "description": "LED / LCD televisions (all screen sizes)",
+   "gst_rate_bp": 1800,
+   "group": "Electronics & appliances",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2523",
+   "description": "Cement",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7214",
+   "description": "Steel bars and TMT rods",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7213",
+   "description": "Steel wire rods",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7217",
+   "description": "Iron / steel wire, binding wire",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7308",
+   "description": "Steel structures, doors, windows, frames",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7306",
+   "description": "Steel pipes and tubes",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7317",
+   "description": "Nails, tacks, drawing pins",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7318",
+   "description": "Screws, bolts, nuts, washers",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7326",
+   "description": "Other iron / steel articles",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8301",
+   "description": "Padlocks and locks",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8302",
+   "description": "Hinges, handles, door fittings",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3917",
+   "description": "PVC / CPVC pipes and fittings",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3922",
+   "description": "Plastic sanitary ware (tanks, seats)",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6910",
+   "description": "Ceramic sanitary ware (wash basins, closets)",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6907",
+   "description": "Ceramic floor and wall tiles",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6802",
+   "description": "Granite and marble slabs, polished",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6901",
+   "description": "Clay bricks and tiles",
+   "gst_rate_bp": 500,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6810",
+   "description": "Concrete blocks, paver blocks",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2517",
+   "description": "Stone chips, gravel, ballast",
+   "gst_rate_bp": 500,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2505",
+   "description": "Sand",
+   "gst_rate_bp": 500,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7005",
+   "description": "Float glass, sheet glass",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7009",
+   "description": "Mirrors",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4412",
+   "description": "Plywood, block boards",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4410",
+   "description": "Particle board, MDF",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4418",
+   "description": "Doors, windows of wood",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8201",
+   "description": "Agricultural hand tools (spades, shovels, sickles)",
+   "gst_rate_bp": 500,
+   "group": "Agriculture",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8202",
+   "description": "Hand saws and blades",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8203",
+   "description": "Pliers, pincers, files",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8204",
+   "description": "Spanners and wrenches",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8205",
+   "description": "Hammers, screwdrivers, other hand tools",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8207",
+   "description": "Drill bits and tool interchangeables",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8467",
+   "description": "Power drills and portable power tools",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8413",
+   "description": "Water pumps and motors (for water)",
+   "gst_rate_bp": 500,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8424",
+   "description": "Sprayers and sprinklers",
+   "gst_rate_bp": 500,
+   "group": "Agriculture",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "842482",
+   "description": "Drip irrigation systems",
+   "gst_rate_bp": 500,
+   "group": "Agriculture",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8481",
+   "description": "Valves, ball valves, taps",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7307",
+   "description": "Pipe fittings of iron / steel",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7412",
+   "description": "Brass / copper pipe fittings",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8311",
+   "description": "Welding rods and electrodes",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3816",
+   "description": "Refractory cements and mortars",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3824",
+   "description": "Ready-mix concrete, construction chemicals",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6809",
+   "description": "Gypsum boards, POP articles",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2520",
+   "description": "Gypsum / plaster of Paris",
+   "gst_rate_bp": 500,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3925",
+   "description": "Plastic doors, windows, water tanks",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7610",
+   "description": "Aluminium doors, windows, frames",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6811",
+   "description": "Asbestos cement sheets",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7210",
+   "description": "Galvanised roofing sheets",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8302",
+   "description": "Curtain rods and brackets",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9603",
+   "description": "Paint brushes and rollers",
+   "gst_rate_bp": 1800,
+   "group": "Paints & chemicals",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6804",
+   "description": "Grinding wheels, emery",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6805",
+   "description": "Sandpaper and abrasive cloth",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4016",
+   "description": "Rubber washers, gaskets",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4009",
+   "description": "Rubber hoses and pipes",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8536",
+   "description": "Electrical fittings — switches, holders",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8544",
+   "description": "Electrical wires (house wiring)",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3208",
+   "description": "Paints and enamels (solvent based)",
+   "gst_rate_bp": 1800,
+   "group": "Paints & chemicals",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3209",
+   "description": "Emulsion paints (water based)",
+   "gst_rate_bp": 1800,
+   "group": "Paints & chemicals",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3210",
+   "description": "Distempers",
+   "gst_rate_bp": 1800,
+   "group": "Paints & chemicals",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3214",
+   "description": "Wall putty, glazier's putty",
+   "gst_rate_bp": 1800,
+   "group": "Paints & chemicals",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3212",
+   "description": "Pigments, stainers",
+   "gst_rate_bp": 1800,
+   "group": "Paints & chemicals",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3814",
+   "description": "Thinners and solvents",
+   "gst_rate_bp": 1800,
+   "group": "Paints & chemicals",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3506",
+   "description": "Adhesives and glues (Fevicol type)",
+   "gst_rate_bp": 1800,
+   "group": "Paints & chemicals",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3204",
+   "description": "Dyes",
+   "gst_rate_bp": 1800,
+   "group": "Paints & chemicals",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2811",
+   "description": "Chemicals (acid), toilet acid",
+   "gst_rate_bp": 1800,
+   "group": "Paints & chemicals",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3403",
+   "description": "Lubricating preparations, greases",
+   "gst_rate_bp": 1800,
+   "group": "Paints & chemicals",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2710",
+   "description": "Lubricating oil, engine oil",
+   "gst_rate_bp": 1800,
+   "group": "Paints & chemicals",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3824",
+   "description": "Waterproofing chemicals",
+   "gst_rate_bp": 1800,
+   "group": "Paints & chemicals",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2828",
+   "description": "Bleaching powder",
+   "gst_rate_bp": 1800,
+   "group": "Paints & chemicals",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2815",
+   "description": "Caustic soda",
+   "gst_rate_bp": 1800,
+   "group": "Paints & chemicals",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3105",
+   "description": "Fertilisers (mixed / NPK)",
+   "gst_rate_bp": 500,
+   "group": "Agriculture",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3102",
+   "description": "Urea and nitrogenous fertilisers",
+   "gst_rate_bp": 500,
+   "group": "Agriculture",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "31010099",
+   "description": "Organic manure, vermicompost",
+   "gst_rate_bp": 0,
+   "group": "Agriculture",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "380891",
+   "description": "Pesticides and insecticides (chemical)",
+   "gst_rate_bp": 1800,
+   "group": "Agriculture",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "380893",
+   "description": "Weedicides / herbicides",
+   "gst_rate_bp": 1800,
+   "group": "Agriculture",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1209",
+   "description": "Seeds for sowing",
+   "gst_rate_bp": 0,
+   "group": "Agriculture",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2309",
+   "description": "Cattle feed, poultry feed",
+   "gst_rate_bp": 0,
+   "group": "Agriculture",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "230910",
+   "description": "Pet food (dog / cat food)",
+   "gst_rate_bp": 1800,
+   "group": "Agriculture",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8432",
+   "description": "Agricultural machinery (tillers, harrows)",
+   "gst_rate_bp": 500,
+   "group": "Agriculture",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8433",
+   "description": "Harvesting and threshing machinery",
+   "gst_rate_bp": 500,
+   "group": "Agriculture",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8436",
+   "description": "Poultry and agricultural equipment",
+   "gst_rate_bp": 500,
+   "group": "Agriculture",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4820",
+   "description": "Exercise books, notebooks, graph and lab books",
+   "gst_rate_bp": 0,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "482010",
+   "description": "Registers, account books, diaries",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9609",
+   "description": "Pencils, crayons, pastels, chalk",
+   "gst_rate_bp": 0,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "821410",
+   "description": "Pencil sharpeners",
+   "gst_rate_bp": 0,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "401692",
+   "description": "Erasers",
+   "gst_rate_bp": 0,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4905",
+   "description": "Maps, charts, atlases, globes",
+   "gst_rate_bp": 0,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9608",
+   "description": "Ball pens, gel pens, markers, refills",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3215",
+   "description": "Writing ink, printing ink",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4802",
+   "description": "Paper (A4 / copier, writing paper)",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4817",
+   "description": "Envelopes, letter cards",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4819",
+   "description": "Cartons, boxes of paper",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4821",
+   "description": "Paper labels, stickers",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4823",
+   "description": "Other paper articles",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4901",
+   "description": "Printed books, textbooks",
+   "gst_rate_bp": 0,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4902",
+   "description": "Newspapers and periodicals",
+   "gst_rate_bp": 0,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4903",
+   "description": "Children's picture, drawing and colouring books",
+   "gst_rate_bp": 0,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4910",
+   "description": "Calendars",
+   "gst_rate_bp": 500,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4909",
+   "description": "Greeting cards, postcards",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4911",
+   "description": "Printed matter — posters, pictures",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8472",
+   "description": "Staplers, punches, office machines",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8305",
+   "description": "Staple pins, paper clips, binder clips",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3919",
+   "description": "Adhesive tapes (cello tape)",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9017",
+   "description": "Geometry boxes, scales, drawing instruments",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9610",
+   "description": "Slates and boards (white board, black board)",
+   "gst_rate_bp": 500,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9611",
+   "description": "Rubber stamps, date stamps",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9612",
+   "description": "Typewriter / printer ribbons, stamp pads",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3926",
+   "description": "Files, folders, plastic stationery",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4820",
+   "description": "File covers and folders of paper",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8214",
+   "description": "Paper cutters, office scissors",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9608",
+   "description": "Fountain pens",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3213",
+   "description": "Artists' and students' colours (water colour, poster colour)",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9603",
+   "description": "Art brushes",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4810",
+   "description": "Chart paper, coated paper",
+   "gst_rate_bp": 1800,
+   "group": "Stationery & books",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4813",
+   "description": "Cigarette paper",
+   "gst_rate_bp": 1800,
+   "group": "Tobacco",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9503",
+   "description": "Toys, dolls, puzzles, models",
+   "gst_rate_bp": 500,
+   "group": "Toys & sports",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9504",
+   "description": "Board games, chess, carrom, playing cards",
+   "gst_rate_bp": 500,
+   "group": "Toys & sports",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9506",
+   "description": "Sports goods — cricket bats, balls, shuttlecocks, rackets",
+   "gst_rate_bp": 500,
+   "group": "Toys & sports",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9507",
+   "description": "Fishing rods and tackle",
+   "gst_rate_bp": 1800,
+   "group": "Toys & sports",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8712",
+   "description": "Bicycles",
+   "gst_rate_bp": 500,
+   "group": "Toys & sports",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8714",
+   "description": "Bicycle parts and accessories",
+   "gst_rate_bp": 500,
+   "group": "Toys & sports",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9505",
+   "description": "Festive articles, decorations, Christmas items",
+   "gst_rate_bp": 500,
+   "group": "Toys & sports",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9508",
+   "description": "Merry-go-rounds, amusement equipment",
+   "gst_rate_bp": 1800,
+   "group": "Toys & sports",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6506",
+   "description": "Helmets",
+   "gst_rate_bp": 500,
+   "group": "Toys & sports",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7113",
+   "description": "Gold and silver jewellery",
+   "gst_rate_bp": 300,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "711319",
+   "description": "Gold jewellery",
+   "gst_rate_bp": 300,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "711311",
+   "description": "Silver jewellery and articles",
+   "gst_rate_bp": 300,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7108",
+   "description": "Gold bars and coins",
+   "gst_rate_bp": 300,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7106",
+   "description": "Silver bars and coins",
+   "gst_rate_bp": 300,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7102",
+   "description": "Diamonds, cut and polished",
+   "gst_rate_bp": 150,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "710210",
+   "description": "Rough diamonds",
+   "gst_rate_bp": 25,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7103",
+   "description": "Precious stones (other than diamonds)",
+   "gst_rate_bp": 300,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7117",
+   "description": "Imitation jewellery, bangles, fashion jewellery",
+   "gst_rate_bp": 300,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "7018",
+   "description": "Glass beads and glass bangles",
+   "gst_rate_bp": 0,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6702",
+   "description": "Artificial flowers",
+   "gst_rate_bp": 1800,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6704",
+   "description": "Wigs and hair extensions",
+   "gst_rate_bp": 1800,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9113",
+   "description": "Watch straps",
+   "gst_rate_bp": 1800,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4203",
+   "description": "Leather belts and garments",
+   "gst_rate_bp": 1800,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6702",
+   "description": "Gajra and flower decorations (artificial)",
+   "gst_rate_bp": 1800,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0603",
+   "description": "Fresh flowers (jasmine, garlands)",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2402",
+   "description": "Cigarettes, cigars (plus compensation cess)",
+   "gst_rate_bp": 2800,
+   "group": "Tobacco",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2403",
+   "description": "Chewing tobacco, zarda (plus compensation cess)",
+   "gst_rate_bp": 2800,
+   "group": "Tobacco",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "21069020",
+   "description": "Pan masala (plus compensation cess)",
+   "gst_rate_bp": 2800,
+   "group": "Tobacco",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2401",
+   "description": "Unmanufactured tobacco, leaves",
+   "gst_rate_bp": 2800,
+   "group": "Tobacco",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "240319",
+   "description": "Beedi",
+   "gst_rate_bp": 2800,
+   "group": "Tobacco",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "996331",
+   "description": "Restaurant / food service (without ITC)",
+   "gst_rate_bp": 500,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "996334",
+   "description": "Outdoor catering",
+   "gst_rate_bp": 500,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "998722",
+   "description": "Repair of mobile phones and electronics",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "998729",
+   "description": "Repair of household appliances",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "998714",
+   "description": "Repair and maintenance of motor vehicles",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "998821",
+   "description": "Tailoring and alteration (job work on textiles)",
+   "gst_rate_bp": 500,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "999721",
+   "description": "Hair cutting, beauty and salon services",
+   "gst_rate_bp": 500,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "999729",
+   "description": "Spa and wellness services",
+   "gst_rate_bp": 500,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "996812",
+   "description": "Courier services",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "998386",
+   "description": "Photography and videography",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "998599",
+   "description": "Other support services",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "998719",
+   "description": "Repair of other goods (watches, shoes)",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "997212",
+   "description": "Rental of commercial property",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "997319",
+   "description": "Rental of goods (equipment hire)",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "998313",
+   "description": "IT and software support services",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "998912",
+   "description": "Printing services (printing on customer's paper)",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "999293",
+   "description": "Commercial training and coaching",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "996511",
+   "description": "Goods transport by road (GTA)",
+   "gst_rate_bp": 500,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "998551",
+   "description": "Event management services",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "999634",
+   "description": "Gym and fitness services",
+   "gst_rate_bp": 500,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "998734",
+   "description": "Repair of computers and peripherals",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "997133",
+   "description": "Insurance agency services",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "998363",
+   "description": "Advertising services",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "996111",
+   "description": "Commission agent / wholesale on fee basis",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "998533",
+   "description": "Cleaning and pest control services",
+   "gst_rate_bp": 1800,
+   "group": "Services (SAC)",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3926",
+   "description": "Plastic toys and novelty items",
+   "gst_rate_bp": 1800,
+   "group": "Toys & sports",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9601",
+   "description": "Ivory-like / bone carvings",
+   "gst_rate_bp": 1800,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9701",
+   "description": "Paintings, drawings",
+   "gst_rate_bp": 500,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4414",
+   "description": "Wooden photo frames",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8306",
+   "description": "Bells, statues and ornaments of base metal (handicraft)",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6913",
+   "description": "Ceramic statues and ornaments",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "9602",
+   "description": "Wax and clay idols",
+   "gst_rate_bp": 0,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4419",
+   "description": "Wooden kitchen articles (rolling pin, spoons)",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "6703",
+   "description": "Human hair, dressed",
+   "gst_rate_bp": 500,
+   "group": "Jewellery & accessories",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4011",
+   "description": "Bicycle tyres and tubes",
+   "gst_rate_bp": 500,
+   "group": "Toys & sports",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "401110",
+   "description": "Car tyres",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8708",
+   "description": "Motor vehicle parts and accessories",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "8711",
+   "description": "Motorcycles up to 350 cc",
+   "gst_rate_bp": 1800,
+   "group": "Hardware & building",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2711",
+   "description": "LPG (domestic cylinder)",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2710",
+   "description": "Kerosene (PDS)",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "4401",
+   "description": "Firewood and wood charcoal",
+   "gst_rate_bp": 500,
+   "group": "Household",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "3301",
+   "description": "Essential oils",
+   "gst_rate_bp": 1800,
+   "group": "Personal care",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1404",
+   "description": "Betel leaves (vettrilai)",
+   "gst_rate_bp": 0,
+   "group": "Fruits & vegetables",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "080290",
+   "description": "Areca nut / supari",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0802",
+   "description": "Groundnuts, shelled (pre-packaged)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1202",
+   "description": "Groundnuts in shell",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2006",
+   "description": "Candied fruit and peel (tutti frutti)",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1702",
+   "description": "Glucose, dextrose, liquid glucose",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2106",
+   "description": "Sugar-free sweeteners (sucralose tablets)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2209",
+   "description": "Vinegar",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1105",
+   "description": "Potato flour, chips mix",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2005",
+   "description": "Potato chips, wafers (pre-packaged)",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1905",
+   "description": "Papad / appalam",
+   "gst_rate_bp": 0,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1905",
+   "description": "Pizza base",
+   "gst_rate_bp": 0,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0910",
+   "description": "Asafoetida / perungayam",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1207",
+   "description": "Sesame seeds (ellu), mustard seeds (kadugu)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0713",
+   "description": "Bengal gram / kadalai paruppu (pre-packaged)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1102",
+   "description": "Idli / dosa batter (pre-packaged)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2106",
+   "description": "Idli / dosa / vada instant mixes",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0402",
+   "description": "Dairy whitener",
+   "gst_rate_bp": 500,
+   "group": "Dairy & eggs",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0405",
+   "description": "Butter oil",
+   "gst_rate_bp": 500,
+   "group": "Dairy & eggs",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0406",
+   "description": "Processed cheese slices / spreads",
+   "gst_rate_bp": 500,
+   "group": "Dairy & eggs",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "1806",
+   "description": "Chocolate spreads and drinking chocolate",
+   "gst_rate_bp": 500,
+   "group": "Bakery & sweets",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "2101",
+   "description": "Chicory and coffee-chicory blends",
+   "gst_rate_bp": 500,
+   "group": "Beverages",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0904",
+   "description": "Kashmiri chilli, red chilli flakes",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  },
+  {
+   "code": "0802",
+   "description": "Pistachios, walnuts (shelled)",
+   "gst_rate_bp": 500,
+   "group": "Groceries",
+   "slab_rule_hint": null
+  }
+ ]
+}

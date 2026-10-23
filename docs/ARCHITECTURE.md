@@ -519,6 +519,7 @@ systemAccountId(tx, ctx, subtype: SystemAccountSubtype): Promise<string>   // ca
   | 5100 | cogs | Cost of goods sold |
   | 5200 | inventory_adjustment | Stock adjustment / shrinkage |
   | 5210 | inventory_writeoff | Expired / damaged stock written off |
+  | 5250 | cash_short_excess | Cash short / excess (shift-close drawer differences; migration 0700 backfilled older tenants) |
   | 5300–5390 | (expense) | Rent, Electricity, Salaries, Transport, Repairs, Telephone & internet, Bank & PSP charges, Packing, Miscellaneous |
   | 5360 | bank_charges | Bank & PSP charges (also the posting account for PSP fees, e.g. `payment_intents.fee_paise`) |
   | 5400 | discount_allowed | Discount allowed |
@@ -787,6 +788,7 @@ data, { tx })` (`core/jobs.ts`) so a job exists only if the business transaction
 | `notifications.due-reminders` | daily 10:00 IST | notifications |
 | `notifications.daily-summary` | daily 21:30 IST | notifications |
 | `inventory.alerts` (low stock / expiry digest) | daily 08:00 IST | inventory |
+| `sales.prune-pos-tombstones` (POS delta-sync tombstones > 60 days) | daily 03:41 IST | sales |
 | `platform.subscription-renewals` | hourly | platform (cloud) |
 | `licensing.fulfil-order` | on payment (platform webhook / manual) | licensing (vendor) |
 | `licensing.renewal-reminders` | daily 10:00 IST | licensing (vendor) |
@@ -801,9 +803,15 @@ data, { tx })` (`core/jobs.ts`) so a job exists only if the business transaction
 ## 15. Notifications
 
 Outbox table `notifications`; providers behind an interface: `log` (dev), `msg91` (SMS with DLT
-template ids), `whatsapp_cloud` (Meta WhatsApp Cloud API templates), `smtp` (email). Templates are
-code-defined defaults (ta/en) overridable per tenant (`notification_templates`). Invoice sharing
-sends the public invoice link `/i/<share_token>` (+ UPI pay link when due).
+template ids), `whatsapp_cloud` (Meta WhatsApp Cloud API templates), `email_webhook` (e-mail as a
+signed JSON POST to `EMAIL_WEBHOOK_URL`; `smtp` is reserved — no mail library is bundled) and, on
+premises, `kadai_relay`. Templates are code-defined defaults (ta/en) overridable per tenant
+(`notification_templates`). Invoice sharing sends the public invoice link `/i/<share_token>` (+ UPI
+pay link when due). The send job (modules/notifications/send.ts) cancels messages of a suspended
+business, without the plan feature (SMS / WhatsApp), switched off in settings or to customers
+without WhatsApp opt-in, retries retryable provider errors with backoff (5 attempts) and counts
+`usage_counters` `sms` / `whatsapp` / `email` per month. OTP SMS bypass the outbox: the
+provider-backed `OtpSender` (modules/notifications/otp-sender.ts) is injected by `server.ts`.
 
 ---
 
@@ -896,6 +904,7 @@ sends the public invoice link `/i/<share_token>` (+ UPI pay link when due).
 | `KADAI_SETUP_TOKEN` | — | on-prem: when set, `POST /setup` must carry it (`setup_token`) |
 | `SMS_PROVIDER` / `MSG91_*` | `log` | |
 | `WHATSAPP_PROVIDER` / `WHATSAPP_*` | `log` | |
+| `EMAIL_PROVIDER` / `EMAIL_*` | `log` | `email_webhook` + `EMAIL_WEBHOOK_URL` (`smtp` reserved); see DEPLOYMENT.md §12 |
 | `RAZORPAY_PLATFORM_*` | — | SaaS billing (cloud) |
 | `KADAI_ENABLE_MOCK_PAYMENTS` | `false` | dev/test |
 | `LOG_LEVEL` | `info` | |
