@@ -10,7 +10,7 @@ import {
   type StockSenseWindow,
 } from '@kadai/shared/stocksense'
 import { formatPackQty, formatQty } from '@/lib/format'
-import { translate } from '@/lib/i18n'
+import { getLanguage, translate } from '@/lib/i18n'
 import { storage } from '@/lib/storage'
 import { packUnitFor } from './labels'
 
@@ -82,22 +82,36 @@ export const PRIORITY_TONE: Record<StockSensePriority, 'danger' | 'warning' | 'i
     ok: 'neutral',
   }
 
-/** "12 pcs" / "2 strips + 3 tabs" in the UI language. */
+/** "12 pcs" / "2 strips (20 tabs)" in the UI language. */
 export function qtyText(milli: number, item: Pick<StockSenseItem, 'unit' | 'pack_size'>): string {
-  return item.pack_size > 1 && Math.abs(milli) >= item.pack_size * 1000
-    ? formatPackQty(milli, item.pack_size, item.unit, packUnitFor(item.unit))
-    : formatQty(milli, item.unit)
+  if (item.pack_size > 1 && Math.abs(milli) >= item.pack_size * 1000) {
+    const packs = formatPackQty(milli, item.pack_size, item.unit, packUnitFor(item.unit))
+    const base = formatQty(milli, item.unit)
+    return `${packs} (${base})`
+  }
+  return formatQty(milli, item.unit)
+}
+
+function daysPhrase(n: number): string {
+  const lang = getLanguage()
+  if (lang === 'ta') return n === 1 ? '1 நாள்' : `${String(n)} நாட்கள்`
+  return n === 1 ? '1 day' : `${String(n)} days`
 }
 
 /** One translated line: why this quantity (or why nothing) is recommended. */
 export function explainItem(item: StockSenseItem, cycleDays: number, safetyDays: number): string {
+  const cover = item.cover_days ?? 0
   const vars = {
     daily: qtyText(item.daily_milli, item),
     stock: qtyText(item.usable_milli, item),
-    cover: item.cover_days ?? 0,
+    cover,
+    cover_text: daysPhrase(cover),
     lead: item.lead_time_days,
+    lead_text: daysPhrase(item.lead_time_days),
     cycle: cycleDays,
+    cycle_text: daysPhrase(cycleDays),
     safety: safetyDays,
+    safety_text: daysPhrase(safetyDays),
     shelf: item.shelf_life_days ?? 0,
     incoming: qtyText(item.incoming_milli, item),
     qty: qtyText(item.order_qty_milli, item),

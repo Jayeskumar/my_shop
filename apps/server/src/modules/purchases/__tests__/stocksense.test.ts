@@ -220,4 +220,17 @@ describe('purchases: StockSense', () => {
     )
     expect(res.statusCode).toBe(404)
   })
+
+  it('serves reorder-suggestions in forecast mode without GROUP BY errors', async () => {
+    const res = await req(
+      shop,
+      'GET',
+      `/purchases/reorder-suggestions?store_id=${shop.store.id}&lead_time_days=7&model=smart`,
+    )
+    expect(res.statusCode).toBe(200)
+    const body = res.json<{ data: { forecast: boolean; model: string; groups: unknown[] } }>()
+    expect(body.data.forecast).toBe(true)
+    expect(body.data.model).toBe('smart')
+    expect(body.data.groups.length).toBeGreaterThan(0)
+  })
 })

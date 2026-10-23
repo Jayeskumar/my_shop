@@ -281,6 +281,28 @@ function SupplierFormBody({ onOpenChange, supplier, onSaved }: SupplierFormDialo
                 />
               </PartyField>
               <PartyField
+                name="lead_time_days"
+                label={t('fields.lead_time')}
+                optional
+                hint={t('supplier_form.lead_time_hint')}
+              >
+                <Controller
+                  control={form.control}
+                  name="lead_time_days"
+                  render={({ field }) => (
+                    <NumberInput
+                      value={field.value ?? null}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      min={1}
+                      max={365}
+                      placeholder="3"
+                      suffix={t('customer_form.days')}
+                    />
+                  )}
+                />
+              </PartyField>
+              <PartyField
                 name="upi_vpa"
                 label={t('fields.upi_vpa')}
                 optional

@@ -830,6 +830,7 @@ export const SupplierListItemSchema = z.object({
   state_code: z.string().nullable(),
   drug_license_no: z.string().nullable(),
   payment_terms_days: z.int().min(0).nullable(),
+  lead_time_days: z.int().min(1).max(365).nullable().optional(),
   /** Payable: + = the shop owes the supplier, − = advance paid / debit balance. */
   balance_paise: zSignedPaise,
   /**
@@ -883,6 +884,7 @@ export const SupplierCreateSchema = z
     address: AddressSchema.prefault({}),
     drug_license_no: zNullableText(100),
     payment_terms_days: z.int().min(0).max(365).nullable().default(null),
+    lead_time_days: z.int().min(1).max(365).nullable().optional(),
     opening_balance_paise: zOpeningBalance
       .default(0)
       .describe('+ = the shop owes the supplier, − = advance paid'),
@@ -908,6 +910,7 @@ export const SupplierUpdateSchema = z
     address: AddressSchema.optional(),
     drug_license_no: zNullableText(100),
     payment_terms_days: z.int().min(0).max(365).nullable().optional(),
+    lead_time_days: z.int().min(1).max(365).nullable().optional(),
     opening_balance_paise: zOpeningBalance.optional(),
     bank_details: BankDetailsInputSchema.optional(),
     upi_vpa: zNullableVpa,

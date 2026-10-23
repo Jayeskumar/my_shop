@@ -218,9 +218,8 @@ export function BasicSection({ icon }: { icon: ReactNode }) {
 function PhotoField() {
   const { t } = useTranslation('catalog')
   const env = useProductFormEnv()
-  const { setValue, watch } = useProductForm()
+  const { setValue, watch, getValues } = useProductForm()
   const imageId = watch('image_file_id')
-  const name = watch('name')
   const input = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -258,7 +257,7 @@ function PhotoField() {
         <ProductThumb
           fileId={imageId}
           previewUrl={imageId ? preview : null}
-          name={name}
+          name={imageId ? getValues('name') : ''}
           size="xl"
         />
         {uploading ? (

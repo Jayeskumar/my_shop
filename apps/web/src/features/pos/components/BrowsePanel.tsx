@@ -66,10 +66,19 @@ export function BrowsePanel({ className }: { className?: string }) {
           .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
       }
       if (!categoryId) return []
-      const ids = [
-        categoryId,
-        ...context.categories.filter((c) => c.parent_id === categoryId).map((c) => c.id),
-      ]
+      const ids = [categoryId]
+      const queue = [categoryId]
+      const seen = new Set<string>(ids)
+      while (queue.length > 0) {
+        const parent = queue.shift()!
+        for (const c of context.categories) {
+          if (c.parent_id === parent && !seen.has(c.id)) {
+            seen.add(c.id)
+            ids.push(c.id)
+            queue.push(c.id)
+          }
+        }
+      }
       return productsOfCategory(tenantId, ids)
     }
     void load().then((rows) => {

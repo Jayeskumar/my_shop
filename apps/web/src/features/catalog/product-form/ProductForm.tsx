@@ -17,8 +17,8 @@ import {
   Ruler,
   Tag,
 } from 'lucide-react'
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { FormProvider, useForm } from 'react-hook-form'
+import { type FormEvent, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
+import { FormProvider, useForm, useFormState, type UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { Button, notify } from '@/components/ui'
@@ -325,12 +325,10 @@ export function ProductForm({ mode, product, defaults, storeId }: ProductFormPro
       ? [{ id: 'variants', label: t('form.sections.variants') }]
       : []),
   ]
-  const dirty = form.formState.isDirty && !readOnly
 
   return (
     <ProductFormEnvContext.Provider value={env}>
       <FormProvider {...form}>
-        <UnsavedChangesGuard when={dirty && !saving} allowRef={leaving} />
         <nav
           aria-label={t('form.sections_nav')}
           className="sticky top-16 z-10 -mx-4 mb-4 flex gap-1 overflow-x-auto border-b border-border bg-background/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
@@ -392,37 +390,73 @@ export function ProductForm({ mode, product, defaults, storeId }: ProductFormPro
             <VariantsSection icon={<Tag />} />
           </div>
         ) : null}
-        {!readOnly ? (
-          <SaveBar
-            formId={FORM_ID}
-            dirty={dirty}
-            saving={saving}
-            onDiscard={() => form.reset(baseline.current)}
-            onSaveClick={() => {
-              afterSave.current = 'open'
-            }}
-            saveLabel={mode === 'create' ? t('form.create') : t('common:actions.save_changes')}
-            status={mode === 'edit' ? t('form.all_saved') : undefined}
-            extra={
-              mode === 'create' ? (
-                <Button
-                  type="submit"
-                  form={FORM_ID}
-                  variant="outline"
-                  size="lg"
-                  className="hidden sm:inline-flex"
-                  onClick={() => {
-                    afterSave.current = 'new'
-                  }}
-                  disabled={saving}
-                >
-                  {t('form.save_and_new')}
-                </Button>
-              ) : null
-            }
-          />
-        ) : null}
+        <ProductFormChrome
+          form={form}
+          mode={mode}
+          readOnly={readOnly}
+          saving={saving}
+          leaving={leaving}
+          baseline={baseline}
+          afterSave={afterSave}
+        />
       </FormProvider>
     </ProductFormEnvContext.Provider>
+  )
+}
+
+function ProductFormChrome({
+  form,
+  mode,
+  readOnly,
+  saving,
+  leaving,
+  baseline,
+  afterSave,
+}: {
+  form: UseFormReturn<ProductFormValues>
+  mode: ProductFormMode
+  readOnly: boolean
+  saving: boolean
+  leaving: RefObject<boolean>
+  baseline: RefObject<ProductFormValues>
+  afterSave: RefObject<'open' | 'new'>
+}) {
+  const { t } = useTranslation(['catalog', 'common'])
+  const { isDirty } = useFormState({ control: form.control })
+  const dirty = isDirty && !readOnly
+  return (
+    <>
+      <UnsavedChangesGuard when={dirty && !saving} allowRef={leaving} />
+      {!readOnly ? (
+        <SaveBar
+          formId={FORM_ID}
+          dirty={dirty}
+          saving={saving}
+          onDiscard={() => form.reset(baseline.current)}
+          onSaveClick={() => {
+            afterSave.current = 'open'
+          }}
+          saveLabel={mode === 'create' ? t('form.create') : t('common:actions.save_changes')}
+          status={mode === 'edit' ? t('form.all_saved') : undefined}
+          extra={
+            mode === 'create' ? (
+              <Button
+                type="submit"
+                form={FORM_ID}
+                variant="outline"
+                size="lg"
+                className="hidden sm:inline-flex"
+                onClick={() => {
+                  afterSave.current = 'new'
+                }}
+                disabled={saving}
+              >
+                {t('form.save_and_new')}
+              </Button>
+            ) : null
+          }
+        />
+      ) : null}
+    </>
   )
 }

@@ -33,6 +33,7 @@ export interface SupplierFormValues {
   address: AddressFormValues
   drug_license_no: string
   payment_terms_days: number | null
+  lead_time_days?: number | null
   opening_side: 'due' | 'advance'
   opening_amount_paise: number | null
   bank: BankFormValues
@@ -56,6 +57,7 @@ export function emptySupplierValues(stateCode: string | null): SupplierFormValue
     address: { ...EMPTY_ADDRESS },
     drug_license_no: '',
     payment_terms_days: null,
+    lead_time_days: null,
     opening_side: 'due',
     opening_amount_paise: null,
     bank: { ...EMPTY_BANK },
@@ -78,6 +80,7 @@ export function supplierToValues(s: Supplier): SupplierFormValues {
     address: addressFromRecord(s.address),
     drug_license_no: s.drug_license_no ?? '',
     payment_terms_days: s.payment_terms_days,
+    lead_time_days: s.lead_time_days ?? null,
     opening_side: s.opening_balance_paise < 0 ? 'advance' : 'due',
     opening_amount_paise: s.opening_balance_paise === 0 ? null : Math.abs(s.opening_balance_paise),
     bank: {
@@ -118,6 +121,9 @@ export function supplierCreateBody(v: SupplierFormValues): SupplierCreate {
     address: addressToBody(v.address, v.state_code),
     drug_license_no: textOrNull(v.drug_license_no),
     payment_terms_days: v.payment_terms_days,
+    ...(v.lead_time_days !== undefined && v.lead_time_days !== null
+      ? { lead_time_days: v.lead_time_days }
+      : {}),
     opening_balance_paise: signedOpening(v.opening_side, v.opening_amount_paise),
     ...(anyBank ? { bank_details: bank } : {}),
     upi_vpa: textOrNull(v.upi_vpa),
@@ -139,6 +145,9 @@ export function supplierPatchBody(
   for (const key of Object.keys(body) as (keyof SupplierCreate)[]) {
     if (key === 'bank_details') continue
     if (!same(body[key], before[key])) patch[key] = body[key]
+  }
+  if ((v.lead_time_days ?? null) !== (initial.lead_time_days ?? null)) {
+    patch.lead_time_days = v.lead_time_days ?? null
   }
   const bank = bankBody(v)
   if (!same(bank, bankBody(initial))) patch.bank_details = bank

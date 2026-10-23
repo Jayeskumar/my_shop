@@ -35,7 +35,38 @@ export function PricingSection({ icon }: { icon: ReactNode }) {
   const { t } = useTranslation('catalog')
   const env = useProductFormEnv()
   const { control, watch, formState } = useProductForm()
-  const v = watch()
+  const [
+    pack_size,
+    unit,
+    tax_slab_rule_id,
+    sale_price_paise,
+    price_includes_tax,
+    cess_rate_bp,
+    gst_rate_bp,
+    purchase_price_paise,
+    mrp_paise,
+  ] = watch([
+    'pack_size',
+    'unit',
+    'tax_slab_rule_id',
+    'sale_price_paise',
+    'price_includes_tax',
+    'cess_rate_bp',
+    'gst_rate_bp',
+    'purchase_price_paise',
+    'mrp_paise',
+  ])
+  const v = {
+    pack_size,
+    unit,
+    tax_slab_rule_id,
+    sale_price_paise,
+    price_includes_tax,
+    cess_rate_bp,
+    gst_rate_bp,
+    purchase_price_paise,
+    mrp_paise,
+  }
   const packLabel =
     v.pack_size && v.pack_size > 1
       ? t('pricing.per_pack', { count: v.pack_size, unit: unitSymbol(v.unit) })

@@ -485,7 +485,7 @@
     "explain_cover": "Order covers {{lead}} days at about {{daily}} a day, after stock on hand and open orders.",
     "explain_shelf_life": "Capped so it can sell within {{shelf}} days of shelf life (about {{daily}} a day).",
     "explain_covered": "Stock on hand and open orders cover the {{lead}} days until delivery.",
-    "assumptions_lead": "Lead time {{lead}} days (entered here; not saved on the supplier).",
+    "assumptions_lead": "Lead time {{lead}} days (uses each supplier's lead time when set).",
     "assumptions_window": "{{days}}-day average{{weekday}}.",
     "assumptions_weekday": ", weekday-adjusted",
     "assumptions_shelf": "Shelf life {{days}} days when the product has none.",
@@ -880,8 +880,8 @@
       "supplier_group_other": "{{count}} items · {{amount}}"
     },
     "reason": {
-      "out_of_stock": "Out of stock and selling about {{daily}} a day. Order {{qty}} to cover {{lead}} days to delivery, {{cycle}} days to the next order and {{safety}} buffer days.",
-      "stockout_before_delivery": "Runs out in {{cover}} days but delivery takes {{lead}} days. Sells about {{daily}} a day — order {{qty}} today.",
+      "out_of_stock": "Out of stock and selling about {{daily}} a day. Order {{qty}} to cover {{lead_text}} to delivery, {{cycle_text}} to the next order and {{safety_text}} buffer.",
+      "stockout_before_delivery": "Runs out in {{cover_text}} but delivery takes {{lead_text}}. Sells about {{daily}} a day — order {{qty}} today.",
       "stockout_before_next": "Lasts until this delivery but not the next one ({{lead}} + {{cycle}} days), even with {{incoming}} on order. Order {{qty}}.",
       "top_up": "Sells about {{daily}} a day. Order {{qty}} to keep {{lead}} + {{cycle}} days of stock plus a {{safety}}-day buffer.",
       "reorder_level": "No sales in the forecast window and stock is at the reorder level, so the reorder quantity is used: {{qty}}.",

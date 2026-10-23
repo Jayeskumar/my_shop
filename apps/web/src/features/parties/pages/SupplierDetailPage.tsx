@@ -429,6 +429,13 @@ function SupplierProfile({
           : null,
     },
     {
+      label: t('fields.lead_time'),
+      value:
+        supplier.lead_time_days != null
+          ? t('profile.days', { count: supplier.lead_time_days })
+          : null,
+    },
+    {
       label: t('profile.opening'),
       value:
         supplier.opening_balance_paise === 0

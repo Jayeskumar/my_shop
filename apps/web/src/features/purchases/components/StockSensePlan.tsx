@@ -40,7 +40,7 @@ import { localizedName } from '@/lib/i18n'
 import { useCreateOrder } from '../api'
 import { fromPackMilli, toPackMilli } from '../lib/bill-form'
 import { notifyPurchasesError } from '../lib/errors'
-import { packUnitFor } from '../lib/labels'
+import { packUnitFor, unitLabel } from '../lib/labels'
 import { reorderOrderBody } from '../lib/order-form'
 import { PRIORITY_TONE, explainItem, qtyText } from '../lib/stocksense'
 
@@ -462,9 +462,10 @@ function PlanRow({
         <div className="grid gap-0.5">
           <NumberInput
             size="sm"
-            className="w-28 text-end"
+            className="w-32 text-end"
             decimals={3}
             scale={1000}
+            suffix={unitLabel(packed ? packUnitFor(item.unit) : item.unit)}
             value={packed ? toPackMilli(pick.qty_milli, item.pack_size) : pick.qty_milli}
             disabled={disabled || !pick.selected}
             aria-label={t('stocksense.plan.qty_for', { name })}
@@ -472,7 +473,7 @@ function PlanRow({
             onChange={(v) => onChange({ qty_milli: packed ? fromPackMilli(v, item.pack_size) : v })}
           />
           <span className="text-end text-[11px] text-muted-foreground">
-            {t('stocksense.plan.order')} {qty(item.order_qty_milli)}
+            {t('stocksense.plan.order')} {qtyText(item.order_qty_milli, item)}
           </span>
         </div>
         <Money

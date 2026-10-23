@@ -22,6 +22,7 @@ interface Item {
   sku: string
   name: string
   name_ta: string
+  category?: string
   unit?: string
   pack_size?: number
   sale: number
@@ -44,6 +45,7 @@ const ITEMS: Item[] = [
     sku: 'RICE5',
     name: 'Ponni rice 5 kg',
     name_ta: 'பொன்னி அரிசி 5 கி',
+    category: 'Ponni rice',
     sale: 42_000,
     cost: 36_000,
     gst: 500,
@@ -55,6 +57,7 @@ const ITEMS: Item[] = [
     sku: 'DAL1',
     name: 'Toor dal 1 kg',
     name_ta: 'துவரம் பருப்பு 1 கி',
+    category: 'Toor dal',
     sale: 16_000,
     cost: 13_500,
     gst: 500,
@@ -66,6 +69,7 @@ const ITEMS: Item[] = [
     sku: 'OIL1',
     name: 'Sunflower oil 1 L',
     name_ta: 'சூரியகாந்தி எண்ணெய் 1 லி',
+    category: 'Sunflower oil',
     sale: 15_500,
     cost: 13_800,
     gst: 500,
@@ -77,6 +81,7 @@ const ITEMS: Item[] = [
     sku: 'MILK',
     name: 'Aavin milk 500 ml',
     name_ta: 'ஆவின் பால் 500 மிலி',
+    category: 'Milk',
     sale: 2_700,
     cost: 2_400,
     gst: 0,
@@ -90,6 +95,7 @@ const ITEMS: Item[] = [
     sku: 'BREAD',
     name: 'Bread 400 g',
     name_ta: 'ரொட்டி 400 கி',
+    category: 'Biscuits & snacks',
     sale: 4_500,
     cost: 3_800,
     gst: 0,
@@ -102,6 +108,7 @@ const ITEMS: Item[] = [
     sku: 'CURD',
     name: 'Curd 500 g',
     name_ta: 'தயிர் 500 கி',
+    category: 'Curd & buttermilk',
     sale: 3_500,
     cost: 2_900,
     gst: 0,
@@ -115,6 +122,7 @@ const ITEMS: Item[] = [
     sku: 'SUGAR',
     name: 'Sugar 1 kg',
     name_ta: 'சர்க்கரை 1 கி',
+    category: 'Sugar & jaggery',
     sale: 4_800,
     cost: 4_300,
     gst: 500,
@@ -126,6 +134,7 @@ const ITEMS: Item[] = [
     sku: 'TEA',
     name: 'Tea powder 250 g',
     name_ta: 'டீ தூள் 250 கி',
+    category: 'Tea',
     sale: 14_000,
     cost: 11_500,
     gst: 500,
@@ -137,6 +146,7 @@ const ITEMS: Item[] = [
     sku: 'MARIE',
     name: 'Marie biscuits (carton of 24)',
     name_ta: 'மேரி பிஸ்கட் (24 அட்டைப்பெட்டி)',
+    category: 'Biscuits',
     pack_size: 24,
     sale: 24_000,
     cost: 20_000,
@@ -149,6 +159,7 @@ const ITEMS: Item[] = [
     sku: 'SOAP',
     name: 'Neem soap 100 g',
     name_ta: 'வேப்ப சோப்பு 100 கி',
+    category: 'Bath soaps',
     sale: 4_000,
     cost: 3_000,
     gst: 1800,
@@ -160,6 +171,7 @@ const ITEMS: Item[] = [
     sku: 'AGAR',
     name: 'Agarbatti',
     name_ta: 'ஊதுபத்தி',
+    category: 'Agarbatti',
     sale: 3_000,
     cost: 2_000,
     gst: 500,
@@ -188,6 +200,7 @@ const ITEMS: Item[] = [
     sku: 'RAVA',
     name: 'Rava 500 g',
     name_ta: 'ரவை 500 கி',
+    category: 'Rava / sooji',
     sale: 4_500,
     cost: 3_600,
     gst: 500,
@@ -292,11 +305,19 @@ async function main(): Promise<void> {
       supplierIds[key] = id
     }
 
+    const cats = await db
+      .selectFrom('categories')
+      .select(['id', 'name'])
+      .where('tenant_id', '=', tenantId)
+      .execute()
+    const categoryIdByName = new Map(cats.map((c) => [c.name, c.id]))
+
     const productIds: Record<string, string> = {}
     for (const it of ITEMS) {
+      const categoryId = it.category ? (categoryIdByName.get(it.category) ?? null) : null
       const existing = await db
         .selectFrom('products')
-        .select('id')
+        .select(['id', 'category_id'])
         .where('tenant_id', '=', tenantId)
         .where('sku', '=', it.sku)
         .executeTakeFirst()
@@ -311,6 +332,7 @@ async function main(): Promise<void> {
             sku: it.sku,
             name: it.name,
             name_ta: it.name_ta,
+            category_id: categoryId,
             unit: it.unit ?? 'PCS',
             pack_size: it.pack_size ?? 1,
             track_inventory: true,
@@ -322,6 +344,13 @@ async function main(): Promise<void> {
             reorder_level_milli: it.reorder_level ? it.reorder_level * 1000 : null,
             reorder_qty_milli: it.reorder_qty ? it.reorder_qty * 1000 : null,
           })
+          .execute()
+      } else if (!existing.category_id && categoryId) {
+        await db
+          .updateTable('products')
+          .set({ category_id: categoryId })
+          .where('tenant_id', '=', tenantId)
+          .where('id', '=', id)
           .execute()
       }
       productIds[it.sku] = id

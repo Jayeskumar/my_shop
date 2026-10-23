@@ -96,7 +96,7 @@ export function defaultProductValues(ctx: ProductFormContext): ProductFormValues
     allow_loose: false,
     decimal_qty: isDecimalUnit(unit),
     hsn_code: '',
-    gst_rate_bp: ctx.settings.catalog.default_gst_rate_bp,
+    gst_rate_bp: ctx.settings.catalog.default_gst_rate_bp ?? 0,
     cess_rate_bp: 0,
     tax_slab_rule_id: null,
     price_includes_tax: ctx.settings.invoice.default_price_includes_tax,

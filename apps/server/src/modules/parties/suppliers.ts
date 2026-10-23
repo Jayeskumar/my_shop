@@ -113,6 +113,7 @@ function toSupplier(r: SupplierFullRow): Supplier {
     state_code: r.state_code,
     drug_license_no: r.drug_license_no,
     payment_terms_days: r.payment_terms_days,
+    lead_time_days: r.lead_time_days,
     balance_paise: r.balance_paise,
     overdue_paise: Number(r.overdue_paise),
     upi_vpa: r.upi_vpa,
@@ -141,6 +142,7 @@ function toListItem(s: Supplier): SupplierListItem {
     state_code: s.state_code,
     drug_license_no: s.drug_license_no,
     payment_terms_days: s.payment_terms_days,
+    lead_time_days: s.lead_time_days ?? null,
     balance_paise: s.balance_paise,
     overdue_paise: s.overdue_paise,
     upi_vpa: s.upi_vpa,
@@ -270,6 +272,7 @@ export async function createSupplier(
       address: jsonb(body.address),
       drug_license_no: body.drug_license_no ?? null,
       payment_terms_days: body.payment_terms_days,
+      lead_time_days: body.lead_time_days ?? null,
       opening_balance_paise: body.opening_balance_paise,
       bank_details: jsonb(bank),
       upi_vpa: body.upi_vpa ?? null,
@@ -312,6 +315,7 @@ function editable(r: SupplierRow): Record<string, unknown> {
     address: readAddress(r.address),
     drug_license_no: r.drug_license_no,
     payment_terms_days: r.payment_terms_days,
+    lead_time_days: r.lead_time_days,
     opening_balance_paise: r.opening_balance_paise,
     bank_details: readBankDetails(r.bank_details),
     upi_vpa: r.upi_vpa,
@@ -367,6 +371,7 @@ export async function updateSupplier(
   set('state_code', body.state_code)
   set('drug_license_no', body.drug_license_no)
   set('payment_terms_days', body.payment_terms_days)
+  set('lead_time_days', body.lead_time_days)
   set('upi_vpa', body.upi_vpa)
   set('notes', body.notes)
   set('is_active', body.is_active)
