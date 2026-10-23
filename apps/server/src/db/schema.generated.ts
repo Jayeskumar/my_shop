@@ -1285,11 +1285,15 @@ export interface StockAdjustmentLines {
   reason: string | null;
   system_qty_milli: Int8 | null;
   tenant_id: string;
+  unit_cost_given: Generated<boolean>;
   unit_cost_paise: Generated<Int8>;
 }
 
 export interface StockAdjustments {
   adjustment_date: string;
+  cancel_reason: string | null;
+  cancelled_at: Timestamp | null;
+  cancelled_by: string | null;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   fy: string | null;
@@ -1343,12 +1347,16 @@ export interface StockTransferLines {
   product_id: string;
   qty_milli: Int8;
   received_qty_milli: Int8 | null;
+  shortfall_value_paise: Generated<Int8>;
   tenant_id: string;
   transfer_id: string;
   unit_cost_paise: Generated<Int8>;
 }
 
 export interface StockTransfers {
+  cancel_reason: string | null;
+  cancelled_at: Timestamp | null;
+  cancelled_by: string | null;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   dispatched_at: Timestamp | null;
@@ -1360,6 +1368,8 @@ export interface StockTransfers {
   number: string | null;
   received_at: Timestamp | null;
   received_by: string | null;
+  received_date: string | null;
+  shortfall_reason: string | null;
   status: Generated<string>;
   tenant_id: string;
   to_store_id: string;
