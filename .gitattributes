@@ -1,0 +1,5 @@
+# Keep LF everywhere: shell scripts run in containers and tests parse the SQL migrations.
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.bundle binary

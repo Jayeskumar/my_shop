@@ -24,9 +24,12 @@ import {
   ReorderSuggestionsQuerySchema,
   ReorderSuggestionsSchema,
   averageDailySalesMilli,
+  explainReorder,
   expiryFromMonthYear,
+  forecastDemandMilli,
   formatPurchaseOrderText,
   marginBp,
+  planStockSense,
   purchaseBillActions,
   purchaseBillTotals,
   purchaseLineWarnings,
@@ -167,6 +170,132 @@ describe('purchase maths', () => {
     expect(averageDailySalesMilli(45_000)).toBe(1_500)
     expect(averageDailySalesMilli(-5)).toBe(0)
     expect(() => averageDailySalesMilli(1, 0)).toThrow(RangeError)
+  })
+  it('StockSense forecast, shelf-life cap and no-history fallback', () => {
+    const flat = Array.from({ length: 7 }, (_, i) => ({ weekday: i, sold_milli: 10_000 }))
+    expect(
+      forecastDemandMilli({
+        days: flat,
+        lead_time_days: 7,
+        today_weekday: 0,
+        weekday_adjusted: false,
+      }),
+    ).toEqual({ daily_milli: 10_000, demand_milli: 70_000, has_history: true })
+    expect(
+      forecastDemandMilli({
+        days: [],
+        lead_time_days: 7,
+        today_weekday: 1,
+        weekday_adjusted: true,
+      }),
+    ).toEqual({ daily_milli: 0, demand_milli: 0, has_history: false })
+
+    const weekly = [
+      { weekday: 0, sold_milli: 20_000 },
+      { weekday: 1, sold_milli: 0 },
+      { weekday: 2, sold_milli: 0 },
+      { weekday: 3, sold_milli: 0 },
+      { weekday: 4, sold_milli: 0 },
+      { weekday: 5, sold_milli: 0 },
+      { weekday: 6, sold_milli: 0 },
+    ]
+    const adjusted = forecastDemandMilli({
+      days: weekly,
+      lead_time_days: 7,
+      today_weekday: 6,
+      weekday_adjusted: true,
+    })
+    expect(adjusted.demand_milli).toBe(20_000)
+    expect(adjusted.has_history).toBe(true)
+
+    const base = {
+      reorder_level_milli: 0,
+      reorder_qty_milli: null,
+      usable_stock_milli: 20_000,
+      durable_stock_milli: 20_000,
+      incoming_milli: 0,
+      daily_milli: 10_000,
+      demand_milli: 70_000,
+      lead_time_days: 7,
+      shelf_life_days: null as number | null,
+      pack_size: 1,
+      has_history: true,
+      use_forecast: true,
+    }
+    const order = planStockSense(base)
+    expect(order.suggested_qty_milli).toBe(50_000)
+    expect(order.days_of_cover).toBe(2)
+    expect(order.stockout_urgency_days).toBe(5)
+    expect(order.priority).toBe('high')
+    expect(order.reason).toBe('stockout')
+
+    const capped = planStockSense({ ...base, shelf_life_days: 3 })
+    expect(capped.suggested_qty_milli).toBe(30_000)
+    expect(capped.capped_by_shelf_life).toBe(true)
+    expect(capped.reason).toBe('shelf_life')
+    expect(capped.priority).toBe('high')
+
+    expect(
+      planStockSense({
+        ...base,
+        daily_milli: 100,
+        demand_milli: 700,
+        usable_stock_milli: 0,
+        durable_stock_milli: 0,
+        shelf_life_days: 3,
+      }).suggested_qty_milli,
+    ).toBe(0)
+
+    const fallback = planStockSense({
+      ...base,
+      has_history: false,
+      daily_milli: 0,
+      demand_milli: 0,
+      usable_stock_milli: 4_000,
+      durable_stock_milli: 4_000,
+      incoming_milli: 1_000,
+      reorder_level_milli: 10_000,
+      reorder_qty_milli: 24_000,
+    })
+    expect(fallback.suggested_qty_milli).toBe(23_000)
+    expect(fallback.reason).toBe('no_history')
+    expect(fallback.priority).toBe('normal')
+
+    expect(
+      explainReorder({
+        reason: 'stockout',
+        window_days: 7,
+        lead_time_days: 7,
+        shelf_life_days: null,
+        daily_milli: 10_000,
+        usable_stock_milli: 20_000,
+        urgency_days: 5,
+        suggested_qty_milli: 50_000,
+      }),
+    ).toContain('Order 50')
+
+    expect(
+      explainReorder({
+        reason: 'stockout',
+        window_days: 7,
+        lead_time_days: 7,
+        shelf_life_days: null,
+        daily_milli: 10_000,
+        usable_stock_milli: 60_000,
+        urgency_days: 1,
+        suggested_qty_milli: 10_000,
+      }),
+    ).toContain('1 day before')
+
+    expect(
+      planStockSense({
+        ...base,
+        use_forecast: false,
+        reorder_level_milli: 10_000,
+        reorder_qty_milli: 24_000,
+        usable_stock_milli: 4_000,
+      }).suggested_qty_milli,
+    ).toBe(24_000)
   })
   it('PO status and actions', () => {
     expect(

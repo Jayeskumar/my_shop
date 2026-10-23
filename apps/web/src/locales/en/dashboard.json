@@ -109,6 +109,23 @@
     "new_bill": "New bill",
     "add_product": "Add product",
     "purchase_entry": "Purchase entry",
-    "receive_payment": "Receive payment"
-  }
+    "receive_payment": "Receive payment",
+    "stocksense": "StockSense"
+  },
+  "stocksense_title": "StockSense: order these first",
+  "stocksense_empty": "Nothing to reorder right now. Stock covers the next delivery.",
+  "see_all": "See all",
+  "priority_urgent": "Urgent",
+  "priority_high": "High",
+  "priority_normal": "Normal",
+  "priority_low": "Low",
+  "forecast_short": "{{method}} · {{accuracy}}% accurate",
+  "method_holt_winters": "Holt-Winters",
+  "method_croston_sba": "Croston-SBA",
+  "method_weekday_average": "Weekday average",
+  "no_history": "From reorder level (no sales yet)",
+  "order_qty": "Order {{qty}}",
+  "recent_title": "Today's bills",
+  "recent_empty": "No bills yet today.",
+  "walk_in": "Walk-in customer"
 }

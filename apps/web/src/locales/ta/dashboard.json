@@ -109,6 +109,23 @@
     "new_bill": "புதிய பில்",
     "add_product": "பொருள் சேர்",
     "purchase_entry": "கொள்முதல் பதிவு",
-    "receive_payment": "பணம் வரவு வை"
-  }
+    "receive_payment": "பணம் வரவு வை",
+    "stocksense": "StockSense"
+  },
+  "stocksense_title": "StockSense: இவற்றை முதலில் ஆர்டர் செய்யவும்",
+  "stocksense_empty": "இப்போது ஆர்டர் செய்ய எதுவும் இல்லை. அடுத்த டெலிவரி வரை இருப்பு போதும்.",
+  "see_all": "அனைத்தும்",
+  "priority_urgent": "அவசரம்",
+  "priority_high": "அதிகம்",
+  "priority_normal": "சாதாரணம்",
+  "priority_low": "குறைவு",
+  "forecast_short": "{{method}} · {{accuracy}}% துல்லியம்",
+  "method_holt_winters": "Holt-Winters",
+  "method_croston_sba": "Croston-SBA",
+  "method_weekday_average": "வாரநாள் சராசரி",
+  "no_history": "மறு ஆர்டர் அளவிலிருந்து (விற்பனை இல்லை)",
+  "order_qty": "ஆர்டர் {{qty}}",
+  "recent_title": "இன்றைய பில்கள்",
+  "recent_empty": "இன்று இன்னும் பில் இல்லை.",
+  "walk_in": "நேரடி வாடிக்கையாளர்"
 }
