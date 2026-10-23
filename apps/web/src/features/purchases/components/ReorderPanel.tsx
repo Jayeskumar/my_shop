@@ -6,11 +6,13 @@
  * before get a supplier chosen here. "Open in editor" moves a group into the full PO form.
  */
 import type { ReorderItem, ReorderSuggestions } from '@kadai/shared/api/purchases'
+import { planStockSense } from '@kadai/shared/api/purchases'
 import { reorderPrefillPath } from '@kadai/shared/api/inventory'
 import { newId } from '@kadai/shared/ids'
 import { mulDiv } from '@kadai/shared/math'
-import { CheckCircle2, ClipboardPlus, PackageSearch, SquarePen } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { milliToDecimalString } from '@kadai/shared/units'
+import { CheckCircle2, ClipboardPlus, PackageSearch, SquarePen, Upload } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { StorePicker, SupplierPicker } from '@/components/pickers'
@@ -25,13 +27,14 @@ import {
   Qty,
   SearchInput,
   Skeleton,
+  Switch,
   notify,
 } from '@/components/ui'
 import { useCan, useCurrentStore, useMe } from '@/lib/auth'
 import { cn } from '@/lib/cn'
 import { formatDate, formatMoney } from '@/lib/format'
 import { localizedName } from '@/lib/i18n'
-import { useCreateOrder, useReorderSuggestions } from '../api'
+import { useCreateOrder, useImportSalesHistory, useReorderSuggestions } from '../api'
 import { fromPackMilli, toPackMilli } from '../lib/bill-form'
 import { notifyPurchasesError } from '../lib/errors'
 import { packUnitFor } from '../lib/labels'
@@ -42,7 +45,18 @@ type Group = ReorderSuggestions['groups'][number]
 interface Pick {
   selected: boolean
   qty_milli: number | null
+  /** True once the owner types a quantity; otherwise it follows the recommendation. */
+  edited: boolean
+  /** What-if on-hand. Null uses the server's usable stock. Not written to stock. */
+  on_hand_milli: number | null
 }
+
+const priorityTone = {
+  urgent: 'danger',
+  high: 'warning',
+  normal: 'info',
+  low: 'neutral',
+} as const
 
 /** Group key: supplier id, or '' for never-purchased products. */
 const groupKey = (g: Group): string => g.supplier?.id ?? ''
@@ -63,19 +77,30 @@ export function ReorderPanel() {
   const [assigned, setAssigned] = useState<Record<string, { id: string; name: string } | null>>({})
   const [creating, setCreating] = useState(false)
   const [created, setCreated] = useState<{ id: string; number: string; supplier: string }[]>([])
+  const [leadTime, setLeadTime] = useState(7)
+  const [windowDays, setWindowDays] = useState<7 | 30>(7)
+  const [weekdayAdjust, setWeekdayAdjust] = useState(true)
+  const [shelfLife, setShelfLife] = useState<number | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
   const create = useCreateOrder()
+  const importHistory = useImportSalesHistory()
   const multiStore = (me?.stores ?? []).filter((s) => s.is_active).length > 1
 
   const query = useReorderSuggestions(
     storeId
       ? {
           store_id: storeId,
+          lead_time_days: leadTime,
+          window_days: windowDays,
+          weekday_adjust: weekdayAdjust,
+          ...(shelfLife != null ? { shelf_life_days: shelfLife } : {}),
           ...(supplierFilter ? { supplier_id: supplierFilter.id } : {}),
           ...(q ? { q } : {}),
         }
       : null,
   )
   const groups = useMemo(() => query.data?.data.groups ?? [], [query.data])
+  const forecast = query.data?.data.forecast ?? false
 
   // New suggestions: every item with a suggested quantity starts ticked at that quantity.
   useEffect(() => {
@@ -83,9 +108,16 @@ export function ReorderPanel() {
       const next: Record<string, Pick> = {}
       for (const g of groups) {
         for (const item of g.items) {
-          next[item.product_id] = prev[item.product_id] ?? {
-            selected: item.suggested_qty_milli > 0,
-            qty_milli: item.suggested_qty_milli > 0 ? item.suggested_qty_milli : null,
+          const prevPick = prev[item.product_id]
+          next[item.product_id] = {
+            selected: prevPick?.selected ?? item.suggested_qty_milli > 0,
+            edited: prevPick?.edited ?? false,
+            on_hand_milli: prevPick?.on_hand_milli ?? null,
+            qty_milli: prevPick?.edited
+              ? (prevPick.qty_milli ?? null)
+              : item.suggested_qty_milli > 0
+                ? item.suggested_qty_milli
+                : null,
           }
         }
       }
@@ -143,11 +175,123 @@ export function ReorderPanel() {
   const setPick = (productId: string, patch: Partial<Pick>): void =>
     setPicks((p) => ({
       ...p,
-      [productId]: { ...(p[productId] ?? { selected: false, qty_milli: null }), ...patch },
+      [productId]: {
+        ...(p[productId] ?? {
+          selected: false,
+          qty_milli: null,
+          edited: false,
+          on_hand_milli: null,
+        }),
+        ...patch,
+      },
     }))
+
+  const onCsv = async (file: File | null): Promise<void> => {
+    if (!file || !storeId) return
+    try {
+      const csv = await file.text()
+      const res = await importHistory.mutateAsync({
+        body: { store_id: storeId, csv },
+        idempotencyKey: newId(),
+      })
+      notify.success(t('reorder.imported', { count: res.data.imported_rows }))
+      if (res.data.skipped_count > 0) {
+        notify.warning(t('reorder.import_skipped', { count: res.data.skipped_count }))
+      }
+    } catch (error) {
+      notifyPurchasesError(error)
+    }
+  }
 
   return (
     <div className="grid gap-4">
+      <div className="grid gap-1">
+        <h2 className="text-base font-semibold">{t('reorder.title')}</h2>
+        <p className="text-sm text-muted-foreground">{t('reorder.intro')}</p>
+      </div>
+      <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-end">
+        <NumberInput
+          size="sm"
+          className="w-24"
+          decimals={0}
+          min={1}
+          max={365}
+          value={leadTime}
+          aria-label={t('reorder.lead_time')}
+          onChange={(v) => {
+            if (v != null && v >= 1) setLeadTime(v)
+          }}
+        />
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant={windowDays === 7 ? 'primary' : 'outline'}
+            onClick={() => setWindowDays(7)}
+          >
+            {t('reorder.window_7')}
+          </Button>
+          <Button
+            size="sm"
+            variant={windowDays === 30 ? 'primary' : 'outline'}
+            onClick={() => setWindowDays(30)}
+          >
+            {t('reorder.window_30')}
+          </Button>
+        </div>
+        <Switch
+          checked={weekdayAdjust}
+          label={t('reorder.weekday')}
+          onCheckedChange={setWeekdayAdjust}
+        />
+        <NumberInput
+          size="sm"
+          className="w-28"
+          decimals={0}
+          min={0}
+          max={3650}
+          value={shelfLife}
+          aria-label={t('reorder.shelf_life')}
+          placeholder={t('reorder.shelf_life')}
+          onChange={setShelfLife}
+        />
+        {canWrite ? (
+          <>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="text/csv,.csv"
+              className="sr-only"
+              aria-label={t('reorder.upload')}
+              onChange={(e) => {
+                void onCsv(e.target.files?.[0] ?? null)
+                e.target.value = ''
+              }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Upload />}
+              loading={importHistory.isPending}
+              disabled={!storeId}
+              onClick={() => fileRef.current?.click()}
+            >
+              {t('reorder.upload')}
+            </Button>
+          </>
+        ) : null}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {t('reorder.assumptions_lead', { lead: leadTime })}{' '}
+        {t('reorder.assumptions_window', {
+          days: windowDays,
+          weekday: weekdayAdjust ? t('reorder.assumptions_weekday') : '',
+        })}{' '}
+        {shelfLife != null
+          ? t('reorder.assumptions_shelf', { days: shelfLife })
+          : t('reorder.assumptions_shelf_product')}{' '}
+        {t('reorder.assumptions_fallback')} {t('reorder.assumptions_import')}{' '}
+        {t('reorder.upload_hint')} {t('reorder.shelf_life_hint')} {t('reorder.on_hand_hint')}
+      </p>
       <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
         {multiStore ? (
           <StorePicker
@@ -303,7 +447,16 @@ export function ReorderPanel() {
                   <ReorderRow
                     key={item.product_id}
                     item={item}
-                    pick={picks[item.product_id] ?? { selected: false, qty_milli: null }}
+                    forecast={forecast}
+                    windowDays={windowDays}
+                    pick={
+                      picks[item.product_id] ?? {
+                        selected: false,
+                        qty_milli: null,
+                        edited: false,
+                        on_hand_milli: null,
+                      }
+                    }
                     disabled={!canWrite || creating}
                     onChange={(patch) => setPick(item.product_id, patch)}
                   />
@@ -317,13 +470,35 @@ export function ReorderPanel() {
   )
 }
 
+function viewedPlan(item: ReorderItem, onHand: number | null) {
+  if (onHand == null || onHand === item.usable_stock_milli) return null
+  return planStockSense({
+    reorder_level_milli: item.reorder_level_milli,
+    reorder_qty_milli: item.reorder_qty_milli,
+    usable_stock_milli: onHand,
+    durable_stock_milli: onHand,
+    incoming_milli: item.open_po_qty_milli,
+    daily_milli: item.avg_daily_sales_milli,
+    demand_milli: item.forecast_demand_milli,
+    lead_time_days: item.lead_time_days,
+    shelf_life_days: item.shelf_life_days,
+    pack_size: item.pack_size,
+    has_history: item.has_sales_history,
+    use_forecast: true,
+  })
+}
+
 function ReorderRow({
   item,
+  forecast,
+  windowDays,
   pick,
   disabled,
   onChange,
 }: {
   item: ReorderItem
+  forecast: boolean
+  windowDays: number
   pick: Pick
   disabled: boolean
   onChange: (patch: Partial<Pick>) => void
@@ -335,7 +510,14 @@ function ReorderRow({
   const qty = (milli: number) => (
     <Qty milli={milli} unit={item.unit} packSize={item.pack_size} packUnit={packUnit} />
   )
-  const low = item.current_stock_milli <= 0
+  const plan = forecast ? viewedPlan(item, pick.on_hand_milli) : null
+  const suggested = plan?.suggested_qty_milli ?? item.suggested_qty_milli
+  const priority = plan?.priority ?? item.priority
+  const urgency = plan?.stockout_urgency_days ?? item.stockout_urgency_days
+  const reason = plan?.reason ?? item.reason
+  const daily = milliToDecimalString(item.avg_daily_sales_milli)
+  const low = (forecast ? item.usable_stock_milli : item.current_stock_milli) <= 0
+  const showExplain = reason !== 'classic'
   return (
     <li
       className={cn(
@@ -351,17 +533,21 @@ function ReorderRow({
         className="mt-0.5 self-start sm:mt-0 sm:self-center"
       />
       <div className="min-w-0">
-        <div className="font-medium [overflow-wrap:anywhere]">{name}</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="font-medium [overflow-wrap:anywhere]">{name}</div>
+          <Badge tone={priorityTone[priority]} size="sm">
+            {t(`reorder.priority_${priority}`)}
+          </Badge>
+        </div>
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
           <span className={low ? 'font-semibold text-danger' : undefined}>
-            {t('reorder.stock')} {qty(item.current_stock_milli)}
-          </span>
-          <span>
-            {t('reorder.level')} {qty(item.reorder_level_milli)}
+            {t('reorder.stock')}{' '}
+            {qty(forecast ? item.usable_stock_milli : item.current_stock_milli)}
           </span>
           <span>
             {t('reorder.daily_sales')} {qty(item.avg_daily_sales_milli)}
           </span>
+          <span>{t('reorder.delivery_days', { count: item.lead_time_days })}</span>
           {item.days_of_cover !== null ? (
             <span className={item.days_of_cover <= 3 ? 'font-semibold text-danger' : undefined}>
               {t('reorder.days_cover', { count: item.days_of_cover })}
@@ -379,6 +565,27 @@ function ReorderRow({
             {t('reorder.on_order')} {qty(item.open_po_qty_milli)}
           </Badge>
         ) : null}
+        {urgency > 0 ? (
+          <p className="mt-1 text-xs font-semibold text-danger">
+            {t('reorder.urgency', { count: urgency })}
+          </p>
+        ) : null}
+        {item.margin_bp != null ? (
+          <p className="text-xs text-muted-foreground">
+            {t('reorder.margin', { pct: (item.margin_bp / 100).toFixed(1) })}
+          </p>
+        ) : null}
+        {showExplain ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t(`reorder.explain_${reason}`, {
+              days: windowDays,
+              urgency,
+              lead: item.lead_time_days,
+              daily,
+              shelf: item.shelf_life_days ?? 0,
+            })}
+          </p>
+        ) : null}
       </div>
       <div className="col-start-2 flex items-center justify-end gap-2 sm:col-start-auto">
         <div className="grid gap-0.5">
@@ -391,10 +598,38 @@ function ReorderRow({
             disabled={disabled || !pick.selected}
             aria-label={t('reorder.qty_for', { name })}
             onFocus={(e) => e.currentTarget.select()}
-            onChange={(v) => onChange({ qty_milli: packed ? fromPackMilli(v, item.pack_size) : v })}
+            onChange={(v) =>
+              onChange({
+                qty_milli: packed ? fromPackMilli(v, item.pack_size) : v,
+                edited: true,
+              })
+            }
           />
+          {forecast ? (
+            <NumberInput
+              size="sm"
+              className="w-28 text-end"
+              decimals={3}
+              scale={1000}
+              value={pick.on_hand_milli ?? item.usable_stock_milli}
+              disabled={disabled}
+              aria-label={t('reorder.on_hand', { name })}
+              onChange={(v) => {
+                const onHand = v ?? 0
+                const next = viewedPlan(item, onHand)
+                const qtyMilli =
+                  next && next.suggested_qty_milli > 0 ? next.suggested_qty_milli : null
+                onChange({
+                  on_hand_milli: onHand,
+                  edited: false,
+                  qty_milli: qtyMilli,
+                  selected: (qtyMilli ?? 0) > 0,
+                })
+              }}
+            />
+          ) : null}
           <span className="text-end text-[11px] text-muted-foreground">
-            {t('reorder.suggested')} {qty(item.suggested_qty_milli)}
+            {t('reorder.suggested')} {qty(suggested)}
           </span>
         </div>
         <Money

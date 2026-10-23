@@ -326,6 +326,17 @@ export interface DebitNotes {
   updated_at: Generated<Timestamp>;
 }
 
+export interface DemandHistory {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  product_id: string;
+  qty_milli: Int8;
+  sale_date: string;
+  store_id: string;
+  tenant_id: string;
+}
+
 export interface Devices {
   approved_by: string | null;
   created_at: Generated<Timestamp>;
@@ -1555,6 +1566,7 @@ export interface DB {
   customers: Customers;
   debit_note_lines: DebitNoteLines;
   debit_notes: DebitNotes;
+  demand_history: DemandHistory;
   devices: Devices;
   doctors: Doctors;
   expenses: Expenses;

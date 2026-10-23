@@ -125,6 +125,13 @@ export const useReorderSuggestions = (query: ReorderSuggestionsQuery | null) =>
     { enabled: Boolean(query?.store_id), placeholderData: keepPreviousData },
   )
 
+/** Historical sales for StockSense. Does not change stock; refreshes the reorder list. */
+export const useImportSalesHistory = () =>
+  useRouteMutation(r.importSalesHistory, {
+    invalidates: ORDERS,
+    meta: { errorToast: false },
+  })
+
 // ---------------------------------------------------------------------------------------------
 // Debit notes (purchase returns)
 // ---------------------------------------------------------------------------------------------

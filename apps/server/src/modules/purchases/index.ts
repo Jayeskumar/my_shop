@@ -48,6 +48,7 @@ import {
 } from './orders'
 import { cancelBill, postBill } from './posting'
 import { reorderSuggestions } from './reorder'
+import { importSalesHistory } from './sales-history'
 
 /** Filters of an exported list for the audit entry (without sort / format). */
 function exportFilters(q: Record<string, unknown>): Record<string, unknown> {
@@ -198,6 +199,11 @@ export const purchasesModule = defineModule({
     // ---- reorder ---------------------------------------------------------------------------
     reorderSuggestions: {
       tx: async (tx, req) => ({ data: await reorderSuggestions(tx, req.ctx, req.query) }),
+    },
+    importSalesHistory: {
+      tx: async (tx, req) => ({
+        data: await importSalesHistory(tx, req.ctx, req.body),
+      }),
     },
   }),
 })
