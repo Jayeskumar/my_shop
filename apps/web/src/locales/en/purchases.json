@@ -499,7 +499,22 @@
     "safety_stock": "Safety stock{{qty}}",
     "method_holt_winters": "Holt-Winters",
     "method_croston_sba": "Croston-SBA",
-    "method_weekday_average": "Weekday average"
+    "method_weekday_average": "Weekday average",
+    "budget_title": "Cash budget today",
+    "budget_placeholder": "e.g. 10,000",
+    "budget_hint": "Type the cash you have for purchases today. StockSense spends it on the most urgent and most profitable items first.",
+    "budget_clear": "Clear",
+    "budget_spend": "Spend {{spent}} of {{budget}}",
+    "budget_left": "{{amount}} left",
+    "budget_full": "Buying everything: {{amount}}",
+    "budget_covers": "Covers {{pct}}% of what you must have before the next delivery",
+    "budget_left_out_one": "{{count}} item left out",
+    "budget_left_out_other": "{{count}} items left out",
+    "budget_note": "Must-haves (what runs out before delivery) are bought first, then safety stock, in priority order. Amounts include GST.",
+    "budget_status_full": "Fits budget",
+    "budget_status_must_have": "Must-have only",
+    "budget_status_partial": "Cut to fit",
+    "budget_status_left_out": "Left out"
   },
   "returns": {
     "adjusted_all": "{{adjusted}} reduced from the bill's due.",

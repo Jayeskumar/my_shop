@@ -7,11 +7,12 @@
  */
 import type { ReorderItem, ReorderSuggestions } from '@kadai/shared/api/purchases'
 import { planStockSense } from '@kadai/shared/api/purchases'
+import { type BudgetLine, type BudgetPlan, planWithinBudget } from '@kadai/shared/budget'
 import { reorderPrefillPath } from '@kadai/shared/api/inventory'
 import { newId } from '@kadai/shared/ids'
 import { mulDiv } from '@kadai/shared/math'
 import { milliToDecimalString } from '@kadai/shared/units'
-import { CheckCircle2, ClipboardPlus, PackageSearch, SquarePen, Upload } from 'lucide-react'
+import { CheckCircle2, ClipboardPlus, PackageSearch, SquarePen, Upload, Wallet } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
@@ -23,6 +24,7 @@ import {
   Checkbox,
   EmptyState,
   Money,
+  MoneyInput,
   NumberInput,
   Qty,
   SearchInput,
@@ -50,6 +52,15 @@ interface Pick {
   /** What-if on-hand. Null uses the server's usable stock. Not written to stock. */
   on_hand_milli: number | null
 }
+
+const BUDGET_PRESETS_PAISE = [500_000, 1_000_000, 2_000_000] as const
+
+const budgetTone = {
+  full: 'success',
+  must_have: 'info',
+  partial: 'warning',
+  left_out: 'danger',
+} as const
 
 const priorityTone = {
   urgent: 'danger',
@@ -82,6 +93,8 @@ export function ReorderPanel() {
   const [smartModel, setSmartModel] = useState(true)
   const [weekdayAdjust, setWeekdayAdjust] = useState(true)
   const [shelfLife, setShelfLife] = useState<number | null>(null)
+  /** Cash budget for today's order (paise); null = no budget, the full suggestions. */
+  const [budget, setBudget] = useState<number | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const create = useCreateOrder()
   const importHistory = useImportSalesHistory()
@@ -126,6 +139,69 @@ export function ReorderPanel() {
       return next
     })
   }, [groups])
+
+  const budgetPlan = useMemo<BudgetPlan | null>(() => {
+    if (budget === null || !forecast) return null
+    return planWithinBudget(
+      groups.flatMap((g) =>
+        g.items.map((item) => ({
+          product_id: item.product_id,
+          name: item.name,
+          priority: item.priority,
+          stockout_urgency_days: item.stockout_urgency_days,
+          margin_bp: item.margin_bp,
+          suggested_qty_milli: item.suggested_qty_milli,
+          forecast_demand_milli: item.forecast_demand_milli,
+          durable_stock_milli: item.durable_stock_milli,
+          open_po_qty_milli: item.open_po_qty_milli,
+          pack_size: item.pack_size,
+          unit_cost_paise: item.unit_cost_paise,
+          gst_rate_bp: item.gst_rate_bp,
+        })),
+      ),
+      budget,
+    )
+  }, [budget, forecast, groups])
+  const budgetLines = useMemo(
+    () => new Map((budgetPlan?.lines ?? []).map((l) => [l.product_id, l])),
+    [budgetPlan],
+  )
+  const hadBudget = useRef(false)
+
+  // A budget sets every pick to the budget plan; clearing it goes back to the suggestions.
+  useEffect(() => {
+    if (budgetPlan) {
+      hadBudget.current = true
+      setPicks((prev) => {
+        const next = { ...prev }
+        for (const line of budgetPlan.lines) {
+          next[line.product_id] = {
+            selected: line.qty_milli > 0,
+            edited: false,
+            on_hand_milli: null,
+            qty_milli: line.qty_milli > 0 ? line.qty_milli : null,
+          }
+        }
+        return next
+      })
+    } else if (hadBudget.current) {
+      hadBudget.current = false
+      setPicks(() => {
+        const next: Record<string, Pick> = {}
+        for (const g of groups) {
+          for (const item of g.items) {
+            next[item.product_id] = {
+              selected: item.suggested_qty_milli > 0,
+              edited: false,
+              on_hand_milli: null,
+              qty_milli: item.suggested_qty_milli > 0 ? item.suggested_qty_milli : null,
+            }
+          }
+        }
+        return next
+      })
+    }
+  }, [budgetPlan, groups])
 
   const chosen = (g: Group): { item: ReorderItem; qty_milli: number }[] =>
     g.items.flatMap((item) => {
@@ -311,6 +387,9 @@ export function ReorderPanel() {
         {t('reorder.assumptions_fallback')} {t('reorder.assumptions_import')}{' '}
         {t('reorder.upload_hint')} {t('reorder.shelf_life_hint')} {t('reorder.on_hand_hint')}
       </p>
+      {forecast ? (
+        <BudgetCard budget={budget} plan={budgetPlan} onChange={setBudget} />
+      ) : null}
       <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
         {multiStore ? (
           <StorePicker
@@ -467,6 +546,7 @@ export function ReorderPanel() {
                     key={item.product_id}
                     item={item}
                     forecast={forecast}
+                    budgetLine={budgetLines.get(item.product_id) ?? null}
                     windowDays={smartModel ? (query.data?.data.window_days ?? windowDays) : windowDays}
                     pick={
                       picks[item.product_id] ?? {
@@ -508,9 +588,100 @@ function viewedPlan(item: ReorderItem, onHand: number | null) {
   })
 }
 
+function BudgetCard({
+  budget,
+  plan,
+  onChange,
+}: {
+  budget: number | null
+  plan: BudgetPlan | null
+  onChange: (paise: number | null) => void
+}) {
+  const { t } = useTranslation('purchases')
+  const leftOut = plan?.lines.filter((l) => l.status === 'left_out').length ?? 0
+  const covered = plan ? Math.floor(plan.must_have_covered_bp / 100) : 0
+  return (
+    <section
+      aria-label={t('reorder.budget_title')}
+      className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4"
+    >
+      <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+        <div className="flex items-center gap-2 font-semibold">
+          <Wallet className="size-5 text-primary" aria-hidden />
+          {t('reorder.budget_title')}
+        </div>
+        <MoneyInput
+          size="sm"
+          className="w-40"
+          value={budget}
+          aria-label={t('reorder.budget_title')}
+          placeholder={t('reorder.budget_placeholder')}
+          onChange={(v) => onChange(v === null || v <= 0 ? null : v)}
+        />
+        <div className="flex flex-wrap gap-1">
+          {BUDGET_PRESETS_PAISE.map((p) => (
+            <Button
+              key={p}
+              size="sm"
+              variant={budget === p ? 'primary' : 'outline'}
+              onClick={() => onChange(p)}
+            >
+              {formatMoney(p)}
+            </Button>
+          ))}
+          {budget !== null ? (
+            <Button size="sm" variant="ghost" onClick={() => onChange(null)}>
+              {t('reorder.budget_clear')}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      {plan ? (
+        <div className="grid gap-2">
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <span className="text-lg font-semibold">
+              {t('reorder.budget_spend', {
+                spent: formatMoney(plan.spent_paise),
+                budget: formatMoney(plan.budget_paise),
+              })}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              {t('reorder.budget_left', { amount: formatMoney(plan.left_paise) })}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              {t('reorder.budget_full', { amount: formatMoney(plan.full_cash_paise) })}
+            </span>
+          </div>
+          <div
+            className="h-2.5 w-full overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={covered}
+            aria-label={t('reorder.budget_covers', { pct: covered })}
+          >
+            <div
+              className={cn('h-full rounded-full', covered >= 100 ? 'bg-success' : 'bg-warning')}
+              style={{ width: `${String(Math.min(100, covered))}%` }}
+            />
+          </div>
+          <p className={cn('text-sm', covered >= 100 ? 'text-success' : 'font-medium text-warning')}>
+            {t('reorder.budget_covers', { pct: covered })}
+            {leftOut > 0 ? ` · ${t('reorder.budget_left_out', { count: leftOut })}` : ''}
+          </p>
+          <p className="text-xs text-muted-foreground">{t('reorder.budget_note')}</p>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">{t('reorder.budget_hint')}</p>
+      )}
+    </section>
+  )
+}
+
 function ReorderRow({
   item,
   forecast,
+  budgetLine,
   windowDays,
   pick,
   disabled,
@@ -518,6 +689,7 @@ function ReorderRow({
 }: {
   item: ReorderItem
   forecast: boolean
+  budgetLine: BudgetLine | null
   windowDays: number
   pick: Pick
   disabled: boolean
@@ -558,6 +730,11 @@ function ReorderRow({
           <Badge tone={priorityTone[priority]} size="sm">
             {t(`reorder.priority_${priority}`)}
           </Badge>
+          {budgetLine ? (
+            <Badge tone={budgetTone[budgetLine.status]} size="sm">
+              {t(`reorder.budget_status_${budgetLine.status}`)}
+            </Badge>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
           <span className={low ? 'font-semibold text-danger' : undefined}>

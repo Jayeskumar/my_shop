@@ -499,7 +499,22 @@
     "safety_stock": "பாதுகாப்பு இருப்பு{{qty}}",
     "method_holt_winters": "Holt-Winters",
     "method_croston_sba": "Croston-SBA",
-    "method_weekday_average": "வாரநாள் சராசரி"
+    "method_weekday_average": "வாரநாள் சராசரி",
+    "budget_title": "இன்றைய பண பட்ஜெட்",
+    "budget_placeholder": "எ.கா. 10,000",
+    "budget_hint": "இன்று கொள்முதலுக்கு உள்ள பணத்தை உள்ளிடவும். StockSense அதை மிக அவசரமான, அதிக லாபமுள்ள பொருட்களுக்கு முதலில் செலவிடும்.",
+    "budget_clear": "அழி",
+    "budget_spend": "{{budget}}-இல் {{spent}} செலவு",
+    "budget_left": "{{amount}} மீதம்",
+    "budget_full": "அனைத்தும் வாங்க: {{amount}}",
+    "budget_covers": "அடுத்த டெலிவரிக்கு முன் தேவையானதில் {{pct}}% ஈடுசெய்யும்",
+    "budget_left_out_one": "{{count}} பொருள் விடுபட்டது",
+    "budget_left_out_other": "{{count}} பொருட்கள் விடுபட்டன",
+    "budget_note": "டெலிவரிக்கு முன் தீரும் அவசியமானவை முதலில், பிறகு பாதுகாப்பு இருப்பு, முன்னுரிமை வரிசையில். தொகைகள் GST உட்பட.",
+    "budget_status_full": "பட்ஜெட்டில் அடங்கும்",
+    "budget_status_must_have": "அவசியமானது மட்டும்",
+    "budget_status_partial": "குறைக்கப்பட்டது",
+    "budget_status_left_out": "விடுபட்டது"
   },
   "returns": {
     "adjusted_all": "பில் நிலுவையில் {{adjusted}} கழிக்கப்பட்டது.",
