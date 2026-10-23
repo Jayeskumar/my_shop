@@ -84,7 +84,7 @@ export function buildPrintDocument(bodyHtml: string, options: PrintOptions): str
 <html lang="ta">
 <head>
 <meta charset="utf-8">
-<title>${escapeHtml(options.title ?? 'Kadai')}</title>
+<title>${escapeHtml(options.title ?? 'StockSense')}</title>
 ${fontStylesheetLinks()}
 <style>${inlineFontFaces()}
 ${BASE_CSS}

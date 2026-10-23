@@ -34,8 +34,8 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon.png', 'robots.txt'],
       manifest: {
         id: '/',
-        name: 'Kadai — கடை',
-        short_name: 'Kadai',
+        name: 'StockSense',
+        short_name: 'StockSense',
         description:
           'Billing, stock, GST and UPI for Tamil Nadu shops — பில்லிங், சரக்கு, GST, UPI ஒரே இடத்தில்',
         lang: 'ta',

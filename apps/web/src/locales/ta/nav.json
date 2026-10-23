@@ -69,7 +69,7 @@
     "otp": "OTP மூலம் உள்நுழைக",
     "forgot_password": "கடவுச்சொல்லை மீட்டமை",
     "select_business": "வணிகத்தைத் தேர்ந்தெடுக்கவும்",
-    "setup": "Kadai அமைப்பு",
+    "setup": "StockSense அமைப்பு",
     "pos": "பில்லிங் கவுண்டர்",
     "pos_display": "வாடிக்கையாளர் திரை",
     "dashboard": "முகப்பு",
@@ -167,7 +167,7 @@
     "select_store": "கிளையைத் தேர்ந்தெடுக்கவும்",
     "store": "கிளை",
     "suspended_banner": "இந்த வணிகம் இடைநிறுத்தப்பட்டுள்ளது: {{reason}}",
-    "suspended_banner_generic": "இந்த வணிகம் இடைநிறுத்தப்பட்டுள்ளது. Kadai ஆதரவைத் தொடர்பு கொள்ளவும்.",
+    "suspended_banner_generic": "இந்த வணிகம் இடைநிறுத்தப்பட்டுள்ளது. StockSense ஆதரவைத் தொடர்பு கொள்ளவும்.",
     "switch_business": "வேறு வணிகத்திற்கு மாறு",
     "switch_user": "காசாளரை மாற்று (PIN)",
     "trial_banner": "இலவச சோதனைக் காலம் {{date}} அன்று முடிகிறது"

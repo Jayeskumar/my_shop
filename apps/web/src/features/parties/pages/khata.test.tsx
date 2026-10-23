@@ -197,7 +197,7 @@ describe('Customer khata page', () => {
     renderApp(PATH)
     await user.click(await screen.findByRole('button', { name: /Send reminder/ }))
     const dialog = await screen.findByRole('dialog', { name: 'Remind Murugan K' })
-    expect(within(dialog).getByRole('radio', { name: /WhatsApp \(from Kadai\)/ })).toBeDisabled()
+    expect(within(dialog).getByRole('radio', { name: /WhatsApp \(from StockSense\)/ })).toBeDisabled()
     expect(within(dialog).getByRole('radio', { name: /My WhatsApp/ })).toBeChecked()
     // Tamil preview by default (business locale), with the due amount.
     expect(within(dialog).getByTestId('reminder-preview')).toHaveTextContent(/₹2,450.00/)

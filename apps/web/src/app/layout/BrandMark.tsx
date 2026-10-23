@@ -54,7 +54,7 @@ export function BrandMark({
               inverted ? 'text-white' : 'text-foreground',
             )}
           >
-            Kadai
+            StockSense
           </span>
           <span
             lang="ta"
@@ -64,7 +64,7 @@ export function BrandMark({
               inverted ? 'text-accent-200' : 'text-accent-700 dark:text-accent-400',
             )}
           >
-            கடை
+            ஸ்டாக்சென்ஸ்
           </span>
         </span>
       ) : null}

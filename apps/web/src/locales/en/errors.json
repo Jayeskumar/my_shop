@@ -16,7 +16,7 @@
     "upgrade_description": "“{{feature}}” is available on a higher plan. Upgrade to start using it.",
     "upgrade_cta": "See plans",
     "mode_title": "Not available here",
-    "mode_description": "This screen is not available in this installation of Kadai.",
+    "mode_description": "This screen is not available in this installation of StockSense.",
     "crash_title": "Something went wrong on this screen",
     "crash_description": "Your data is safe. Try again, or reload the page if the problem continues.",
     "technical_details": "Technical details",

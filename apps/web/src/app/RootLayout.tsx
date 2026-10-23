@@ -10,7 +10,7 @@ export function RootLayout() {
   const { i18n } = useTranslation()
   useEffect(() => {
     const title = handle ? translate(handle.title) : ''
-    document.title = title ? `${title} · Kadai` : 'Kadai — கடை'
+    document.title = title ? `${title} · StockSense` : 'StockSense'
   }, [handle, i18n.language])
   return (
     <>

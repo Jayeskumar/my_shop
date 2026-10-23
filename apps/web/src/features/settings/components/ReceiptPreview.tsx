@@ -76,7 +76,7 @@ export function ReceiptPreview({ invoice }: { invoice: Invoice }) {
     try {
       return buildUpiUri({
         vpa: SAMPLE_VPA,
-        payee_name: tenant?.name ?? 'Kadai',
+        payee_name: tenant?.name ?? 'StockSense',
         amount_paise: r.total_paise,
         note: number,
       })
@@ -97,7 +97,7 @@ export function ReceiptPreview({ invoice }: { invoice: Invoice }) {
         : { main: en, sub: ta }
       : { main: primaryTa ? ta : en, sub: null }
   }
-  const shopMain = primaryTa && tenant?.name_ta ? tenant.name_ta : (tenant?.name ?? 'Kadai')
+  const shopMain = primaryTa && tenant?.name_ta ? tenant.name_ta : (tenant?.name ?? 'StockSense')
   const shopSub = both && tenant?.name_ta ? (primaryTa ? tenant.name : tenant.name_ta) : null
   const address = [tenant?.address.line1, tenant?.address.city, tenant?.address.pincode]
     .filter(Boolean)

@@ -137,7 +137,7 @@ export function AppLayout() {
         >
           <Link
             to="/"
-            aria-label="Kadai"
+            aria-label="StockSense"
             className="rounded-md focus-visible:outline-2 focus-visible:outline-ring"
           >
             <BrandMark size="sm" withName={!collapsed} />
@@ -201,7 +201,7 @@ export function AppLayout() {
               icon={<Menu />}
               onClick={() => setDrawerOpen(true)}
             />
-            <Link to="/" className="me-1 lg:hidden" aria-label="Kadai">
+            <Link to="/" className="me-1 lg:hidden" aria-label="StockSense">
               <BrandMark size="sm" withName={false} />
             </Link>
             <div className="hidden min-w-0 md:block">

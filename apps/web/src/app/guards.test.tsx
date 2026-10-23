@@ -31,7 +31,7 @@ describe('route guards', () => {
       await screen.findByRole('heading', { level: 1, name: 'Products' }, { timeout: 5000 }),
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Skip to main content' })).toBeInTheDocument()
-    expect(document.title).toBe('Products · Kadai')
+    expect(document.title).toBe('Products · StockSense')
   })
 
   it('shows the 403 page without the permission', async () => {

@@ -524,7 +524,7 @@
   },
   "public": {
     "language": "Language",
-    "powered_by": "Bill by Kadai · கடை",
+    "powered_by": "Bill by StockSense · கடை",
     "not_found": "This bill link is not valid",
     "not_found_hint": "Please ask the shop to send the bill again.",
     "load_failed": "Could not open the bill",

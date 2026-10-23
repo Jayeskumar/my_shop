@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "Kadai",
-    "name_ta": "கடை",
+    "name": "StockSense",
+    "name_ta": "ஸ்டாக்சென்ஸ்",
     "tagline": "Billing, stock and accounts for your shop",
     "version": "Version {{version}}"
   },
@@ -199,12 +199,12 @@
     "offline": "Offline",
     "offline_hint": "No internet. Bills are kept on this device and synced later.",
     "server_down": "Server not reachable",
-    "server_down_hint": "Kadai server is not responding. Check the shop PC / network.",
+    "server_down_hint": "StockSense server is not responding. Check the shop PC / network.",
     "back_online": "Back online"
   },
   "placeholder": {
     "title": "This screen is under construction",
-    "description": "This part of Kadai is being built and will appear here in an update. Other sections are ready to use."
+    "description": "This part of StockSense is being built and will appear here in an update. Other sections are ready to use."
   },
   "a11y": {
     "breadcrumbs": "Breadcrumb",
@@ -220,9 +220,9 @@
     "just_now": "just now"
   },
   "update": {
-    "ready": "A new version of Kadai is ready",
+    "ready": "A new version of StockSense is ready",
     "reload": "Update now",
-    "offline_ready": "Kadai is ready to work offline"
+    "offline_ready": "StockSense is ready to work offline"
   },
   "pickers": {
     "product": {

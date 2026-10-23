@@ -24,7 +24,7 @@
     "sync": "Offline bills"
   },
   "top": {
-    "home": "Kadai home",
+    "home": "StockSense home",
     "counter": "Counter",
     "counter_code": "Counter {{code}}",
     "no_counter": "No counter selected",
@@ -53,8 +53,8 @@
     "no_store": "No store selected",
     "no_store_hint": "Ask the owner to give you access to a store, then open billing again.",
     "catalog_failed": "Could not load the product list",
-    "catalog_failed_hint": "Check the connection to the Kadai server and try again.",
-    "catalog_offline_hint": "This counter has not downloaded the product list yet. Connect once to the Kadai server; after that billing works without the internet.",
+    "catalog_failed_hint": "Check the connection to the StockSense server and try again.",
+    "catalog_offline_hint": "This counter has not downloaded the product list yet. Connect once to the StockSense server; after that billing works without the internet.",
     "cashier": "Cashier: {{name}}"
   },
   "search": {
@@ -179,7 +179,7 @@
   },
   "estimate": {
     "saved": "Estimate {{number}} saved",
-    "needs_connection": "Estimates need the connection to the Kadai server."
+    "needs_connection": "Estimates need the connection to the StockSense server."
   },
   "discount": {
     "title": "Bill discount",
@@ -232,7 +232,7 @@
   "batch": {
     "title": "Batch of {{name}}",
     "auto": "Earliest expiry first (automatic)",
-    "auto_hint": "Kadai picks the batch that expires first and still has stock.",
+    "auto_hint": "StockSense picks the batch that expires first and still has stock.",
     "none": "No batches in stock",
     "none_hint": "The batch is picked when the bill is saved.",
     "mrp": "MRP {{amount}}",
@@ -372,13 +372,13 @@
     "scale_on": "Weighing scale is set up for this counter: weighed items show the live weight.",
     "scale_off": "To read weights from a USB / serial scale, turn on the scale in Settings → Counters.",
     "print_silent": "Receipts print straight to the printer (kiosk printing is on).",
-    "print_dialog": "Receipts open the print dialog. The Kadai desktop shortcut prints without it.",
+    "print_dialog": "Receipts open the print dialog. The StockSense desktop shortcut prints without it.",
     "cash_drawer": "The cash drawer opens through the receipt printer when a bill prints."
   },
   "display": {
     "title": "Customer display",
     "waiting": "Waiting for the billing counter…",
-    "popup_blocked": "The browser blocked the window. Allow pop-ups for Kadai and try again.",
+    "popup_blocked": "The browser blocked the window. Allow pop-ups for StockSense and try again.",
     "welcome": "Welcome!",
     "welcome_sub": "Your items will appear here",
     "welcome_name": "Welcome, {{name}}",

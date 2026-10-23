@@ -69,7 +69,7 @@
     "otp": "Sign in with OTP",
     "forgot_password": "Reset password",
     "select_business": "Choose business",
-    "setup": "Set up Kadai",
+    "setup": "Set up StockSense",
     "pos": "Billing counter",
     "pos_display": "Customer display",
     "dashboard": "Home",
@@ -167,7 +167,7 @@
     "select_store": "Choose store",
     "store": "Store",
     "suspended_banner": "This business is suspended: {{reason}}",
-    "suspended_banner_generic": "This business is suspended. Please contact Kadai support.",
+    "suspended_banner_generic": "This business is suspended. Please contact StockSense support.",
     "switch_business": "Switch business",
     "switch_user": "Switch cashier (PIN)",
     "trial_banner": "Free trial ends on {{date}}"
