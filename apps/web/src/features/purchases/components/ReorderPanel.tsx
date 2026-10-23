@@ -4,12 +4,13 @@
  * days of cover, what is already on order and the suggested quantity. Tick items, adjust the
  * quantities and create one draft purchase order per supplier in one go; products never bought
  * before get a supplier chosen here. "Open in editor" moves a group into the full PO form.
+ * A callout links to StockSense (/purchases/stocksense) for forecast-based planning.
  */
 import type { ReorderItem, ReorderSuggestions } from '@kadai/shared/api/purchases'
 import { reorderPrefillPath } from '@kadai/shared/api/inventory'
 import { newId } from '@kadai/shared/ids'
 import { mulDiv } from '@kadai/shared/math'
-import { CheckCircle2, ClipboardPlus, PackageSearch, SquarePen } from 'lucide-react'
+import { BrainCircuit, CheckCircle2, ClipboardPlus, PackageSearch, SquarePen } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
@@ -148,6 +149,18 @@ export function ReorderPanel() {
 
   return (
     <div className="grid gap-4">
+      <div className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-primary-soft/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-2">
+          <BrainCircuit className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">{t('stocksense.callout_title')}</p>
+            <p className="text-xs text-muted-foreground">{t('stocksense.callout_desc')}</p>
+          </div>
+        </div>
+        <Button size="sm" className="shrink-0" onClick={() => navigate('/purchases/stocksense')}>
+          {t('stocksense.callout_action')}
+        </Button>
+      </div>
       <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
         {multiStore ? (
           <StorePicker
