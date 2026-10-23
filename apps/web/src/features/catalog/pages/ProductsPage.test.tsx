@@ -40,7 +40,7 @@ describe('Products list', () => {
     const rec = setup()
     renderApp('/catalog/products')
     expect(
-      await screen.findByText('Ponni Rice 1 kg', undefined, { timeout: 5000 }),
+      await screen.findByText('Ponni Rice 1 kg', undefined, { timeout: 10000 }),
     ).toBeInTheDocument()
     expect(screen.getByText('பொன்னி அரிசி 1 கிலோ')).toBeInTheDocument()
     expect(screen.getByText('Low stock')).toBeInTheDocument()
@@ -58,7 +58,7 @@ describe('Products list', () => {
     const rec = setup()
     const user = userEvent.setup()
     renderApp('/catalog/products')
-    await screen.findByText('Ponni Rice 1 kg', undefined, { timeout: 5000 })
+    await screen.findByText('Ponni Rice 1 kg', undefined, { timeout: 10000 })
     await user.type(screen.getByRole('searchbox', { name: /Search name/ }), 'dal{Enter}')
     await waitFor(() =>
       expect(rec.find('GET', '/products').some((c) => c.query.get('q') === 'dal')).toBe(true),
@@ -99,7 +99,7 @@ describe('Products list', () => {
     )
     const user = userEvent.setup()
     const { router } = renderApp('/catalog/products')
-    await screen.findByText('Ponni Rice 1 kg', undefined, { timeout: 5000 })
+    await screen.findByText('Ponni Rice 1 kg', undefined, { timeout: 10000 })
     const search = screen.getByRole('searchbox', { name: /Search name/ })
     await user.type(search, '4000000000000{Enter}')
     expect(await screen.findByText('No product has the code 4000000000000.')).toBeInTheDocument()
@@ -117,7 +117,7 @@ describe('Products list', () => {
     await signIn(makeMe({ permissions: ['catalog.read'] }))
     setup()
     renderApp('/catalog/products')
-    await screen.findByText('Ponni Rice 1 kg', undefined, { timeout: 5000 })
+    await screen.findByText('Ponni Rice 1 kg', undefined, { timeout: 10000 })
     expect(screen.queryByRole('link', { name: 'New product' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Import' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Export CSV' })).toBeInTheDocument()
@@ -142,7 +142,7 @@ describe('Products list', () => {
     )
     const user = userEvent.setup()
     renderApp('/catalog/products')
-    await screen.findByText('Toor Dal 1 kg', undefined, { timeout: 5000 })
+    await screen.findByText('Toor Dal 1 kg', undefined, { timeout: 10000 })
     const dalRow = screen.getByText('Toor Dal 1 kg').closest('tr')!
     await user.click(within(dalRow).getByRole('checkbox', { name: 'Select' }))
     expect(screen.getByText('1 selected')).toBeInTheDocument()

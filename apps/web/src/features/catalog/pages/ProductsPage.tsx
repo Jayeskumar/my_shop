@@ -313,6 +313,11 @@ export default function ProductsPage() {
     [t, businessType, categoryNamesTa],
   )
 
+  const hasSelection = canWrite || hasLabels
+  const selection = useMemo(
+    () => (hasSelection ? { selected, onChange: setSelected } : undefined),
+    [hasSelection, selected],
+  )
   const selectedRows = rows.filter((r) => selected.has(r.id))
 
   return (
@@ -535,7 +540,7 @@ export default function ProductsPage() {
           onRowClick={(p) => void navigate(`/catalog/products/${p.id}`)}
           sort={sort}
           onSortChange={(s) => update({ sort: s && s !== 'name' ? s : null })}
-          selection={canWrite || hasLabels ? { selected, onChange: setSelected } : undefined}
+          selection={selection}
           pagination={
             page
               ? {

@@ -90,6 +90,12 @@ const MAPPING: Record<string, z.ZodEnum> = {
   'partner_commissions.status': E.CommissionStatusSchema,
   'announcements.severity': E.AnnouncementSeveritySchema,
   'cloud_backups.status': E.CloudBackupStatusSchema,
+  // licensing bookkeeping (1050)
+  'vendor_idempotency_keys.status': E.IdempotencyStatusSchema,
+  'relay_messages.channel': E.NotificationChannelSchema,
+  'relay_messages.locale': E.LocaleSchema,
+  'relay_messages.status': E.NotificationStatusSchema,
+  'license_reminders.kind': E.LicenseReminderKindSchema,
 }
 
 describe('enums mirror SQL CHECK constraints', () => {

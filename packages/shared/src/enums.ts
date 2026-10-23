@@ -462,3 +462,6 @@ export type AnnouncementSeverity = z.infer<typeof AnnouncementSeveritySchema>
 
 export const CloudBackupStatusSchema = z.enum(['pending', 'stored', 'deleted'])
 export type CloudBackupStatus = z.infer<typeof CloudBackupStatusSchema>
+
+export const LicenseReminderKindSchema = z.enum(['amc', 'subscription'])
+export type LicenseReminderKind = z.infer<typeof LicenseReminderKindSchema>

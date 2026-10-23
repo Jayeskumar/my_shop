@@ -262,6 +262,31 @@ async function main(): Promise<void> {
     if (login.statusCode !== 200) throw new Error(`login failed: ${login.body}`)
     const session = login.json<{ data: { access_token: string; tenant_id: string } }>().data
     const tenantId = session.tenant_id
+
+    // Ensure the demo tenant is on the 'pro' (Peru) plan and the owner is also a platform admin
+    // so every module, feature (shifts, accounting, gst_reports, api_access, notifications) and
+    // /platform/* screen can be explored immediately.
+    await db
+      .updateTable('users')
+      .set({ is_platform_admin: true })
+      .where('id', '=', user.id)
+      .execute()
+    await db
+      .updateTable('tenants')
+      .set({
+        plan_code: 'pro',
+        gst_scheme: 'regular',
+        gstin: '33AABCU9603R1ZM',
+      })
+      .where('id', '=', tenantId)
+      .execute()
+    await db
+      .updateTable('subscriptions')
+      .set({ plan_code: 'pro', status: 'active' })
+      .where('tenant_id', '=', tenantId)
+      .execute()
+    await deps.entitlements.invalidate(tenantId)
+
     const api = async (method: 'GET' | 'POST' | 'PUT', url: string, payload?: unknown) => {
       const res = await app.inject({
         method,
@@ -433,6 +458,156 @@ async function main(): Promise<void> {
         shelf_life_days: it.shelf,
       })),
     })
+
+    // Seed customers, shift, sales invoices, expenses, payments, UPI provider & API key (idempotent).
+    const register = await db
+      .selectFrom('registers')
+      .select('id')
+      .where('tenant_id', '=', tenantId)
+      .where('store_id', '=', store.id)
+      .orderBy('created_at')
+      .executeTakeFirstOrThrow()
+
+    const existingCustomer = await db
+      .selectFrom('customers')
+      .select('id')
+      .where('tenant_id', '=', tenantId)
+      .executeTakeFirst()
+    let customerId = existingCustomer?.id ?? null
+    if (!customerId) {
+      const cust1 = await api('POST', '/customers', {
+        name: 'Lakshmi Mess',
+        name_ta: 'லட்சுமி மெஸ்',
+        phone: '9840020001',
+        customer_type: 'retail',
+        credit_limit_paise: 1_500_000,
+        credit_days: 15,
+        opening_balance_paise: 85_000,
+        whatsapp_opt_in: true,
+        tags: ['regular', 'mess'],
+      })
+      customerId = String(cust1.id)
+      await api('POST', '/customers', {
+        name: 'Ramesh Tea Stall',
+        name_ta: 'ரமேஷ் டீ கடை',
+        phone: '9840020002',
+        customer_type: 'wholesale',
+        credit_limit_paise: 2_500_000,
+        credit_days: 7,
+        opening_balance_paise: 140_000,
+        whatsapp_opt_in: true,
+        tags: ['tea-shop'],
+      })
+    }
+
+    const existingShift = await db
+      .selectFrom('register_shifts')
+      .select('id')
+      .where('tenant_id', '=', tenantId)
+      .where('status', '=', 'open')
+      .executeTakeFirst()
+    if (!existingShift) {
+      await api('POST', '/shifts/open', {
+        register_id: register.id,
+        opening_cash_paise: 250_000,
+        notes: 'Morning float',
+      })
+    }
+
+    const existingInvoice = await db
+      .selectFrom('sales_invoices')
+      .select('id')
+      .where('tenant_id', '=', tenantId)
+      .executeTakeFirst()
+    if (!existingInvoice) {
+      await api('POST', '/sales/invoices', {
+        client_ref: newId(),
+        status: 'completed',
+        store_id: store.id,
+        register_id: register.id,
+        customer_id: customerId,
+        lines: [
+          { product_id: productIds.RICE5, qty_milli: 2_000 },
+          { product_id: productIds.DAL1, qty_milli: 3_000 },
+          { product_id: productIds.OIL1, qty_milli: 2_000 },
+        ],
+        tenders: [
+          { method: 'cash', amount_paise: 100_000, tendered_paise: 100_000 },
+          { method: 'upi', amount_paise: 63_000, reference: 'UPI-429811203' },
+        ],
+      })
+      await api('POST', '/sales/invoices', {
+        client_ref: newId(),
+        status: 'completed',
+        store_id: store.id,
+        register_id: register.id,
+        customer_id: customerId,
+        lines: [
+          { product_id: productIds.SUGAR, qty_milli: 5_000 },
+          { product_id: productIds.TEA, qty_milli: 2_000 },
+        ],
+        tenders: [{ method: 'cash', amount_paise: 20_000, tendered_paise: 20_000 }],
+      })
+    }
+
+    const existingExpense = await db
+      .selectFrom('expenses')
+      .select('id')
+      .where('tenant_id', '=', tenantId)
+      .executeTakeFirst()
+    if (!existingExpense) {
+      const expAcct = await db
+        .selectFrom('accounts')
+        .select('id')
+        .where('tenant_id', '=', tenantId)
+        .where('type', '=', 'expense')
+        .where('code', '=', '5310')
+        .executeTakeFirst()
+      if (expAcct) {
+        await api('POST', '/expenses', {
+          store_id: store.id,
+          expense_date: today,
+          expense_account_id: expAcct.id,
+          description: 'TNEB shop electricity bill',
+          taxable_paise: 185_000,
+          gst_rate_bp: 0,
+          itc_eligible: false,
+          payment_method: 'upi',
+          reference: 'TNEB-OCT-2026',
+        })
+      }
+    }
+
+    const existingProvider = await db
+      .selectFrom('payment_provider_accounts')
+      .select('id')
+      .where('tenant_id', '=', tenantId)
+      .executeTakeFirst()
+    if (!existingProvider) {
+      await api('POST', '/payment-providers', {
+        display_name: 'Shop Counter UPI',
+        provider: 'upi_vpa',
+        store_id: store.id,
+        is_default: true,
+        vpa: 'srimurugan@okaxis',
+        payee_name: 'Sri Murugan Stores',
+        merchant_code: '5411',
+      })
+    }
+
+    const existingApiKey = await db
+      .selectFrom('api_keys')
+      .select('id')
+      .where('tenant_id', '=', tenantId)
+      .executeTakeFirst()
+    if (!existingApiKey) {
+      await api('POST', '/api-keys', {
+        name: 'Tally Prime Sync',
+        permissions: ['catalog.read', 'sales.read', 'inventory.read', 'accounting.read'],
+        store_ids: null,
+        expires_at: null,
+      })
+    }
 
     console.log(
       `StockSense demo ready: ${String(imported.imported_rows)} history rows. Sign in with ${PHONE} / ${PASSWORD} and open /purchases/stocksense.`,

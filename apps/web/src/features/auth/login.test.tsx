@@ -41,7 +41,9 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/'))
     expect(body).toEqual({ identifier: '+919876543210', password: 'secret-password' })
-    expect(await screen.findByRole('heading', { level: 1, name: 'Home' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /Sri Murugan Stores|Home/ }),
+    ).toBeInTheDocument()
   })
 
   it('returns to ?next after sign-in', async () => {

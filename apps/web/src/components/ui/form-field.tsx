@@ -11,7 +11,7 @@
  * Combobox) pick up id / aria-describedby / aria-invalid from the field context automatically.
  */
 import { useId, type ReactNode } from 'react'
-import { get, useFormContext, useFormState, type Control, type FieldError } from 'react-hook-form'
+import { get, useFormContext, useFormState, type FieldError } from 'react-hook-form'
 import { cn } from '@/lib/cn'
 import { useHeldWhilePointerDown } from '@/lib/use-pointer-hold'
 import { localizeValidationMessage } from '@/lib/validation'
@@ -20,15 +20,13 @@ import { FormFieldContext } from './form-field-context'
 import { Label } from './label'
 
 function SubscribedFormFieldInner({
-  control,
   name,
   render,
 }: {
-  control: Control
   name: string
   render: (fieldError: FieldError | undefined) => ReactNode
 }) {
-  const { errors } = useFormState({ control, name })
+  const { errors } = useFormState({ name })
   return <>{render(get(errors, name) as FieldError | undefined)}</>
 }
 
@@ -74,7 +72,6 @@ export function FormField({
   if (name && form) {
     return (
       <SubscribedFormFieldInner
-        control={form.control}
         name={name}
         render={(fieldError) => (
           <FormFieldBody
