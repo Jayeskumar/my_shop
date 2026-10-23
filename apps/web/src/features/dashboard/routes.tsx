@@ -1,17 +1,15 @@
 /**
  * Routes of the dashboard feature — Home dashboard.
- * Paths and handles are the contract (nav, guards, links from other modules); replace the
- * placeholder `Component` with real pages, e.g. `lazy: page(() => import('./pages/ListPage'))`.
+ * Paths and handles are the contract (nav, guards, links from other modules).
  */
-import ModulePlaceholder from '@/app/pages/ModulePlaceholder'
-import type { FeatureRoutes } from '@/app/route-types'
+import { page, type FeatureRoutes } from '@/app/route-types'
 
 export const routes: FeatureRoutes = {
   app: [
     {
       index: true,
       handle: { title: 'nav:titles.dashboard' },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/HomePage')),
     },
   ],
 }
