@@ -787,6 +787,7 @@ data, { tx })` (`core/jobs.ts`) so a job exists only if the business transaction
 | `notifications.due-reminders` | daily 10:00 IST | notifications |
 | `notifications.daily-summary` | daily 21:30 IST | notifications |
 | `inventory.alerts` (low stock / expiry digest) | daily 08:00 IST | inventory |
+| `sales.prune-pos-tombstones` (POS delta-sync tombstones > 60 days) | daily 03:41 IST | sales |
 | `platform.subscription-renewals` | hourly | platform (cloud) |
 | `licensing.fulfil-order` | on payment (platform webhook / manual) | licensing (vendor) |
 | `licensing.renewal-reminders` | daily 10:00 IST | licensing (vendor) |

@@ -1,3 +1,19 @@
+// CONTRACT CHANGELOG (sales backend; newest last)
+// - AuditSnippetSchema.id: zId → z.int() (audit_logs.id is a bigint identity, not a uuid).
+// - CreditNoteDetailSchema: + loyalty_points_restored (redeemed points given back by the return;
+//   loyalty_points_reversed = earned points taken back). Defaults to 0.
+// - SalesInvoiceLineSchema / SalesInvoiceDetailSchema: unit_cost_paise, cost_paise are 0 for users
+//   without reports.read (documented on the fields; shape unchanged).
+// - SalesLineMetaSchema: + batch_auto (FEFO-picked batch, re-picked when a held bill completes),
+//   manual_discount_paise (flat manual discount as entered), promotion_ids, item (ad-hoc item as
+//   entered), price_includes_tax — all optional.
+// - SalesPrintModelSchema.tax_breakup[].cgst_rate_bp / sgst_rate_bp: z.int() → z.number() (half of
+//   an odd rate such as 25 bp = 12.5 bp).
+// - EstimateConvertSchema: + rx (optional; default = the estimate's stored rx) — scheduled drugs
+//   of a pharmacy estimate can be billed on conversion (review).
+// - SyncInvoiceSchema: + held_invoice_id (optional) — a recalled held bill completed offline; the
+//   held bill is removed at sync in the same transaction so it cannot be billed twice (review).
+
 /**
  * Contract for the sales module — docs/API.md "sales & POS"; ARCHITECTURE.md §9 (pricing),
  * §10 (posting rules), §12 (POS & offline).
@@ -1165,6 +1181,8 @@ export const EstimateConvertSchema = z.object({
   invoice_date: zDateStr.optional(),
   credit_limit_override: z.boolean().default(false),
   client_ref: zIdempotencyKey.optional(),
+  /** Prescription for scheduled drugs (default: the one stored with the estimate). */
+  rx: RxSchema.nullable().optional(),
 })
 export type EstimateConvert = z.input<typeof EstimateConvertSchema>
 
@@ -1442,6 +1460,16 @@ export const SalesLineMetaSchema = z.looseObject({
   source_key: z.string().optional(),
   /** Offline sync posted this line into negative stock. */
   offline_negative_stock: z.boolean().optional(),
+  /** The batch was FEFO auto-picked (a held bill re-picks it when completed). */
+  batch_auto: z.boolean().optional(),
+  /** Flat manual line discount as entered (discount_paise is item + bill discount). */
+  manual_discount_paise: zPaise.optional(),
+  /** Promotions that discounted the line (promotion_id is the first). */
+  promotion_ids: z.array(zId).optional(),
+  /** Whether the line price includes GST (print / re-pricing). */
+  price_includes_tax: z.boolean().optional(),
+  /** Ad-hoc lines: the item as entered (re-pricing a held bill). */
+  item: AdHocItemSchema.optional(),
 })
 
 export const SalesInvoiceLineSchema = z.object({
@@ -1462,7 +1490,9 @@ export const SalesInvoiceLineSchema = z.object({
   unit_price_paise: zPaise,
   discount_bp: zBp,
   ...LineAmountFields,
+  /** Cost per pack at sale (0 without reports.read). */
   unit_cost_paise: zPaise,
+  /** COGS of the line (0 without reports.read). */
   cost_paise: zPaise,
   promotion_id: zId.nullable(),
   promotion_name: z.string().nullable(),
@@ -1542,7 +1572,8 @@ export const CreditNoteRefSchema = z.object({
 })
 
 export const AuditSnippetSchema = z.object({
-  id: zId,
+  /** audit_logs.id (bigint identity). */
+  id: z.int(),
   action: z.string(),
   summary: z.string().nullable(),
   user_name: z.string().nullable(),
@@ -1561,7 +1592,7 @@ export const SalesInvoiceDetailSchema = SalesInvoiceListRowSchema.extend({
   reverse_charge: z.boolean(),
   price_includes_tax: z.boolean(),
   ...DocumentTotalFields,
-  /** COGS (cost of the lines sold). */
+  /** COGS (cost of the lines sold; 0 without reports.read). */
   cost_paise: zPaise,
   loyalty_points_earned: z.int().min(0),
   loyalty_points_redeemed: z.int().min(0),
@@ -1851,7 +1882,10 @@ export const CreditNoteDetailSchema = CreditNoteListRowSchema.extend({
   /** Refund / store-credit payments of the settlement. */
   payments: z.array(InvoicePaymentSchema),
   journal_entry_id: zId.nullable(),
+  /** Earned points of the invoice taken back by this return. */
   loyalty_points_reversed: z.int().min(0),
+  /** Redeemed points of the invoice given back by this return. */
+  loyalty_points_restored: z.int().min(0).default(0),
   cancelled_at: zTimestamp.nullable(),
   cancelled_by: zId.nullable(),
   cancelled_by_name: z.string().nullable(),
@@ -1987,8 +2021,9 @@ export const SalesPrintModelSchema = z.object({
   /** Tax summary by rate (thermal) … */
   tax_breakup: z.array(
     TaxBreakupRowSchema.extend({
-      cgst_rate_bp: z.int().min(0),
-      sgst_rate_bp: z.int().min(0),
+      /** Half of gst_rate_bp intra-state; may be fractional (0.25% → 12.5 bp). */
+      cgst_rate_bp: z.number().min(0),
+      sgst_rate_bp: z.number().min(0),
       igst_rate_bp: z.int().min(0),
       tax_paise: zPaise,
     }),
@@ -2331,6 +2366,11 @@ export const SyncInvoiceSchema = z.object({
   invoice_date: zDateStr,
   tenders: z.array(TenderInputSchema).max(10).default([]),
   credit_limit_override: z.boolean().default(false),
+  /**
+   * A held bill recalled and completed offline: it is removed at sync (same store, still held /
+   * draft) in the bill's transaction, so it cannot be billed a second time.
+   */
+  held_invoice_id: zId.optional(),
 })
 export type SyncInvoice = z.input<typeof SyncInvoiceSchema>
 

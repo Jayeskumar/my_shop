@@ -196,7 +196,9 @@ export interface CreditNoteLines {
   igst_paise: Generated<Int8>;
   invoice_line_id: string | null;
   line_no: number;
+  meta: Generated<Json>;
   name: string;
+  name_ta: string | null;
   pack_size: Generated<number>;
   product_id: string | null;
   qty_milli: Int8;
@@ -230,9 +232,13 @@ export interface CreditNotes {
   igst_paise: Generated<Int8>;
   invoice_id: string | null;
   is_interstate: Generated<boolean>;
+  loyalty_points_restored: Generated<Int8>;
+  loyalty_points_reversed: Generated<Int8>;
+  meta: Generated<Json>;
   note_date: string;
   notes: string | null;
   number: string;
+  offline_created_at: Timestamp | null;
   place_of_supply: string;
   reason: string;
   register_id: string | null;
@@ -911,6 +917,14 @@ export interface PlatformStaff {
   user_id: string;
 }
 
+export interface PosTombstones {
+  deleted_at: Generated<Timestamp>;
+  id: Generated<Int8>;
+  kind: string;
+  ref: string;
+  tenant_id: string;
+}
+
 export interface ProductBarcodes {
   barcode: string;
   created_at: Generated<Timestamp>;
@@ -1232,6 +1246,7 @@ export interface SalesInvoices {
   loyalty_points_earned: Generated<Int8>;
   loyalty_points_redeemed: Generated<Int8>;
   loyalty_redeem_paise: Generated<Int8>;
+  meta: Generated<Json>;
   notes: string | null;
   number: string | null;
   offline_created_at: Timestamp | null;
@@ -1621,6 +1636,7 @@ export interface DB {
   platform_audit_logs: PlatformAuditLogs;
   platform_invoices: PlatformInvoices;
   platform_staff: PlatformStaff;
+  pos_tombstones: PosTombstones;
   product_barcodes: ProductBarcodes;
   products: Products;
   promotions: Promotions;

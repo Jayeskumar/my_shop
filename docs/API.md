@@ -169,11 +169,12 @@ one as `salesIssueErrorCode()` with `details.reason` (e.g. 422 `RX_REQUIRED`, `E
 `CREDIT_LIMIT_EXCEEDED`, `INSUFFICIENT_STOCK`; 403 for overrides). Tenders follow
 `allocateTenders()` (non-cash first, must fit; cash = money handed over, change returned; the rest is
 due/credit). Returns are pro-rata with `prorateReturnLine()` (the final return takes the exact
-remainder). Every list takes `?format=csv`.
+remainder). Every list takes `?format=csv` (needs `data.export` or `reports.read`; audited). Costs
+(`unit_cost_paise`, `cost_paise`) are 0 for users without `reports.read`.
 
 | Method & path | perm | Notes |
 |---|---|---|
-| `GET /pos/bootstrap?register_id=&store_id=&since=` | `pos.use` (+feat `pos`) | full catalogue / delta since the cursor (products, barcodes, store prices, FEFO batches with stock, promotions, slab rules, categories, quick keys, settings, register series state, open shift, public provider fields, 200 recent customers, removed ids) |
+| `GET /pos/bootstrap?register_id=&store_id=&since=` | `pos.use` (+feat `pos`) | full catalogue / delta since the cursor (products, barcodes, store prices, FEFO batches with stock, promotions, slab rules, categories, quick keys, settings, register series state, open shift, public provider fields, 200 recent customers, removed ids — deactivations and hard deletes via `pos_tombstones`, pruned by job `sales.prune-pos-tombstones`); an unknown, foreign or > 30-day-old cursor answers a full bootstrap |
 | `POST /pos/quote` | `pos.use` or `sales.create` | priced lines (FEFO splits `key#2`…), totals, tax breakup, promotions, credit & loyalty, `issues`, `can_complete`, `requires` |
 | `POST /sales/invoices` | `sales.create` | `status: completed \| held \| draft`; POS needs `client_ref` (idempotent, also `Idempotency-Key`); plan limit `invoices_per_month`; result `{invoice, tenders, change_paise, warnings}` |
 | `L /sales/invoices` (`q`, `status`, `doc_type`, `payment_status`, `channel`, `store_id`, `register_id`, `customer_id`, `created_by`, `shift_id`, `has_due`, `offline`, `from`, `to`, `sort`) · `G /sales/invoices/:id` | `sales.read` | default excludes estimates and held/draft; list carries `summary` totals; detail has lines, payments, credit notes, journal entry, shift, customer khata, rx, audit |
@@ -184,11 +185,11 @@ remainder). Every list takes `?format=csv`.
 | `GET /sales/invoices/:id/print?format=thermal_80\|thermal_58\|a4&locale=` · `GET /sales/credit-notes/:id/print` | `sales.read` (credit notes: or `sales.return`) | `SalesPrintModel`: everything for a GST bilingual A4 / thermal document (no internal ids or costs) |
 | `POST /sales/invoices/:id/share` `{channel: whatsapp\|sms, phone?}` | `sales.read` | share link `/i/<token>` + notification `invoice_share` (+ `wa_me_url`) |
 | `GET /sales/held?store_id=&register_id=` | `pos.use` or `sales.create` | held bills / drafts |
-| `POST /sales/estimates` · `POST /sales/estimates/:id/convert` | `sales.create` | estimates are invoices with `doc_type: estimate` (list: `L /sales/invoices?doc_type=estimate`; valid until = `due_date`) |
+| `POST /sales/estimates` · `POST /sales/estimates/:id/convert` | `sales.create` | estimates are invoices with `doc_type: estimate` (list: `L /sales/invoices?doc_type=estimate`; valid until = `due_date`); convert keeps the estimate's `rx` unless one is sent |
 | `GET /sales/invoices/:id/returnable` | `sales.return` | sold / returned / returnable qty + credited amounts, `refundable_paise` |
 | `L/C /sales/credit-notes` · `G /sales/credit-notes/:id` | `sales.return` (L/G: or `sales.read`) | settlement `cash \| upi \| bank_transfer` (refund, ≤ refundable), `adjust_due`, `store_credit`; free-form returns need `store_id` and prices |
 | `POST /sales/credit-notes/:id/cancel` `{reason}` | `sales.cancel` | reverses stock, journal, settlement, loyalty |
-| `POST /pos/sync` `{register_id, invoices, credit_notes}` | `pos.use` (+feat `pos`) | invoices then credit notes, in order, one transaction each; per item `created \| duplicate \| renumbered \| failed`; returns the register series state |
+| `POST /pos/sync` `{register_id, invoices, credit_notes}` | `pos.use` (+feat `pos`) | invoices then credit notes, in order, one transaction each; per item `created \| duplicate \| renumbered \| failed`; an invoice with `held_invoice_id` (a recalled held bill billed offline) retires that held bill in its transaction (audited; already completed elsewhere → flagged `sales_invoice.held_conflict`); returns the register series state |
 | `GET /public/v1/invoices/:shareToken` | public | `{document: SalesPrintModel, pay: {upi_uri, amount_paise, …} \| null}` |
 
 ## payments & UPI
