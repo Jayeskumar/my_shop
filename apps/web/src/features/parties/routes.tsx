@@ -1,17 +1,15 @@
 /**
  * Routes of the parties feature — Customers & khata, suppliers and (pharmacy) doctors.
- * Paths and handles are the contract (nav, guards, links from other modules); replace the
- * placeholder `Component` with real pages, e.g. `lazy: page(() => import('./pages/ListPage'))`.
+ * Paths and handles are the contract (nav, guards, links from other modules).
  */
-import ModulePlaceholder from '@/app/pages/ModulePlaceholder'
-import type { FeatureRoutes } from '@/app/route-types'
+import { page, type FeatureRoutes } from '@/app/route-types'
 
 export const routes: FeatureRoutes = {
   app: [
     {
       path: 'parties/customers',
       handle: { title: 'nav:titles.customers', permission: 'customers.read' },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/CustomersPage')),
     },
     {
       path: 'parties/customers/:id',
@@ -20,12 +18,12 @@ export const routes: FeatureRoutes = {
         permission: 'customers.read',
         parent: { title: 'nav:titles.customers', to: '/parties/customers' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/CustomerDetailPage')),
     },
     {
       path: 'parties/suppliers',
       handle: { title: 'nav:titles.suppliers', permission: 'suppliers.read' },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/SuppliersPage')),
     },
     {
       path: 'parties/suppliers/:id',
@@ -34,7 +32,7 @@ export const routes: FeatureRoutes = {
         permission: 'suppliers.read',
         parent: { title: 'nav:titles.suppliers', to: '/parties/suppliers' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/SupplierDetailPage')),
     },
     {
       path: 'parties/doctors',
@@ -43,7 +41,7 @@ export const routes: FeatureRoutes = {
         permission: 'customers.read',
         businessTypes: ['pharmacy'],
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/DoctorsPage')),
     },
   ],
 }
