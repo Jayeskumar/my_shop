@@ -756,6 +756,7 @@ export interface PaymentAllocations {
 
 export interface PaymentIntents {
   amount_paise: Int8;
+  close_attempts: Generated<number>;
   confirmation: string | null;
   confirmed_by: string | null;
   created_at: Generated<Timestamp>;
@@ -767,6 +768,7 @@ export interface PaymentIntents {
   fee_paise: Int8 | null;
   id: Generated<string>;
   idempotency_key: string | null;
+  image_url: string | null;
   kind: Generated<string>;
   last_polled_at: Timestamp | null;
   metadata: Generated<Json>;
@@ -778,6 +780,7 @@ export interface PaymentIntents {
   poll_count: Generated<number>;
   provider: string;
   provider_account_id: string;
+  provider_closed_at: Timestamp | null;
   provider_payment_id: string | null;
   provider_ref: string | null;
   purpose: string;
@@ -795,6 +798,7 @@ export interface PaymentIntents {
 }
 
 export interface PaymentProviderAccounts {
+  config: Generated<Json>;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   credentials_encrypted: string | null;
