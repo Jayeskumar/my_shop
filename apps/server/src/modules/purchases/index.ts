@@ -1,6 +1,6 @@
 /**
- * purchases module — purchase orders, purchase bills (GRN), debit notes (purchase returns) and
- * reorder suggestions. Owned by the purchases module (ARCHITECTURE.md §3.1).
+ * purchases module — purchase orders, purchase bills (GRN), debit notes (purchase returns),
+ * reorder suggestions and StockSense (forecast-based reorder planning, ./stocksense.ts). Owned by the purchases module (ARCHITECTURE.md §3.1).
  *
  * Endpoints: docs/API.md "purchases". Every route is registered from the `purchasesRoutes`
  * catalogue (packages/shared/src/api/purchases.ts), which carries method, path, schemas, the
@@ -49,6 +49,7 @@ import {
 import { cancelBill, postBill } from './posting'
 import { reorderSuggestions } from './reorder'
 import { importSalesHistory } from './sales-history'
+import { stockSenseProduct, stockSenseReport, updateStockSenseSettings } from './stocksense'
 
 /** Filters of an exported list for the audit entry (without sort / format). */
 function exportFilters(q: Record<string, unknown>): Record<string, unknown> {
@@ -199,6 +200,17 @@ export const purchasesModule = defineModule({
     // ---- reorder ---------------------------------------------------------------------------
     reorderSuggestions: {
       tx: async (tx, req) => ({ data: await reorderSuggestions(tx, req.ctx, req.query) }),
+    },
+    stockSense: {
+      tx: async (tx, req) => ({ data: await stockSenseReport(tx, req.ctx, req.query) }),
+    },
+    stockSenseProduct: {
+      tx: async (tx, req) => ({
+        data: await stockSenseProduct(tx, req.ctx, req.params.productId, req.query),
+      }),
+    },
+    updateStockSenseSettings: {
+      tx: async (tx, req) => ({ data: await updateStockSenseSettings(tx, req.ctx, req.body) }),
     },
     importSalesHistory: {
       tx: async (tx, req) => ({

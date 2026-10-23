@@ -966,6 +966,7 @@ export interface Products {
   sale_price_paise: Generated<Int8>;
   scale_plu: string | null;
   search_text: Generated<string>;
+  shelf_life_days: number | null;
   sku: string | null;
   tax_slab_rule_id: string | null;
   tenant_id: string;
@@ -1451,6 +1452,7 @@ export interface Suppliers {
   gstin: string | null;
   id: Generated<string>;
   is_active: Generated<boolean>;
+  lead_time_days: number | null;
   name: string;
   notes: string | null;
   opening_balance_paise: Generated<Int8>;

@@ -70,6 +70,7 @@ export const PRODUCT_COLUMNS = [
   'scale_plu',
   'reorder_level_milli',
   'reorder_qty_milli',
+  'shelf_life_days',
   'variant_attributes',
   'variant_axes',
   'attributes',

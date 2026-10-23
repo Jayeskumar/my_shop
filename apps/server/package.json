@@ -20,7 +20,8 @@
     "db:status": "tsx src/db/migrate-cli.ts --status",
     "db:types": "tsx scripts/db-types.ts",
     "db:types:check": "tsx scripts/db-types.ts --check",
-    "issue-license": "tsx scripts/issue-license.ts"
+    "issue-license": "tsx scripts/issue-license.ts",
+    "seed:stocksense": "tsx scripts/seed-stocksense-demo.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1153.0",

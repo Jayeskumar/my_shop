@@ -19,7 +19,6 @@ import {
   type PurchaseOrderDetail,
   type PurchaseOrderListRow,
   type ReorderSuggestions,
-  ReorderSuggestionsSchema,
   purchaseBillTotals,
 } from '@kadai/shared/api/purchases'
 import { makeGstin } from '@kadai/shared/gst'
@@ -792,7 +791,7 @@ export function reorderSuggestions(): ReorderSuggestions {
     unit_cost_paise: 6_200,
     estimated_cost_paise: 74_400,
   }
-  return ReorderSuggestionsSchema.parse({
+  return {
     store_id: STORE_ID,
     generated_at: NOW,
     window_days: 30,
@@ -804,7 +803,7 @@ export function reorderSuggestions(): ReorderSuggestions {
       },
       { supplier: null, items: [fresh], estimated_cost_paise: fresh.estimated_cost_paise },
     ],
-  })
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
