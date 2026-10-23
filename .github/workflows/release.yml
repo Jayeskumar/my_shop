@@ -66,16 +66,16 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: docker-meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ needs.meta.outputs.image }}
           # 1.4.2 → 1.4.2, 1.4, 1 and latest; pre-releases get only their own tag.
@@ -87,7 +87,7 @@ jobs:
           flavor: |
             latest=auto
       - id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: deploy/docker/Dockerfile
@@ -105,7 +105,7 @@ jobs:
           provenance: mode=max
           sbom: true
       - name: Build provenance attestation
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-name: ${{ needs.meta.outputs.image }}
           subject-digest: ${{ steps.build.outputs.digest }}
@@ -124,7 +124,7 @@ jobs:
           VERSION: ${{ needs.meta.outputs.version }}
           DIGEST: ${{ steps.build.outputs.digest }}
         run: printf '%s:%s\n%s@%s\n' "$IMAGE" "$VERSION" "$IMAGE" "$DIGEST" > "kadai-image-${VERSION}.txt"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-image
           path: |
@@ -149,9 +149,9 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -162,7 +162,7 @@ jobs:
           pnpm --filter @kadai/web build
       - name: Assemble and smoke-test the bundle
         run: .github/scripts/bundle.sh "${{ needs.meta.outputs.version }}" "${{ matrix.target }}" dist/release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-bundle-${{ matrix.target }}
           path: dist/release/*
@@ -174,14 +174,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Assemble kadai-onprem-<version>.zip
         env:
           VERSION: ${{ needs.meta.outputs.version }}
           IMAGE: ${{ needs.meta.outputs.image }}
           RELEASE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ needs.meta.outputs.tag }}
         run: .github/scripts/onprem-kit.sh "$VERSION" "$IMAGE" "$RELEASE_URL" dist/release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-onprem-kit
           path: dist/release/*
@@ -195,7 +195,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: release-*
           path: assets
