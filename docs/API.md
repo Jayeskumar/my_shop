@@ -84,7 +84,12 @@ once in `@kadai/shared/api/common` and re-exported here).
 
 Route catalogue: `catalogRoutes` in `@kadai/shared/api/catalog`. Taxonomy rows (categories,
 brands, tax slab rules) are deleted only when unused (409 `{hint: 'deactivate'}`); products and
-promotions answer DELETE with `{id, result: 'deleted' | 'deactivated'}`.
+promotions answer DELETE with `{id, result: 'deleted' | 'deactivated'}`. A product's unit and
+pack size are fixed once it has stock movements (409 `unit_in_use` / `pack_size_in_use`); stock
+tracking, batch tracking and the service kind cannot change while it (or its variants) holds stock
+(409 `stock_on_hand`, `details.field`). Variant parents carry no barcodes (422 `product_kind`).
+Store-scoped members write only promotions limited to their own stores (403
+`all_stores_required`). `POST /products/bulk-update` honours `Idempotency-Key`.
 
 | Method & path | perm |
 |---|---|

@@ -313,7 +313,7 @@ export function DataTable<T>({
     <ul
       aria-label={label}
       aria-busy={loading || undefined}
-      className={cn('grid gap-2 p-2', loading && !firstLoad && 'opacity-60')}
+      className={cn('grid grid-cols-1 gap-2 p-2', loading && !firstLoad && 'opacity-60')}
     >
       {firstLoad
         ? Array.from({ length: Math.min(skeletonCount, 5) }, (_, i) => (
