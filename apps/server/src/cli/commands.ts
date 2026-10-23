@@ -3,10 +3,12 @@
  * merges both maps (a module may not override a core command).
  */
 import { parseArgs } from 'node:util'
+import type { Kysely } from 'kysely'
 import { newId, normalizeIndianPhone } from '@kadai/shared'
 import { loadConfig } from '../config'
 import { assertPasswordPolicy, hashPassword } from '../core/passwords'
 import { createDatabases } from '../db'
+import type { DB } from '../db/schema.generated'
 import { formatStatus, migrate, migrationStatus } from '../db/migrator'
 import { runCleanup } from '../jobs/core-jobs'
 import { runLicenseCli } from './license-cli'
@@ -37,8 +39,23 @@ const migrateCmd: CliCommand = {
   },
 }
 
+/**
+ * Vendor console access (licensing module): platform_staff role 'owner', kept in step with
+ * users.is_platform_admin. System db: platform_staff is a vendor table (no tenant).
+ */
+export async function grantOwnerStaffRole(systemDb: Kysely<DB>, userId: string): Promise<void> {
+  await systemDb
+    .insertInto('platform_staff')
+    .values({ user_id: userId, role: 'owner', partner_id: null, is_active: true })
+    .onConflict((oc) =>
+      oc.column('user_id').doUpdateSet({ role: 'owner', partner_id: null, is_active: true }),
+    )
+    .execute()
+}
+
 const createPlatformAdmin: CliCommand = {
-  summary: 'Create (or promote) a platform administrator (cloud SaaS vendor staff)',
+  summary:
+    'Create (or promote) a platform administrator: vendor console staff role owner (cloud SaaS vendor)',
   usage:
     'create-platform-admin --name <name> (--phone <mobile> | --email <email>) [--password <pw>]  (or KADAI_ADMIN_PASSWORD)',
   async run(args, io) {
@@ -87,7 +104,8 @@ const createPlatformAdmin: CliCommand = {
           })
           .where('id', '=', existing.id)
           .execute()
-        io.log(`promoted existing user ${existing.id} to platform admin`)
+        await grantOwnerStaffRole(db.systemDb, existing.id)
+        io.log(`promoted existing user ${existing.id} to platform admin (staff role owner)`)
         io.out(existing.id)
       } else {
         if (!passwordHash)
@@ -108,7 +126,8 @@ const createPlatformAdmin: CliCommand = {
             preferred_locale: 'en',
           })
           .execute()
-        io.log(`created platform admin ${id}`)
+        await grantOwnerStaffRole(db.systemDb, id)
+        io.log(`created platform admin ${id} (staff role owner)`)
         io.out(id)
       }
       return 0

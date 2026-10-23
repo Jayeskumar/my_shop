@@ -526,6 +526,7 @@ export interface LicenseActivations {
   machine_name: string | null;
   method: Generated<string>;
   os: string | null;
+  stale_flagged_at: Timestamp | null;
   status: Generated<string>;
   updated_at: Generated<Timestamp>;
 }
@@ -564,8 +565,20 @@ export interface LicenseProducts {
   updated_at: Generated<Timestamp>;
 }
 
+export interface LicenseReminders {
+  channels: Generated<string[]>;
+  due_on: string;
+  kind: string;
+  license_id: string;
+  offset_days: number;
+  order_id: string | null;
+  partner_notified: Generated<boolean>;
+  sent_at: Generated<Timestamp>;
+}
+
 export interface Licenses {
   addons: Generated<Json>;
+  check_in_days: Generated<number>;
   created_at: Generated<Timestamp>;
   customer_id: string;
   features: string[] | null;
@@ -588,6 +601,12 @@ export interface Licenses {
   updates_until: string | null;
   valid_from: string;
   valid_until: string | null;
+}
+
+export interface LicensingRequestNonces {
+  created_at: Generated<Timestamp>;
+  installation_id: string;
+  signature_sha256: string;
 }
 
 export interface LoyaltyLedger {
@@ -1204,6 +1223,28 @@ export interface RegisterShifts {
   updated_at: Generated<Timestamp>;
 }
 
+export interface RelayMessages {
+  activation_id: string;
+  attempts: Generated<number>;
+  channel: string;
+  client_ref: string;
+  created_at: Generated<Timestamp>;
+  error: string | null;
+  error_kind: string | null;
+  id: Generated<string>;
+  license_id: string;
+  locale: string;
+  metered: Generated<boolean>;
+  period: string;
+  provider: string | null;
+  provider_message_id: string | null;
+  recipient: string;
+  sent_at: Timestamp | null;
+  status: Generated<string>;
+  template_code: string;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface Releases {
   artifacts: Generated<Json>;
   channel: Generated<string>;
@@ -1617,8 +1658,23 @@ export interface VendorCustomers {
   updated_at: Generated<Timestamp>;
 }
 
+export interface VendorIdempotencyKeys {
+  created_at: Generated<Timestamp>;
+  expires_at: Generated<Timestamp>;
+  key: string;
+  method: string;
+  path: string;
+  request_hash: string;
+  response_body: Json | null;
+  response_status: number | null;
+  status: Generated<string>;
+  user_id: string;
+}
+
 export interface VendorOrders {
   buyer_gstin: string | null;
+  cancel_reason: string | null;
+  cancelled_at: Timestamp | null;
   cgst_paise: Generated<Int8>;
   coupon_code: string | null;
   created_at: Generated<Timestamp>;
@@ -1626,19 +1682,27 @@ export interface VendorOrders {
   customer_id: string | null;
   discount_paise: Generated<Int8>;
   fulfilled_at: Timestamp | null;
+  fulfilment: Json | null;
   id: Generated<string>;
   igst_paise: Generated<Int8>;
+  invoice_date: string | null;
   kind: string;
   license_id: string | null;
   lines: Json;
   notes: string | null;
   number: string | null;
   offer_ids: Generated<string[]>;
+  paid_amount_paise: Int8 | null;
   paid_at: Timestamp | null;
   partner_id: string | null;
+  payment_link_expires_at: Timestamp | null;
   payment_provider: string | null;
   payment_ref: string | null;
   place_of_supply: string;
+  quote: Json | null;
+  refund_reason: string | null;
+  refund_ref: string | null;
+  refunded_at: Timestamp | null;
   sgst_paise: Generated<Int8>;
   short_url: string | null;
   status: Generated<string>;
@@ -1680,7 +1744,9 @@ export interface DB {
   license_activations: LicenseActivations;
   license_events: LicenseEvents;
   license_products: LicenseProducts;
+  license_reminders: LicenseReminders;
   licenses: Licenses;
+  licensing_request_nonces: LicensingRequestNonces;
   loyalty_ledger: LoyaltyLedger;
   memberships: Memberships;
   notification_templates: NotificationTemplates;
@@ -1713,6 +1779,7 @@ export interface DB {
   purchase_orders: PurchaseOrders;
   register_shifts: RegisterShifts;
   registers: Registers;
+  relay_messages: RelayMessages;
   releases: Releases;
   roles: Roles;
   sales_invoice_lines: SalesInvoiceLines;
@@ -1735,5 +1802,6 @@ export interface DB {
   usage_counters: UsageCounters;
   users: Users;
   vendor_customers: VendorCustomers;
+  vendor_idempotency_keys: VendorIdempotencyKeys;
   vendor_orders: VendorOrders;
 }

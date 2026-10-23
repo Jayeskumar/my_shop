@@ -3,10 +3,12 @@
  * typed, frozen {@link Config}. Code branches on deployment mode only through `config.mode` and
  * {@link isCloud} / {@link isOnPrem}; feature checks go through the entitlements service.
  */
+import { createPrivateKey } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
+import { isValidGstin, isValidStateCode, normalizeGstin } from '@kadai/shared'
 
 export type DeploymentMode = 'cloud' | 'onprem'
 export type NodeEnv = 'development' | 'test' | 'production'
@@ -26,6 +28,26 @@ export interface S3Config {
   accessKeyId: string | null
   secretAccessKey: string | null
   forcePathStyle: boolean
+}
+
+export interface VendorConfig {
+  /** KADAI_VENDOR_CONSOLE: serve the vendor console (/api/v1/platform/*) and public licensing API. */
+  console: boolean
+  /** KADAI_LICENSE_SIGNING_KEY: signs on-prem licences (kadai-license-v1); vendor secret. */
+  licenseSigningKey: string | null
+  /** KADAI_LICENSE_SIGNING_KID: key id written into licences (must be trusted by shop servers). */
+  licenseSigningKid: string
+  /** KADAI_RELEASE_SIGNING_KEY: signs release artifacts (sha256|version|platform). */
+  releaseSigningKey: string | null
+  /** KADAI_VENDOR_STATE_CODE: our GST state (place-of-supply comparison), default '33'. */
+  stateCode: string
+  /** KADAI_VENDOR_GSTIN: our GSTIN on tax invoices (must belong to stateCode). */
+  gstin: string | null
+  /**
+   * Encrypted on-prem cloud backups (add-on): KADAI_BACKUP_S3_BUCKET; region, endpoint and
+   * credentials from the S3_* variables. null = cloud backup storage is not offered.
+   */
+  backupS3: S3Config | null
 }
 
 export interface Config {
@@ -142,6 +164,12 @@ export interface Config {
     webhookSecret: string | null
   }
   enableMockPayments: boolean
+
+  /**
+   * Vendor control plane (licensing module, ARCHITECTURE.md §21) — only our cloud deployment
+   * sets KADAI_VENDOR_CONSOLE=true. Keys are Ed25519 private keys (PKCS8 PEM, or base64 DER).
+   */
+  vendor: VendorConfig
 
   metricsToken: string | null
   apiDocs: boolean
@@ -301,6 +329,19 @@ const EnvSchema = z.object({
   RAZORPAY_PLATFORM_WEBHOOK_SECRET: optionalString,
   KADAI_ENABLE_MOCK_PAYMENTS: envBool(false),
 
+  KADAI_VENDOR_CONSOLE: envBool(false),
+  KADAI_LICENSE_SIGNING_KEY: optionalString,
+  KADAI_LICENSE_SIGNING_KID: optionalString.pipe(
+    z
+      .string()
+      .regex(/^[A-Za-z0-9._-]{1,64}$/, 'must be 1-64 characters A-Z a-z 0-9 . _ -')
+      .optional(),
+  ),
+  KADAI_RELEASE_SIGNING_KEY: optionalString,
+  KADAI_VENDOR_STATE_CODE: optionalString,
+  KADAI_VENDOR_GSTIN: optionalString,
+  KADAI_BACKUP_S3_BUCKET: optionalString,
+
   METRICS_TOKEN: optionalString,
   KADAI_API_DOCS: envBool(undefined),
   OTEL_EXPORTER_OTLP_ENDPOINT: optionalString,
@@ -337,6 +378,23 @@ export function parseEncryptionKeys(raw: string): EncryptionKey[] {
   }
   if (keys.length === 0) throw new ConfigError('KADAI_ENCRYPTION_KEYS is empty')
   return keys
+}
+
+/**
+ * Normalises an Ed25519 private key from the environment (PKCS8 PEM — literal `\\n` escapes
+ * allowed — or base64 of the PKCS8 DER) to PEM. Throws ConfigError when it is not Ed25519.
+ */
+export function parseEd25519PrivateKey(raw: string, name: string): string {
+  const text = raw.includes('-----BEGIN') ? raw.replace(/\\n/g, '\n').trim() : raw.trim()
+  try {
+    const key = text.includes('-----BEGIN')
+      ? createPrivateKey(text)
+      : createPrivateKey({ key: Buffer.from(text, 'base64'), format: 'der', type: 'pkcs8' })
+    if (key.asymmetricKeyType !== 'ed25519') throw new Error('not ed25519')
+    return key.export({ format: 'pem', type: 'pkcs8' }).toString()
+  } catch {
+    throw new ConfigError(`${name} must be an Ed25519 private key (PKCS8 PEM or base64 DER)`)
+  }
 }
 
 function parseTrustProxy(raw: string | undefined): boolean | number | string[] {
@@ -424,6 +482,35 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   }
   if (e.SMS_PROVIDER === 'msg91' && (!e.MSG91_AUTH_KEY || !e.MSG91_OTP_TEMPLATE_ID)) {
     issues.push('SMS_PROVIDER=msg91 requires MSG91_AUTH_KEY and MSG91_OTP_TEMPLATE_ID')
+  }
+
+  // Vendor control plane (licensing module).
+  const vendorStateCode = e.KADAI_VENDOR_STATE_CODE ?? '33'
+  if (!isValidStateCode(vendorStateCode))
+    issues.push(`KADAI_VENDOR_STATE_CODE "${vendorStateCode}" is not a GST state code`)
+  const vendorGstin = e.KADAI_VENDOR_GSTIN ? normalizeGstin(e.KADAI_VENDOR_GSTIN) : null
+  if (vendorGstin !== null) {
+    if (!isValidGstin(vendorGstin)) issues.push('KADAI_VENDOR_GSTIN is not a valid GSTIN')
+    else if (vendorGstin.slice(0, 2) !== vendorStateCode)
+      issues.push('KADAI_VENDOR_GSTIN does not belong to KADAI_VENDOR_STATE_CODE')
+  }
+  const vendorKey = (name: string, raw: string | undefined): string | null => {
+    if (!raw) return null
+    try {
+      return parseEd25519PrivateKey(raw, name)
+    } catch (err) {
+      issues.push(err instanceof Error ? err.message : String(err))
+      return null
+    }
+  }
+  const licenseSigningKey = vendorKey('KADAI_LICENSE_SIGNING_KEY', e.KADAI_LICENSE_SIGNING_KEY)
+  const releaseSigningKey = vendorKey('KADAI_RELEASE_SIGNING_KEY', e.KADAI_RELEASE_SIGNING_KEY)
+  if (e.KADAI_VENDOR_CONSOLE) {
+    if (mode !== 'cloud') issues.push('KADAI_VENDOR_CONSOLE requires KADAI_MODE=cloud')
+    if (isProduction && !e.KADAI_LICENSE_SIGNING_KEY)
+      issues.push('KADAI_LICENSE_SIGNING_KEY is required when KADAI_VENDOR_CONSOLE=true')
+    if (isProduction && !e.KADAI_LICENSE_SIGNING_KID)
+      issues.push('KADAI_LICENSE_SIGNING_KID is required when KADAI_VENDOR_CONSOLE=true')
   }
 
   let encryptionKeys: EncryptionKey[] = []
@@ -534,6 +621,24 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       webhookSecret: e.RAZORPAY_PLATFORM_WEBHOOK_SECRET ?? null,
     },
     enableMockPayments: e.KADAI_ENABLE_MOCK_PAYMENTS ?? false,
+    vendor: {
+      console: e.KADAI_VENDOR_CONSOLE ?? false,
+      licenseSigningKey,
+      licenseSigningKid: e.KADAI_LICENSE_SIGNING_KID ?? 'dev-2026',
+      releaseSigningKey,
+      stateCode: vendorStateCode,
+      gstin: vendorGstin,
+      backupS3: e.KADAI_BACKUP_S3_BUCKET
+        ? {
+            bucket: e.KADAI_BACKUP_S3_BUCKET,
+            region: e.S3_REGION,
+            endpoint: e.S3_ENDPOINT ?? null,
+            accessKeyId: e.S3_ACCESS_KEY_ID ?? null,
+            secretAccessKey: e.S3_SECRET_ACCESS_KEY ?? null,
+            forcePathStyle: e.S3_FORCE_PATH_STYLE ?? false,
+          }
+        : null,
+    },
     metricsToken: e.METRICS_TOKEN ?? null,
     apiDocs: e.KADAI_API_DOCS ?? !isProduction,
     otelEndpoint: e.OTEL_EXPORTER_OTLP_ENDPOINT ?? null,
