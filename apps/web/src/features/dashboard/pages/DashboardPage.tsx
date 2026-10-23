@@ -26,6 +26,7 @@ import { KpiTiles } from '../components/KpiTiles'
 import { PaymentMixCard } from '../components/PaymentMixCard'
 import { QuickActions } from '../components/QuickActions'
 import { SalesTrendChart } from '../components/SalesTrendChart'
+import { StockSenseCard } from '../components/StockSenseCard'
 import { TopItemsCard } from '../components/TopItemsCard'
 import { dayPart, firstName, initialDashboardStore, rememberDashboardStore } from '../lib/dashboard'
 
@@ -37,11 +38,15 @@ export default function DashboardPage() {
   const me = useMe()
   const cal = useReportCalendar()
   const canReports = useCan('reports.read')
+  const canPurchases = useCan('purchases.read')
+  const hasPurchases = useFeature('purchases')
   const basicReports = useFeature('reports_basic')
   const [store, setStore] = useState<string | null>(() => initialDashboardStore(me))
   const [date, setDate] = useState(cal.today)
   const isToday = date === cal.today
   const multiStore = (me?.stores.filter((s) => s.is_active).length ?? 0) > 1
+  const effectiveStoreId =
+    store && store !== 'all' ? store : (me?.stores.find((s) => s.is_active)?.id ?? null)
 
   const dashboard = useRouteQuery(
     reportsRoutes.dashboard,
@@ -170,6 +175,9 @@ export default function DashboardPage() {
               canOpenReport={basicReports}
             />
           </div>
+          {canPurchases && hasPurchases ? (
+            <StockSenseCard storeId={effectiveStoreId} />
+          ) : null}
         </>
       )}
     </div>

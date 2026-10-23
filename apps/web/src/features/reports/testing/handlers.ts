@@ -8,6 +8,7 @@ import { ROUTE_SCOPE_PREFIX, type RouteDef } from '@kadai/shared/api/common'
 import { catalogRoutes } from '@kadai/shared/api/catalog'
 import { identityRoutes } from '@kadai/shared/api/identity'
 import { notificationsRoutes } from '@kadai/shared/api/notifications'
+import { purchasesRoutes } from '@kadai/shared/api/purchases'
 import { reportsRoutes } from '@kadai/shared/api/reports'
 import { ORIGIN } from '@/test/msw'
 import * as F from './fixtures'
@@ -125,6 +126,24 @@ export function createReportsApi(replies: Partial<Record<RouteKey, Reply>> = {})
   handlers.push(
     http.get(routePattern(catalogRoutes.listCategories), () => json({ data: [] })),
     http.get(routePattern(identityRoutes.userDirectory), () => json({ data: [] })),
+    http.get(routePattern(purchasesRoutes.reorderSuggestions), ({ request }) => {
+      const storeId =
+        new URL(request.url).searchParams.get('store_id') ??
+        '0192f0a0-0000-7000-8000-000000000301'
+      return json({
+        data: {
+          store_id: storeId,
+          generated_at: '2026-10-20T10:00:00.000Z',
+          window_days: 90,
+          forecast: true,
+          lead_time_days: 7,
+          weekday_adjusted: true,
+          model: 'smart',
+          assumptions: [],
+          groups: [],
+        },
+      })
+    }),
   )
   return {
     handlers,
