@@ -1,10 +1,9 @@
 /**
- * Routes of the purchases feature — Purchase orders, purchase bills (GRN) and purchase returns (debit notes).
- * Paths and handles are the contract (nav, guards, links from other modules); replace the
- * placeholder `Component` with real pages, e.g. `lazy: page(() => import('./pages/ListPage'))`.
+ * Routes of the purchases feature — Purchase orders (with reorder suggestions), purchase bills
+ * (GRN) and purchase returns (debit notes). Paths and handles are the contract (nav, guards,
+ * links from other modules such as inventory's purchaseReturnPrefillPath / reorderPrefillPath).
  */
-import ModulePlaceholder from '@/app/pages/ModulePlaceholder'
-import type { FeatureRoutes } from '@/app/route-types'
+import { page, type FeatureRoutes } from '@/app/route-types'
 
 export const routes: FeatureRoutes = {
   app: [
@@ -15,7 +14,7 @@ export const routes: FeatureRoutes = {
         permission: 'purchases.read',
         feature: 'purchases',
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/OrdersPage')),
     },
     {
       path: 'purchases/orders/new',
@@ -25,7 +24,7 @@ export const routes: FeatureRoutes = {
         feature: 'purchases',
         parent: { title: 'nav:titles.purchase_orders', to: '/purchases/orders' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/OrderNewPage')),
     },
     {
       path: 'purchases/orders/:id',
@@ -35,7 +34,7 @@ export const routes: FeatureRoutes = {
         feature: 'purchases',
         parent: { title: 'nav:titles.purchase_orders', to: '/purchases/orders' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/OrderPage')),
     },
     {
       path: 'purchases/bills',
@@ -44,7 +43,7 @@ export const routes: FeatureRoutes = {
         permission: 'purchases.read',
         feature: 'purchases',
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/BillsPage')),
     },
     {
       path: 'purchases/bills/new',
@@ -54,7 +53,7 @@ export const routes: FeatureRoutes = {
         feature: 'purchases',
         parent: { title: 'nav:titles.purchase_bills', to: '/purchases/bills' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/BillNewPage')),
     },
     {
       path: 'purchases/bills/:id',
@@ -64,7 +63,7 @@ export const routes: FeatureRoutes = {
         feature: 'purchases',
         parent: { title: 'nav:titles.purchase_bills', to: '/purchases/bills' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/BillPage')),
     },
     {
       path: 'purchases/returns',
@@ -73,7 +72,7 @@ export const routes: FeatureRoutes = {
         permission: 'purchases.read',
         feature: 'purchases',
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/ReturnsPage')),
     },
     {
       path: 'purchases/returns/new',
@@ -83,7 +82,7 @@ export const routes: FeatureRoutes = {
         feature: 'purchases',
         parent: { title: 'nav:titles.purchase_returns', to: '/purchases/returns' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/ReturnNewPage')),
     },
     {
       path: 'purchases/returns/:id',
@@ -93,7 +92,7 @@ export const routes: FeatureRoutes = {
         feature: 'purchases',
         parent: { title: 'nav:titles.purchase_returns', to: '/purchases/returns' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/ReturnPage')),
     },
   ],
 }
