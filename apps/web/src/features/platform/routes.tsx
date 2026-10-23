@@ -1,22 +1,19 @@
 /**
  * Routes of the platform feature — Platform administration for Kadai staff (cloud only).
- * Paths and handles are the contract (nav, guards, links from other modules); replace the
- * placeholder `Component` with real pages, e.g. `lazy: page(() => import('./pages/ListPage'))`.
  */
-import ModulePlaceholder from '@/app/pages/ModulePlaceholder'
-import type { FeatureRoutes } from '@/app/route-types'
+import { page, type FeatureRoutes } from '@/app/route-types'
 
 export const routes: FeatureRoutes = {
   admin: [
     {
       path: 'platform',
       handle: { title: 'nav:titles.platform', mode: 'cloud', platformAdmin: true },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/PlatformOverviewPage')),
     },
     {
       path: 'platform/tenants',
       handle: { title: 'nav:titles.platform_tenants', mode: 'cloud', platformAdmin: true },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/PlatformTenantsPage')),
     },
     {
       path: 'platform/tenants/:id',
@@ -26,12 +23,17 @@ export const routes: FeatureRoutes = {
         platformAdmin: true,
         parent: { title: 'nav:titles.platform_tenants', to: '/platform/tenants' },
       },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/PlatformTenantDetailPage')),
     },
     {
       path: 'platform/plans',
       handle: { title: 'nav:titles.platform_plans', mode: 'cloud', platformAdmin: true },
-      Component: ModulePlaceholder,
+      lazy: page(() => import('./pages/PlatformPlansPage')),
+    },
+    {
+      path: 'platform/licenses',
+      handle: { title: 'nav:titles.platform', mode: 'cloud', platformAdmin: true },
+      lazy: page(() => import('./pages/PlatformLicensesPage')),
     },
   ],
 }
