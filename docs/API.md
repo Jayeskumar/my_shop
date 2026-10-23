@@ -307,6 +307,18 @@ channels × ta/en) + tenant overrides; providers implement `NotificationProvider
 Jobs: `notifications.send`, `notifications.sweep` (every minute), `notifications.due-reminders`
 (10:00 IST, `shouldSendDueReminder()`), `notifications.daily-summary` (21:30 IST).
 
+Errors and outcomes: remind 422 `details.reason` `no_due` / `no_phone` / `whatsapp_opt_out` /
+`channel_not_configured` / `amount_exceeds_due`; webhooks 401 `invalid_signature`. Cancelled /
+failed messages carry `error = '<NotificationErrorCode>: <detail>'` (`NOTIFICATION_ERROR_CODES`,
+labels `NOTIFICATION_ERROR_LABELS`, parse with `notificationErrorCode()`), e.g.
+`tenant_inactive`, `feature_not_in_plan`, `disabled_in_settings`, `whatsapp_opt_out`,
+`invalid_recipient`, `stuck`. Due reminders and the daily summary track themselves through
+`ref_type` / `ref_id` (`customer` / `tenant`). Providers per channel come from `SMS_PROVIDER`,
+`WHATSAPP_PROVIDER`, `EMAIL_PROVIDER` (DEPLOYMENT.md §12). The `email_webhook` provider POSTs
+`EmailWebhookPayloadSchema` JSON to `EMAIL_WEBHOOK_URL` with `Idempotency-Key` and
+`X-Kadai-Signature: sha256=<HMAC-SHA256(raw body, EMAIL_WEBHOOK_SECRET)>`; any 2xx is success,
+408/425/429/5xx are retried.
+
 ## platform, billing & system (cloud billing, api-keys, system info)
 
 Route catalogue: `platformRoutes` in `@kadai/shared/api/platform`. Every price is computed by the

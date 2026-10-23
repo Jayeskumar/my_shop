@@ -803,9 +803,15 @@ data, { tx })` (`core/jobs.ts`) so a job exists only if the business transaction
 ## 15. Notifications
 
 Outbox table `notifications`; providers behind an interface: `log` (dev), `msg91` (SMS with DLT
-template ids), `whatsapp_cloud` (Meta WhatsApp Cloud API templates), `smtp` (email). Templates are
-code-defined defaults (ta/en) overridable per tenant (`notification_templates`). Invoice sharing
-sends the public invoice link `/i/<share_token>` (+ UPI pay link when due).
+template ids), `whatsapp_cloud` (Meta WhatsApp Cloud API templates), `email_webhook` (e-mail as a
+signed JSON POST to `EMAIL_WEBHOOK_URL`; `smtp` is reserved — no mail library is bundled) and, on
+premises, `kadai_relay`. Templates are code-defined defaults (ta/en) overridable per tenant
+(`notification_templates`). Invoice sharing sends the public invoice link `/i/<share_token>` (+ UPI
+pay link when due). The send job (modules/notifications/send.ts) cancels messages of a suspended
+business, without the plan feature (SMS / WhatsApp), switched off in settings or to customers
+without WhatsApp opt-in, retries retryable provider errors with backoff (5 attempts) and counts
+`usage_counters` `sms` / `whatsapp` / `email` per month. OTP SMS bypass the outbox: the
+provider-backed `OtpSender` (modules/notifications/otp-sender.ts) is injected by `server.ts`.
 
 ---
 
@@ -898,6 +904,7 @@ sends the public invoice link `/i/<share_token>` (+ UPI pay link when due).
 | `KADAI_SETUP_TOKEN` | — | on-prem: when set, `POST /setup` must carry it (`setup_token`) |
 | `SMS_PROVIDER` / `MSG91_*` | `log` | |
 | `WHATSAPP_PROVIDER` / `WHATSAPP_*` | `log` | |
+| `EMAIL_PROVIDER` / `EMAIL_*` | `log` | `email_webhook` + `EMAIL_WEBHOOK_URL` (`smtp` reserved); see DEPLOYMENT.md §12 |
 | `RAZORPAY_PLATFORM_*` | — | SaaS billing (cloud) |
 | `KADAI_ENABLE_MOCK_PAYMENTS` | `false` | dev/test |
 | `LOG_LEVEL` | `info` | |
