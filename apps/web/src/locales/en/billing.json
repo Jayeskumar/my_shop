@@ -1,1 +1,81 @@
-{}
+{
+  "title": "Plan & billing",
+  "description": "Manage your Kadai subscription, check usage limits, apply offers and download GST tax invoices.",
+  "load_error": "Could not load billing details",
+  "current_plan": {
+    "title": "Current plan",
+    "trial_badge": "Free trial · {{days}} days left",
+    "active_badge": "Active",
+    "past_due_badge": "Payment overdue",
+    "cancelling_badge": "Ends on {{date}}",
+    "free_badge": "Free plan",
+    "renews_on": "Renews on {{date}}",
+    "ends_on": "Valid until {{date}}",
+    "auto_renew_on": "Auto-renews monthly",
+    "prepaid": "Prepaid",
+    "cancel": "Cancel auto-renewal",
+    "cancel_confirm_title": "Cancel subscription at period end?",
+    "cancel_confirm_desc": "Your shop keeps all features until the current billing period ends, then moves to Thodakkam (Free). Your data is never deleted.",
+    "cancelled_toast": "Subscription will end at the close of the current period."
+  },
+  "pending_checkout": {
+    "title": "Payment pending",
+    "description": "Complete your pending checkout of {{amount}} to activate {{plan}}.",
+    "pay_now": "Complete payment"
+  },
+  "usage": {
+    "title": "Usage & plan limits",
+    "unlimited": "{{used}} used · Unlimited",
+    "of_limit": "{{used}} of {{limit}} used",
+    "metrics": {
+      "stores": "Stores / branches",
+      "users": "Staff logins",
+      "registers": "POS counters",
+      "products": "Products",
+      "invoices_per_month": "Sales bills this month"
+    }
+  },
+  "plans": {
+    "title": "Choose a plan",
+    "cycle_monthly": "Monthly",
+    "cycle_yearly": "Yearly (Save ~17%)",
+    "recommended": "Most popular",
+    "current": "Current plan",
+    "per_month": "/ month",
+    "per_year": "/ year",
+    "excl_gst": "+ 18% GST ({{incl}} incl. GST)",
+    "free_forever": "Free forever",
+    "save_yearly": "Save {{amount}}/yr",
+    "select": "Choose {{plan}}",
+    "coupon_label": "Coupon or offer code",
+    "coupon_placeholder": "e.g. DEEPAVALI25",
+    "coupon_apply": "Apply",
+    "auto_renew": "Auto-renew every month via UPI / card mandate",
+    "quote_title": "Order summary",
+    "subtotal": "Plan price",
+    "discount": "Offer discount",
+    "taxable": "Taxable value",
+    "gst": "GST (18%)",
+    "total": "Total payable",
+    "checkout": "Proceed to payment",
+    "checkout_opened": "Payment link opened. Complete payment to activate your plan."
+  },
+  "invoices": {
+    "title": "Billing history & GST invoices",
+    "empty": "No billing invoices yet.",
+    "col_number": "Invoice no.",
+    "col_date": "Date",
+    "col_plan": "Plan",
+    "col_period": "Period",
+    "col_taxable": "Taxable",
+    "col_gst": "GST",
+    "col_total": "Total",
+    "col_status": "Status",
+    "status": {
+      "paid": "Paid",
+      "issued": "Issued",
+      "refunded": "Refunded",
+      "void": "Void"
+    }
+  }
+}

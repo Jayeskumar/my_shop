@@ -1,1 +1,96 @@
-{}
+{
+  "api_keys": {
+    "title": "API keys",
+    "description": "Create and manage API keys (`X-Api-Key`) for integrations, Tally/accounting connectors and custom tools.",
+    "load_error": "Could not load API keys",
+    "create": "Create API key",
+    "search_placeholder": "Search by name or key prefix",
+    "empty_title": "No API keys yet",
+    "empty_desc": "Create a key to connect external software or scripts to your shop's Kadai API.",
+    "col_name": "Name",
+    "col_prefix": "Key prefix",
+    "col_permissions": "Permissions",
+    "col_stores": "Stores",
+    "col_last_used": "Last used",
+    "col_status": "Status",
+    "all_stores": "All stores",
+    "stores_count": "{{count}} stores",
+    "perms_count": "{{count}} permissions",
+    "never_used": "Never",
+    "revoke": "Revoke",
+    "revoke_confirm_title": "Revoke API key “{{name}}”?",
+    "revoke_confirm_desc": "Any integration using {{prefix}} will immediately stop working. This cannot be undone.",
+    "revoked_toast": "API key revoked",
+    "state": {
+      "active": "Active",
+      "expired": "Expired",
+      "revoked": "Revoked"
+    },
+    "dialog": {
+      "title": "Create API key",
+      "description": "Grant only the permissions the integration needs.",
+      "name_label": "Key name",
+      "name_placeholder": "e.g. Tally sync, ERP connector",
+      "permissions_label": "Permissions",
+      "select_all": "Select all",
+      "clear_all": "Clear",
+      "submit": "Generate key",
+      "created_title": "Save your new API key",
+      "created_warning": "Copy this key now. For security, we store only a hash and can never show the full key again.",
+      "copy": "Copy key",
+      "copied": "Copied to clipboard",
+      "done": "I have saved the key"
+    }
+  },
+  "system": {
+    "title": "System & server",
+    "description": "Server health, database migrations, background worker status, storage and deployment details.",
+    "load_error": "Could not load system information",
+    "refresh": "Refresh",
+    "runtime": {
+      "title": "Server & runtime",
+      "version": "Kadai version",
+      "mode": "Deployment mode",
+      "mode_cloud": "Cloud SaaS",
+      "mode_onprem": "On-Premise Server",
+      "node": "Node.js runtime",
+      "os": "Platform / Arch",
+      "uptime": "Uptime",
+      "timezone": "Business timezone",
+      "server_time": "Server time"
+    },
+    "database": {
+      "title": "Database & migrations",
+      "postgres": "PostgreSQL version",
+      "size": "Database size",
+      "applied": "Applied migrations",
+      "last_migration": "Latest migration",
+      "pending": "Pending migrations",
+      "up_to_date": "Up to date (0 pending)"
+    },
+    "worker": {
+      "title": "Background worker & storage",
+      "healthy": "Healthy",
+      "unhealthy": "Stale / offline",
+      "mode": "Worker mode",
+      "embedded": "Embedded in API process",
+      "dedicated": "Dedicated worker process",
+      "last_heartbeat": "Last heartbeat",
+      "storage_driver": "File storage",
+      "storage_local": "Local disk",
+      "storage_s3": "S3 object storage"
+    },
+    "entitlements": {
+      "title": "Plan & licence",
+      "plan": "Active plan / edition",
+      "source": "Entitlement source"
+    },
+    "links": {
+      "title": "Related settings",
+      "registers": "Counters & devices",
+      "api_keys": "API keys",
+      "billing": "Plan & billing",
+      "audit_log": "Audit log"
+    }
+  }
+}
